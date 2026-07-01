@@ -1,0 +1,12 @@
+loading HIGGS...
+loading ALL events into his matrix...
+  matrix (2, 16834), 16834 frames
+============================================================
+  HIGGS via FUZZY partial overlap of his frames  (chance ~0.53)
+============================================================
+  fuzzy overlap  p=1.0 min=0.0   acc 0.530   (0s)
+  fuzzy overlap  p=2.0 min=0.0   acc 0.589   (0s)
+  fuzzy overlap  p=3.0 min=0.5   acc 0.650   (0s)
+============================================================
+  ref: box 0.525 | contrast 0.620 | logistic 0.642 | his-matrix(exact) 0.650 | RF 0.721
+  READ: does fuzzy partial overlap (variants) beat exact match (invariants)?

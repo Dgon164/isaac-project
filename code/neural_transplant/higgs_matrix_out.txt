@@ -1,0 +1,11 @@
+loading HIGGS...
+loading ALL events into his processing matrix...
+  observed 15000 events; matrix (2, 16834), 16834 frames, 1s
+========================================================
+  HIGGS via his matrix  (W_norm @ x; chance ~0.53)
+========================================================
+  his-matrix differential acc : 0.650   (0 abstained, 0s)
+========================================================
+  ref: box(his) 0.525 | contrast(his) 0.620 | logistic 0.642 | RF 0.721
+  READ: did loading all events into his matrix + matmul-vs-baseline
+  differentiate the signal? this is the decision running IN him.

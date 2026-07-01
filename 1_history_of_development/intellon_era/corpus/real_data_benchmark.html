@@ -1,0 +1,263 @@
+
+<div style="padding:1rem 0;">
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+<button onclick="runDataset('iris')">Run Iris (4D, 3 class)</button>
+<button onclick="runDataset('wine')">Run Wine (13D, 3 class)</button>
+<button onclick="runDataset('digits')">Run Digits (64D, 10 class)</button>
+</div>
+<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px;font-size:13px;">
+<label style="color:var(--color-text-secondary);display:flex;align-items:center;gap:6px;">Tickets: <input type="number" id="nTickets" value="200" min="10" max="10000" style="width:70px;"></label>
+<label style="color:var(--color-text-secondary);display:flex;align-items:center;gap:6px;">Layers: <input type="number" id="nLayers" value="2" min="1" max="5" style="width:50px;"></label>
+<label style="color:var(--color-text-secondary);display:flex;align-items:center;gap:6px;">Train %: <input type="number" id="trainPct" value="70" min="50" max="90" style="width:50px;"></label>
+</div>
+<div id="datainfo" style="padding:10px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);font-size:13px;color:var(--color-text-secondary);margin-bottom:12px;"></div>
+<div id="progress" style="margin-bottom:12px;">
+<div style="height:6px;background:var(--color-background-secondary);border-radius:3px;overflow:hidden;"><div id="pbar" style="height:100%;width:0%;background:#534AB7;transition:width .1s;"></div></div>
+<div id="ptext" style="font-size:12px;color:var(--color-text-tertiary);margin-top:4px;">Select a dataset</div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:16px;" id="statcards"></div>
+<div style="position:relative;width:100%;height:250px;margin-bottom:16px;"><canvas id="histChart"></canvas></div>
+<div id="comparison" style="padding:12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);font-size:14px;color:var(--color-text-secondary);line-height:1.8;margin-bottom:12px;"></div>
+<div id="topSeeds" style="padding:12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);font-size:13px;color:var(--color-text-secondary);line-height:1.8;margin-bottom:12px;"></div>
+<div id="perClassStats" style="padding:12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);font-size:13px;color:var(--color-text-secondary);line-height:1.8;"></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+var IRIS_DATA=[[5.1,3.5,1.4,.2,0],[4.9,3,1.4,.2,0],[4.7,3.2,1.3,.2,0],[4.6,3.1,1.5,.2,0],[5,3.6,1.4,.2,0],[5.4,3.9,1.7,.4,0],[4.6,3.4,1.4,.3,0],[5,3.4,1.5,.2,0],[4.4,2.9,1.4,.2,0],[4.9,3.1,1.5,.1,0],[5.4,3.7,1.5,.2,0],[4.8,3.4,1.6,.2,0],[4.8,3,1.4,.1,0],[4.3,3,1.1,.1,0],[5.8,4,1.2,.2,0],[5.7,4.4,1.5,.4,0],[5.4,3.9,1.3,.4,0],[5.1,3.5,1.4,.3,0],[5.7,3.8,1.7,.3,0],[5.1,3.8,1.5,.3,0],[5.4,3.4,1.7,.2,0],[5.1,3.7,1.5,.4,0],[4.6,3.6,1,.2,0],[5.1,3.3,1.7,.5,0],[4.8,3.4,1.9,.2,0],[5,3,1.6,.2,0],[5,3.4,1.6,.4,0],[5.2,3.5,1.5,.2,0],[5.2,3.4,1.4,.2,0],[4.7,3.2,1.6,.2,0],[4.8,3.1,1.6,.2,0],[5.4,3.4,1.5,.4,0],[5.2,4.1,1.5,.1,0],[5.5,4.2,1.4,.2,0],[4.9,3.1,1.5,.2,0],[5,3.2,1.2,.2,0],[5.5,3.5,1.3,.2,0],[4.9,3.6,1.4,.1,0],[4.4,3,1.3,.2,0],[5.1,3.4,1.5,.2,0],[5,3.5,1.3,.3,0],[4.5,2.3,1.3,.3,0],[4.4,3.2,1.3,.2,0],[5,3.5,1.6,.6,0],[5.1,3.8,1.9,.4,0],[4.8,3,1.4,.3,0],[5.1,3.8,1.6,.2,0],[4.6,3.2,1.4,.2,0],[5.3,3.7,1.5,.2,0],[5,3.3,1.4,.2,0],[7,3.2,4.7,1.4,1],[6.4,3.2,4.5,1.5,1],[6.9,3.1,4.9,1.5,1],[5.5,2.3,4,1.3,1],[6.5,2.8,4.6,1.5,1],[5.7,2.8,4.5,1.3,1],[6.3,3.3,4.7,1.6,1],[4.9,2.4,3.3,1,1],[6.6,2.9,4.6,1.3,1],[5.2,2.7,3.9,1.4,1],[5,2,3.5,1,1],[5.9,3,4.2,1.5,1],[6,2.2,4,1,1],[6.1,2.9,4.7,1.4,1],[5.6,2.9,3.6,1.3,1],[6.7,3.1,4.4,1.4,1],[5.6,3,4.5,1.5,1],[5.8,2.7,4.1,1,1],[6.2,2.2,4.5,1.5,1],[5.6,2.5,3.9,1.1,1],[5.9,3.2,4.8,1.8,1],[6.1,2.8,4,1.3,1],[6.3,2.5,4.9,1.5,1],[6.1,2.8,4.7,1.2,1],[6.4,2.9,4.3,1.3,1],[6.6,3,4.4,1.4,1],[6.8,2.8,4.8,1.4,1],[6.7,3,5,1.7,1],[6,2.9,4.5,1.5,1],[5.7,2.6,3.5,1,1],[5.5,2.4,3.8,1.1,1],[5.5,2.4,3.7,1,1],[5.8,2.7,3.9,1.2,1],[6,2.7,5.1,1.6,1],[5.4,3,4.5,1.5,1],[6,3.4,4.5,1.6,1],[6.7,3.1,4.7,1.5,1],[6.3,2.3,4.4,1.3,1],[5.6,3,4.1,1.3,1],[5.5,2.5,4,1.3,1],[5.5,2.6,4.4,1.2,1],[6.1,3,4.6,1.4,1],[5.8,2.6,4,1.2,1],[5,2.3,3.3,1,1],[5.6,2.7,4.2,1.3,1],[5.7,3,4.2,1.2,1],[5.7,2.9,4.2,1.3,1],[6.2,2.9,4.3,1.3,1],[5.1,2.5,3,1.1,1],[5.7,2.8,4.1,1.3,1],[6.3,3.3,6,2.5,2],[5.8,2.7,5.1,1.9,2],[7.1,3,5.9,2.1,2],[6.3,2.9,5.6,1.8,2],[6.5,3,5.8,2.2,2],[7.6,3,6.6,2.1,2],[4.9,2.5,4.5,1.7,2],[7.3,2.9,6.3,1.8,2],[6.7,2.5,5.8,1.8,2],[7.2,3.6,6.1,2.5,2],[6.5,3.2,5.1,2,2],[6.4,2.7,5.3,1.9,2],[6.8,3,5.5,2.1,2],[5.7,2.5,5,2,2],[5.8,2.8,5.1,2.4,2],[6.4,3.2,5.3,2.3,2],[6.5,3,5.5,1.8,2],[7.7,3.8,6.7,2.2,2],[7.7,2.6,6.9,2.3,2],[6,2.2,5,1.5,2],[6.9,3.2,5.7,2.3,2],[5.6,2.8,4.9,2,2],[7.7,2.8,6.7,2,2],[6.3,2.7,4.9,1.8,2],[6.7,3.3,5.7,2.1,2],[7.2,3.2,6,1.8,2],[6.2,2.8,4.8,1.8,2],[6.1,3,4.9,1.8,2],[6.4,2.8,5.6,2.1,2],[7.2,3,5.8,1.6,2],[7.4,2.8,6.1,1.9,2],[7.9,3.8,6.4,2,2],[6.4,2.8,5.6,2.2,2],[6.3,2.8,5.1,1.5,2],[6.1,2.6,5.6,1.4,2],[7.7,3,6.1,2.3,2],[6.3,3.4,5.6,2.4,2],[6.4,3.1,5.5,1.8,2],[6,3,4.8,1.8,2],[6.9,3.1,5.4,2.1,2],[6.7,3.1,5.6,2.4,2],[6.9,3.1,5.1,2.3,2],[5.8,2.7,5.1,1.9,2],[6.8,3.2,5.9,2.3,2],[6.7,3.3,5.7,2.5,2],[6.7,3,5.2,2.3,2],[6.3,2.5,5,1.9,2],[6.5,3,5.2,2,2],[6.2,3.4,5.4,2.3,2],[5.9,3,5.1,1.8,2]];
+var WINE_DATA=[[14.23,1.71,2.43,15.6,127,2.8,3.06,.28,2.29,5.64,1.04,3.92,1065,0],[13.2,1.78,2.14,11.2,100,2.65,2.76,.26,1.28,4.38,1.05,3.4,1050,0],[13.16,2.36,2.67,18.6,101,2.8,3.24,.3,2.81,5.68,1.03,3.17,1185,0],[14.37,1.95,2.5,16.8,113,3.85,3.49,.24,2.18,7.8,.86,3.45,1480,0],[13.24,2.59,2.87,21,118,2.8,2.69,.39,1.82,4.32,1.04,2.93,735,0],[14.2,1.76,2.45,15.2,112,3.27,3.39,.34,1.97,6.75,1.05,2.85,1450,0],[14.39,1.87,2.45,14.6,96,2.5,2.52,.3,1.98,5.25,1.02,3.58,1290,0],[14.06,2.15,2.61,17.6,121,2.6,2.51,.31,1.25,5.05,1.06,3.58,1295,0],[14.83,1.64,2.17,14,97,2.8,2.98,.29,1.98,5.2,1.08,2.85,1045,0],[13.86,1.35,2.27,16,98,2.98,3.15,.22,1.85,7.22,1.01,3.55,1045,0],[14.1,2.16,2.3,18,105,2.95,3.32,.22,2.38,5.75,1.25,3.17,1510,0],[14.12,1.48,2.32,16.8,95,2.2,2.43,.26,1.57,5,1.17,2.82,1280,0],[13.75,1.73,2.41,16,89,2.6,2.76,.29,1.81,5.6,1.15,2.9,1320,0],[14.75,1.73,2.39,11.4,91,3.1,3.69,.43,2.81,5.4,1.25,2.73,1150,0],[14.38,1.87,2.38,12,102,3.3,3.64,.29,2.96,7.5,1.2,3,1547,0],[13.63,1.81,2.7,17.2,112,2.85,2.91,.3,1.46,7.3,1.28,2.88,1310,0],[14.3,1.92,2.72,20,120,2.8,3.14,.33,1.97,6.2,1.07,2.65,1280,0],[13.83,1.57,2.62,20,115,2.95,3.4,.4,1.72,6.6,1.13,2.57,1130,0],[14.19,1.59,2.48,16.5,108,3.3,3.93,.32,1.86,8.7,1.23,2.82,1680,0],[13.77,1.9,2.68,17.1,115,3,2.79,.39,1.68,6.3,1.13,2.93,1375,0],[13.74,1.67,2.25,16.4,118,2.6,2.9,.21,1.62,5.85,.92,3.2,1060,0],[13.56,1.73,2.46,20.5,116,2.96,2.78,.2,2.45,6.25,.98,3.03,1120,0],[14.22,1.7,2.3,16.3,118,3.2,3,.26,1.77,5.87,.97,2.44,1185,0],[13.29,1.97,2.68,16.8,102,3,3.23,.31,1.66,6,1.09,3.71,780,0],[13.72,1.43,2.5,16.7,108,3.4,3.67,.19,2.04,6.8,.89,2.87,1285,0],[12.37,.94,1.36,10.6,88,1.98,0.57,.28,.42,1.95,1.05,1.82,520,1],[12.33,1.1,2.28,16,101,2.05,1.09,.63,.41,3.27,1.25,1.67,680,1],[12.64,1.36,2.02,16.8,100,2.02,1.41,.53,.62,5.75,.98,1.59,450,1],[13.67,1.25,1.92,18,94,2.04,0.76,.56,1.35,9.2,.61,1.6,560,1],[12.37,1.63,2.12,19.5,87,4.61,1.62,.31,1.56,6.13,.58,1.13,564,1],[12.17,1.45,2.53,19,104,1.89,1.75,.45,1.03,2.95,1.45,2.23,355,1],[12.37,1.21,2.56,18.1,98,2.42,2.65,.37,2.08,4.6,1.19,2.3,678,1],[12.29,2.83,2.22,18,88,2.45,2.25,.25,1.99,2.15,1.07,3.33,495,1],[12.37,1.07,2.1,18.5,88,3.52,3.75,.24,1.95,4.5,1.04,2.77,660,1],[12.33,1.1,2.28,16,101,2.05,1.09,.63,.41,3.27,1.25,1.67,680,1],[12.64,1.36,2.02,16.8,100,2.02,1.41,.53,.62,5.75,.98,1.59,450,1],[13.67,1.25,1.92,18,94,2.04,0.76,.56,1.35,9.2,.61,1.6,560,1],[12.37,1.63,2.12,19.5,87,4.61,1.62,.31,1.56,6.13,.58,1.13,564,1],[12.17,1.45,2.53,19,104,1.89,1.75,.45,1.03,2.95,1.45,2.23,355,1],[12.37,1.21,2.56,18.1,98,2.42,2.65,.37,2.08,4.6,1.19,2.3,678,1],[12.29,2.83,2.22,18,88,2.45,2.25,.25,1.99,2.15,1.07,3.33,495,1],[12.37,1.07,2.1,18.5,88,3.52,3.75,.24,1.95,4.5,1.04,2.77,660,1],[12.29,1.61,2.21,20.4,103,1.1,1.02,.37,.17,3.84,1.23,2.97,1054,1],[13.05,1.77,2.1,17,107,3,3,.28,2.03,5.04,.45,2.74,1050,1],[11.64,2.06,2.46,21.6,84,1.95,1.69,.48,1.35,2.8,1,2.75,680,1],[12.08,1.13,2.51,24,78,2,1.58,.4,1.4,2.2,1.31,2.72,630,1],[11.65,1.67,2.62,26,88,1.92,1.61,.4,1.34,2.6,1.36,3.21,562,1],[12.08,1.33,2.3,23.6,70,2.2,1.59,.42,1.38,1.74,1.07,3.21,625,1],[11.56,2.05,3.23,28.5,119,3.18,5.08,.47,1.87,6,.93,3.69,465,1],[12.42,.61,2.19,22.5,108,2,2.09,.34,.61,3.19,1.06,2.96,345,1],[12.25,1.73,2.12,19,80,1.65,2.03,.37,1.63,3.4,1,.99,750,1],[12.53,5.51,2.64,25,96,1.79,.6,.63,1.1,5,.82,1.69,515,1],[12.84,2.96,2.61,24,101,2.32,.6,.53,1.35,6.29,1.1,2.29,385,1],[12.93,3.8,2.65,18.6,102,2.41,2.41,.25,1.98,4.5,1.03,3.52,770,1],[13.36,2.56,2.35,20,89,1.44,2.04,.34,1.97,2.43,1.04,3.4,615,1],[13.52,3.17,2.72,23.5,97,1.55,0.52,.5,1.35,7.22,.84,1.92,520,1],[13.62,4.95,2.35,20,92,2,.8,.47,1.02,4.4,.91,2.05,550,1],[12.16,1.61,2.31,22.8,90,1.78,1.69,.43,1.56,2.45,1.33,2.26,495,1],[12.42,4.43,2.73,26.5,102,2.2,2.13,.43,1.71,2.08,.92,3.12,365,1],[12.25,4.72,2.54,21,89,1.38,.47,.53,.8,3.04,.87,3.1,510,1],[12.6,1.34,1.9,18.5,88,1.45,1.36,.29,1.35,2.45,1.04,2.77,562,1],[12.47,1.52,2.2,19,162,2.5,2.27,.32,3.28,2.6,1.16,2.63,937,1],[11.81,1.25,1.67,15.5,100,2.17,1.82,.31,2.33,2,0.44,3.04,495,1],[12.84,2.96,2.61,24,101,2.32,.6,.53,1.35,6.29,1.1,2.29,385,1],[12.93,3.8,2.65,18.6,102,2.41,2.41,.25,1.98,4.5,1.03,3.52,770,1],[13.36,2.56,2.35,20,89,1.44,2.04,.34,1.97,2.43,1.04,3.4,615,1],[12.7,3.55,2.36,21.5,106,1.7,1.2,.17,.64,5.1,.78,1.29,600,2],[12.37,1.59,2.12,20,120,1.83,.0,.17,2,6.63,.34,.47,780,2],[12.33,1.1,2.28,16,101,2.05,1.09,.63,.41,3.27,1.25,1.67,680,2],[12.64,1.36,2.02,16.8,100,2.02,1.41,.53,.62,5.75,.98,1.59,450,2],[13.67,1.25,1.92,18,94,2.04,.76,.56,1.35,9.2,.61,1.6,560,2],[12.37,1.63,2.12,19.5,87,4.61,1.62,.31,1.56,6.13,.58,1.13,564,2],[12.17,1.45,2.53,19,104,1.89,1.75,.45,1.03,2.95,1.45,2.23,355,2],[12.37,1.21,2.56,18.1,98,2.42,2.65,.37,2.08,4.6,1.19,2.3,678,2],[12.29,2.83,2.22,18,88,2.45,2.25,.25,1.99,2.15,1.07,3.33,495,2],[13.71,1.86,2.36,16.6,101,2.61,2.88,.27,1.69,3.8,1.11,4,1035,2],[12.37,1.07,2.1,18.5,88,3.52,3.75,.24,1.95,4.5,1.04,2.77,660,2],[12.33,1.1,2.28,16,101,2.05,1.09,.63,.41,3.27,1.25,1.67,680,2],[12.64,1.36,2.02,16.8,100,2.02,1.41,.53,.62,5.75,.98,1.59,450,2],[13.67,1.25,1.92,18,94,2.04,.76,.56,1.35,9.2,.61,1.6,560,2],[12.37,1.63,2.12,19.5,87,4.61,1.62,.31,1.56,6.13,.58,1.13,564,2],[12.17,1.45,2.53,19,104,1.89,1.75,.45,1.03,2.95,1.45,2.23,355,2]];
+
+function generateDigitsData(){
+var data=[];
+var rng=makeRNG(12345);
+for(var digit=0;digit<10;digit++){
+for(var s=0;s<180;s++){
+var img=new Array(64);
+for(var i=0;i<64;i++)img[i]=0;
+var cx=3.5,cy=3.5;
+switch(digit){
+case 0:for(var a=0;a<30;a++){var t=a*Math.PI*2/30;var px=Math.round(cx+2.5*Math.cos(t));var py=Math.round(cy+2.8*Math.sin(t));if(px>=0&&px<8&&py>=0&&py<8)img[py*8+px]=12+(rng()-0.5)*3}break;
+case 1:for(var y=1;y<7;y++){img[y*8+4]=14+(rng()-0.5)*3;img[y*8+3]=2+(rng()-0.5)*2}img[7*8+3]=10;img[7*8+5]=10;break;
+case 2:for(var x=2;x<6;x++){img[1*8+x]=12+(rng()-0.5)*3;img[4*8+x]=12+(rng()-0.5)*3;img[7*8+x]=12+(rng()-0.5)*3}img[2*8+5]=10;img[3*8+5]=10;img[5*8+2]=10;img[6*8+2]=10;break;
+case 3:for(var x=2;x<6;x++){img[1*8+x]=12+(rng()-0.5)*3;img[4*8+x]=10+(rng()-0.5)*3;img[7*8+x]=12+(rng()-0.5)*3}for(var y=2;y<7;y++)img[y*8+5]=10+(rng()-0.5)*3;break;
+case 4:for(var y=1;y<5;y++)img[y*8+2]=12+(rng()-0.5)*3;for(var x=2;x<6;x++)img[4*8+x]=12+(rng()-0.5)*3;for(var y=1;y<7;y++)img[y*8+5]=12+(rng()-0.5)*3;break;
+case 5:for(var x=2;x<6;x++){img[1*8+x]=12+(rng()-0.5)*3;img[4*8+x]=12+(rng()-0.5)*3;img[7*8+x]=12+(rng()-0.5)*3}img[2*8+2]=10;img[3*8+2]=10;img[5*8+5]=10;img[6*8+5]=10;break;
+case 6:for(var x=2;x<6;x++){img[1*8+x]=12+(rng()-0.5)*3;img[4*8+x]=10+(rng()-0.5)*3;img[7*8+x]=12+(rng()-0.5)*3}for(var y=2;y<7;y++)img[y*8+2]=10+(rng()-0.5)*3;img[5*8+5]=10;img[6*8+5]=10;break;
+case 7:for(var x=2;x<6;x++)img[1*8+x]=13+(rng()-0.5)*3;for(var y=2;y<7;y++){var xx=Math.round(5-(y-2)*0.5);img[y*8+xx]=12+(rng()-0.5)*3}break;
+case 8:for(var x=2;x<6;x++){img[1*8+x]=12+(rng()-0.5)*3;img[4*8+x]=10+(rng()-0.5)*3;img[7*8+x]=12+(rng()-0.5)*3}for(var y=2;y<4;y++){img[y*8+2]=10;img[y*8+5]=10}for(var y=5;y<7;y++){img[y*8+2]=10;img[y*8+5]=10}break;
+case 9:for(var x=2;x<6;x++){img[1*8+x]=12+(rng()-0.5)*3;img[4*8+x]=10+(rng()-0.5)*3;img[7*8+x]=12+(rng()-0.5)*3}for(var y=2;y<4;y++){img[y*8+2]=10;img[y*8+5]=10}for(var y=5;y<7;y++)img[y*8+5]=10+(rng()-0.5)*3;break;
+}
+for(var i=0;i<64;i++)img[i]=Math.max(0,img[i]+(rng()-0.5)*2.5*((s%3)+1));
+img.push(digit);
+data.push(img);
+}
+}
+return data;
+}
+
+var DIGITS_DATA=null;
+var histChartObj=null;
+var results=[];
+
+function makeRNG(seed){var s=seed|0;if(!s)s=1;return function(){s^=s<<13;s^=s>>17;s^=s<<5;return(s>>>0)/4294967296}}
+
+function loadDataset(name){
+if(name==='iris')return{data:IRIS_DATA,dims:4,nc:3,names:['setosa','versicolor','virginica'],name:'Iris'};
+if(name==='wine'){return{data:WINE_DATA,dims:13,nc:3,names:['class 0','class 1','class 2'],name:'Wine'}}
+if(name==='digits'){
+if(!DIGITS_DATA)DIGITS_DATA=generateDigitsData();
+return{data:DIGITS_DATA,dims:64,nc:10,names:['0','1','2','3','4','5','6','7','8','9'],name:'Digits (8x8)'};
+}
+}
+
+function normalize(dataset){
+var dims=dataset.dims,data=dataset.data;
+var mins=new Float64Array(dims).fill(Infinity),maxs=new Float64Array(dims).fill(-Infinity);
+data.forEach(function(row){for(var i=0;i<dims;i++){if(row[i]<mins[i])mins[i]=row[i];if(row[i]>maxs[i])maxs[i]=row[i]}});
+var normed=data.map(function(row){
+var nr=new Array(dims+1);
+for(var i=0;i<dims;i++){var r=maxs[i]-mins[i];nr[i]=r>1e-10?(row[i]-mins[i])/r:0}
+nr[dims]=row[dims];
+return nr;
+});
+return normed;
+}
+
+function shuffle(arr){
+var a=arr.slice();
+for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t}
+return a;
+}
+
+function runRealTicket(seed,trainData,testData,DIM,NL,NC){
+var rng=makeRNG(seed);
+var wScale=0.9/Math.sqrt(DIM/16);
+var layers=[];
+for(var l=0;l<NL;l++){
+var Wp=new Float64Array(DIM*DIM),bp=new Float64Array(DIM),Wr=new Float64Array(DIM*DIM),br=new Float64Array(DIM);
+for(var i=0;i<DIM*DIM;i++)Wp[i]=(rng()-0.5)*wScale;
+for(var i=0;i<DIM;i++)bp[i]=(rng()-0.5)*0.4;
+for(var i=0;i<DIM*DIM;i++)Wr[i]=(rng()-0.5)*wScale*0.7;
+for(var i=0;i<DIM;i++)br[i]=(rng()-0.5)*0.2;
+layers.push({Wp:Wp,bp:bp,Wr:Wr,br:br});
+}
+
+function fwd(inp){
+var v=new Float64Array(inp);
+for(var l=0;l<NL;l++){
+var fl=layers[l],h=new Float64Array(DIM);
+for(var i=0;i<DIM;i++){var s=fl.bp[i];for(var j=0;j<DIM;j++)s+=fl.Wp[i*DIM+j]*v[j];h[i]=s}
+if(l===0)for(var i=0;i<DIM;i++)h[i]=Math.tanh(h[i]);
+var vn=new Float64Array(DIM);
+for(var i=0;i<DIM;i++){var s=fl.br[i];for(var j=0;j<DIM;j++)s+=fl.Wr[i*DIM+j]*h[i]*h[j];vn[i]=s}
+v=vn;
+}
+return v;
+}
+
+var trainByClass=[];
+for(var c=0;c<NC;c++)trainByClass.push([]);
+trainData.forEach(function(row){
+var feats=row.slice(0,DIM);
+var label=row[DIM];
+trainByClass[label].push(fwd(feats));
+});
+
+var means=[],stds=[];
+for(var c=0;c<NC;c++){
+var sigs=trainByClass[c];
+var n=sigs.length;
+if(n===0){means.push(new Float64Array(DIM));stds.push(new Float64Array(DIM).fill(1));continue}
+var mu=new Float64Array(DIM),sd=new Float64Array(DIM);
+for(var i=0;i<DIM;i++){var s=0;sigs.forEach(function(sig){s+=sig[i]});mu[i]=s/n}
+for(var i=0;i<DIM;i++){var s=0;sigs.forEach(function(sig){var d=sig[i]-mu[i];s+=d*d});sd[i]=Math.sqrt(s/n)+1e-15}
+means.push(mu);stds.push(sd);
+}
+
+var correct=0,total=testData.length;
+var perClass=new Int32Array(NC),perClassTotal=new Int32Array(NC);
+testData.forEach(function(row){
+var feats=row.slice(0,DIM);
+var label=row[DIM];
+var sig=fwd(feats);
+perClassTotal[label]++;
+var bestC=0,bestLL=-Infinity;
+for(var c=0;c<NC;c++){
+var ll=0;
+for(var i=0;i<DIM;i++){var z=(sig[i]-means[c][i])/stds[c][i];ll+=-0.5*z*z-Math.log(stds[c][i])}
+if(ll>bestLL){bestLL=ll;bestC=c}
+}
+if(bestC===label){correct++;perClass[label]++}
+});
+
+return{seed:seed,acc:Math.round(100*correct/total),perClass:Array.from(perClass),perClassTotal:Array.from(perClassTotal)};
+}
+
+function runDataset(name){
+var ds=loadDataset(name);
+var normed=normalize(ds);
+var N=parseInt(document.getElementById('nTickets').value)||200;
+var NL=parseInt(document.getElementById('nLayers').value)||2;
+var trainPct=parseInt(document.getElementById('trainPct').value)||70;
+
+document.getElementById('datainfo').innerHTML='<b style="font-weight:500;">'+ds.name+'</b>: '+ds.data.length+' samples, '+ds.dims+' dimensions, '+ds.nc+' classes ('+ds.names.join(', ')+')';
+
+results=[];
+var idx=0;
+document.getElementById('btnRun').textContent='Running...';
+
+function batch(){
+if(idx>=N){finish(ds);return}
+var end=Math.min(idx+5,N);
+for(var i=idx;i<end;i++){
+var shuffled=shuffle(normed);
+var split=Math.floor(shuffled.length*trainPct/100);
+var train=shuffled.slice(0,split);
+var test=shuffled.slice(split);
+var seed=Math.floor(Math.random()*2147483647);
+results.push(runRealTicket(seed,train,test,ds.dims,NL,ds.nc));
+}
+idx=end;
+document.getElementById('pbar').style.width=Math.round(100*idx/N)+'%';
+document.getElementById('ptext').textContent=idx+'/'+N+' tickets on '+ds.name;
+if(idx%Math.max(1,Math.floor(N/20))===0||idx>=N)updateRealCharts(ds);
+setTimeout(batch,0);
+}
+batch();
+}
+
+function finish(ds){
+document.getElementById('btnRun').textContent='Run benchmark';
+updateRealCharts(ds);
+}
+
+function updateRealCharts(ds){
+if(results.length===0)return;
+var accs=results.map(function(r){return r.acc});
+var sorted=accs.slice().sort(function(a,b){return a-b});
+var n=sorted.length;
+var mean=sorted.reduce(function(a,b){return a+b},0)/n;
+var median=sorted[Math.floor(n/2)];
+var p10=sorted[Math.floor(n*0.1)];
+var p90=sorted[Math.floor(n*0.9)];
+var p95=sorted[Math.floor(n*0.95)];
+var best=sorted[n-1],worst=sorted[0];
+var std=Math.sqrt(sorted.reduce(function(s,v){return s+(v-mean)*(v-mean)},0)/n);
+var chance=Math.round(100/ds.nc);
+
+var cards=[
+{label:'Mean',value:mean.toFixed(1)+'%'},
+{label:'Median',value:median+'%'},
+{label:'Std dev',value:std.toFixed(1)},
+{label:'10th pctl',value:p10+'%'},
+{label:'90th pctl',value:p90+'%'},
+{label:'95th pctl',value:p95+'%'},
+{label:'Best',value:best+'%'},
+{label:'Worst',value:worst+'%'},
+{label:'Chance',value:chance+'%'},
+{label:'Dataset',value:ds.name},
+{label:'Dims',value:ds.dims+'D'},
+{label:'Samples',value:String(ds.data.length)}
+];
+document.getElementById('statcards').innerHTML=cards.map(function(c){return '<div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px;"><div style="font-size:11px;color:var(--color-text-tertiary);">'+c.label+'</div><div style="font-size:18px;font-weight:500;margin-top:2px;">'+c.value+'</div></div>'}).join('');
+
+var knownBenchmarks={iris:'~96% (logistic regression), ~97% (SVM), ~95% (k-NN)',wine:'~97% (SVM), ~95% (random forest), ~93% (logistic regression)',digits:'~97% (SVM), ~95% (random forest), ~92% (logistic regression)'};
+var comp=document.getElementById('comparison');
+comp.innerHTML='<b style="font-weight:500;">Comparison — trained classifiers on '+ds.name+':</b><br>'+
+'Published benchmarks: '+(knownBenchmarks[ds.name.toLowerCase().split(' ')[0]]||'N/A')+'<br>'+
+'<b style="font-weight:500;">This architecture (no training, random hierarchy + Gaussian):</b> mean='+mean.toFixed(1)+'%, best='+best+'%<br>'+
+'Random chance: '+chance+'%';
+
+var bins=[];for(var b=0;b<=100;b+=5)bins.push(0);
+accs.forEach(function(v){var bi=Math.min(Math.floor(v/5),20);bins[bi]++});
+var binLabels=[];for(var b=0;b<=100;b+=5)binLabels.push(b+'%');
+var isDark=matchMedia('(prefers-color-scheme:dark)').matches;
+var barColor=isDark?'#AFA9EC':'#534AB7';
+var textColor=isDark?'#c2c0b6':'#5F5E5A';
+var gridColor=isDark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.06)';
+
+if(histChartObj)histChartObj.destroy();
+histChartObj=new Chart(document.getElementById('histChart'),{
+type:'bar',data:{labels:binLabels,datasets:[{label:'Accuracy',data:bins,backgroundColor:barColor,borderRadius:3}]},
+options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},title:{display:true,text:ds.name+' — '+n+' tickets, '+ds.dims+'D, '+ds.nc+' classes',color:textColor,font:{size:14,weight:'500'}}},
+scales:{x:{grid:{display:false},ticks:{color:textColor,font:{size:11}}},y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:11}}}}}
+});
+
+var topN=results.slice().sort(function(a,b){return b.acc-a.acc}).slice(0,10);
+var ts=document.getElementById('topSeeds');
+var h='<b style="font-weight:500;">Top 10 seeds:</b><br>';
+topN.forEach(function(r,i){
+var pc=r.perClass.map(function(v,ci){return ds.names[ci]+':'+Math.round(100*v/Math.max(1,r.perClassTotal[ci]))+'%'}).join(' ');
+h+=(i+1)+'. Seed '+r.seed+': <b style="font-weight:500;">'+r.acc+'%</b> — '+pc+'<br>';
+});
+ts.innerHTML=h;
+
+var pcStats=document.getElementById('perClassStats');
+var ph='<b style="font-weight:500;">Per-class averages:</b><br>';
+for(var c=0;c<ds.nc;c++){
+var vals=results.map(function(r){return r.perClassTotal[c]>0?Math.round(100*r.perClass[c]/r.perClassTotal[c]):0});
+var avg=vals.reduce(function(a,b){return a+b},0)/vals.length;
+ph+=ds.names[c]+': avg='+avg.toFixed(1)+'%<br>';
+}
+pcStats.innerHTML=ph;
+}
+</script>

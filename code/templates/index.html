@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Isaac</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0d1117; --surface: #161b22; --surface2: #1c2129;
+  --border: #30363d; --text: #c9d1d9; --dim: #8b949e;
+  --accent: #58a6ff; --green: #3fb950; --amber: #d29922;
+  --red: #f85149; --cyan: #79c0ff;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: var(--bg); color: var(--text);
+  height: 100vh; display: flex; overflow: hidden;
+}
+
+/* ── Sidebar ─────────────────────────────────── */
+.sidebar {
+  width: 260px; background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; flex-shrink: 0;
+}
+.sidebar-header {
+  padding: 20px 16px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-header h1 {
+  font-size: 18px; font-weight: 600; color: var(--cyan);
+  letter-spacing: 0.5px;
+}
+.sidebar-header .version {
+  font-size: 11px; color: var(--dim); margin-top: 2px;
+}
+.stats {
+  padding: 16px; flex: 1; overflow-y: auto;
+}
+.stat-group {
+  margin-bottom: 16px;
+}
+.stat-group-label {
+  font-size: 10px; text-transform: uppercase;
+  letter-spacing: 1px; color: var(--dim);
+  margin-bottom: 8px;
+}
+.stat-row {
+  display: flex; justify-content: space-between;
+  align-items: center; padding: 4px 0;
+  font-size: 13px;
+}
+.stat-label { color: var(--dim); }
+.stat-value {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  color: var(--text); font-size: 13px;
+}
+.stat-value.accent { color: var(--accent); }
+.stat-value.green { color: var(--green); }
+.stat-value.amber { color: var(--amber); }
+.stat-value.off { color: var(--dim); }
+.compiled-badge {
+  display: inline-block; padding: 2px 8px;
+  border-radius: 10px; font-size: 11px;
+  font-weight: 500;
+}
+.compiled-badge.yes {
+  background: rgba(63, 185, 80, 0.15); color: var(--green);
+}
+.compiled-badge.no {
+  background: rgba(139, 148, 158, 0.15); color: var(--dim);
+}
+.sidebar-footer {
+  padding: 12px 16px; border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--dim); text-align: center;
+}
+
+/* ── Main area ───────────────────────────────── */
+.main { flex: 1; display: flex; flex-direction: column; }
+.chat {
+  flex: 1; overflow-y: auto; padding: 16px 24px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+/* Messages */
+.msg { max-width: 90%; animation: fadeIn 0.15s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+
+.msg-user {
+  align-self: flex-end;
+  background: rgba(88, 166, 255, 0.12);
+  border: 1px solid rgba(88, 166, 255, 0.2);
+  border-radius: 12px 12px 4px 12px;
+  padding: 8px 14px; font-size: 14px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  color: var(--cyan);
+}
+.msg-system {
+  align-self: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px 12px 12px 12px;
+  padding: 10px 14px; font-size: 13px;
+  white-space: pre-wrap; word-wrap: break-word;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  line-height: 1.5;
+}
+.msg-system.error {
+  border-color: rgba(248, 81, 73, 0.3);
+  background: rgba(248, 81, 73, 0.06);
+}
+.msg-system.ok {
+  border-color: rgba(63, 185, 80, 0.3);
+  background: rgba(63, 185, 80, 0.06);
+}
+.msg-system.help {
+  border-color: rgba(210, 153, 34, 0.3);
+  background: rgba(210, 153, 34, 0.06);
+  font-size: 12px; line-height: 1.6;
+}
+.msg-system .check-mark { color: var(--green); }
+.msg-system .check-fail { color: var(--red); }
+
+/* Welcome message */
+.welcome {
+  text-align: center; padding: 40px 20px;
+  color: var(--dim); font-size: 14px;
+  line-height: 1.8;
+}
+.welcome h2 {
+  font-size: 20px; color: var(--cyan);
+  font-weight: 500; margin-bottom: 12px;
+}
+.welcome code {
+  background: var(--surface2); padding: 2px 6px;
+  border-radius: 4px; font-size: 12px;
+  color: var(--text);
+}
+
+/* ── Input bar ───────────────────────────────── */
+.input-bar {
+  padding: 12px 24px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.input-row { display: flex; gap: 8px; }
+.input-field {
+  flex: 1; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 14px; color: var(--text);
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 14px; outline: none;
+}
+.input-field:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.15);
+}
+.input-field::placeholder { color: var(--dim); }
+.send-btn {
+  background: var(--accent); color: #fff;
+  border: none; border-radius: 8px;
+  padding: 10px 20px; font-size: 14px;
+  font-weight: 500; cursor: pointer;
+  transition: background 0.15s;
+}
+.send-btn:hover { background: #4493e6; }
+.send-btn:active { background: #3a7fc7; }
+
+/* ── Scrollbar ───────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--dim); }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="sidebar-header">
+    <h1>Isaac</h1>
+    <div class="version">Unified Engine v2.0</div>
+  </div>
+  <div class="stats" id="stats">
+    <div class="stat-group">
+      <div class="stat-group-label">Net</div>
+      <div class="stat-row">
+        <span class="stat-label">Nodes</span>
+        <span class="stat-value accent" id="s-nodes">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Doors</span>
+        <span class="stat-value accent" id="s-doors">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Observations</span>
+        <span class="stat-value" id="s-obs">0</span>
+      </div>
+    </div>
+    <div class="stat-group">
+      <div class="stat-group-label">Structure</div>
+      <div class="stat-row">
+        <span class="stat-label">Types</span>
+        <span class="stat-value green" id="s-types">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Rules</span>
+        <span class="stat-value" id="s-rules">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Lockouts</span>
+        <span class="stat-value amber" id="s-lockouts">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Facts indexed</span>
+        <span class="stat-value" id="s-facts">0</span>
+      </div>
+    </div>
+    <div class="stat-group">
+      <div class="stat-group-label">Matrix</div>
+      <div class="stat-row">
+        <span class="stat-label">Status</span>
+        <span id="s-compiled"><span class="compiled-badge no">not compiled</span></span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Shape</span>
+        <span class="stat-value off" id="s-shape">—</span>
+      </div>
+    </div>
+  </div>
+  <div class="sidebar-footer">
+    One operation. All the way up.
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+  <div class="chat" id="chat">
+    <div class="welcome">
+      <h2>Isaac</h2>
+      Feed it data. It figures it out.<br><br>
+      Type <code>help</code> for commands, or just type a sentence to observe it.
+    </div>
+  </div>
+  <div class="input-bar">
+    <div class="input-row">
+      <input type="text" class="input-field" id="input"
+             placeholder="Type a command or sentence..."
+             autocomplete="off" spellcheck="false">
+      <button class="send-btn" id="send" onclick="sendCommand()">Send</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const chatEl = document.getElementById('chat');
+const inputEl = document.getElementById('input');
+const history = [];
+let historyIdx = -1;
+
+function addMessage(text, type) {
+  // Remove welcome message on first interaction
+  const welcome = chatEl.querySelector('.welcome');
+  if (welcome) welcome.remove();
+
+  const div = document.createElement('div');
+  div.className = 'msg ' + (type === 'user' ? 'msg-user' : 'msg-system ' + type);
+
+  // Colorize checkmarks
+  let html = text
+    .replace(/✓/g, '<span class="check-mark">✓</span>')
+    .replace(/✗/g, '<span class="check-fail">✗</span>')
+    .replace(/⚠/g, '<span style="color:var(--amber)">⚠</span>');
+  div.innerHTML = html;
+
+  chatEl.appendChild(div);
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+async function refreshStatus() {
+  try {
+    const r = await fetch('/api/status');
+    const d = await r.json();
+    document.getElementById('s-nodes').textContent = d.nodes;
+    document.getElementById('s-doors').textContent = d.doors;
+    document.getElementById('s-obs').textContent = d.observations;
+    document.getElementById('s-types').textContent = d.types;
+    document.getElementById('s-rules').textContent = d.rules;
+    document.getElementById('s-lockouts').textContent = d.lockouts;
+    document.getElementById('s-facts').textContent = d.facts_indexed;
+    if (d.compiled) {
+      document.getElementById('s-compiled').innerHTML =
+        '<span class="compiled-badge yes">compiled</span>';
+      document.getElementById('s-shape').textContent =
+        d.matrix_shape ? d.matrix_shape.join(' × ') : '—';
+      document.getElementById('s-shape').className = 'stat-value green';
+    } else {
+      document.getElementById('s-compiled').innerHTML =
+        '<span class="compiled-badge no">not compiled</span>';
+      document.getElementById('s-shape').textContent = '—';
+      document.getElementById('s-shape').className = 'stat-value off';
+    }
+  } catch(e) {}
+}
+
+async function sendCommand() {
+  const text = inputEl.value.trim();
+  if (!text) return;
+
+  history.push(text);
+  historyIdx = history.length;
+  addMessage(text, 'user');
+  inputEl.value = '';
+  inputEl.focus();
+
+  try {
+    const r = await fetch('/api/command', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({text})
+    });
+    const d = await r.json();
+    addMessage(d.text, d.type || 'result');
+    refreshStatus();
+  } catch(e) {
+    addMessage('Connection error: ' + e.message, 'error');
+  }
+}
+
+// Enter to send
+inputEl.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendCommand();
+  }
+  // Arrow up/down for history
+  if (e.key === 'ArrowUp') {
+    if (historyIdx > 0) {
+      historyIdx--;
+      inputEl.value = history[historyIdx];
+    }
+    e.preventDefault();
+  }
+  if (e.key === 'ArrowDown') {
+    if (historyIdx < history.length - 1) {
+      historyIdx++;
+      inputEl.value = history[historyIdx];
+    } else {
+      historyIdx = history.length;
+      inputEl.value = '';
+    }
+    e.preventDefault();
+  }
+});
+
+// Focus input on load
+inputEl.focus();
+refreshStatus();
+</script>
+</body>
+</html>

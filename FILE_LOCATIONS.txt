@@ -1,0 +1,95 @@
+==============================================================
+ ISAAC PROJECT — WHERE EVERYTHING IS
+ (plain-text map. reorganized 2026-06-24 into four parts.)
+==============================================================
+
+The project is now organized as FOUR PARTS, the way the builder thinks about it:
+
+    1_history_of_development/   HOW IT CAME TO BE
+    2_the_machine/              THE THING ITSELF (Isaac — code + docs + evidence)
+    3_the_theory/               THE THEORY (machine-independent)
+    4_the_story/                THE STORY (the builder's, personal)
+
+    overviews/                  consolidated cross-cutting briefings (span all 4)
+
+Plus four meta files at the root:
+    README.md            <- start here (the 4-part map, expanded)
+    FILE_LOCATIONS.txt   <- this file
+    REVIEW_NOTES.md      <- the corpus review (strengths, redundancy, canonical)
+    TODO.md              <- durable task list (git, backup, handoff)
+
+--------------------------------------------------------------
+ START HERE (suggested reading order to come in cold)
+--------------------------------------------------------------
+    0. THE_COMPLETE_PICTURE.md .......... THE SINGLE FRONT-TO-BACK WALKTHROUGH.
+                                          If you read one file, read this. Covers
+                                          everything below and links to the detail.
+    1. README.md ........................ the map
+    2. 4_the_story/THE_STORY_OF_ISAAC.md  what it is + where it came from
+    3. 3_the_theory/Latent_Theory_of_Informational_Structure.docx
+                                          THE THEORY (the keystone document)
+    4. 2_the_machine/docs/ISAAC_BUILD_STATE.md   what works right now
+    5. 2_the_machine/docs/ISAAC_THEORY_OF_OPERATION.md  how the engine works
+    6. run the engine (see below)
+    7. 1_history_of_development/handoffs/SESSION_HANDOFF_2026-06-24b.md
+                                          latest state + the open frontier
+    8. equation_discovery/EQUATION_DISCOVERY_ENGINE.md
+                                          THE CURRENT FRONTIER (raw data ->
+                                          governing equations; the signal is the
+                                          residual). Lives at the project root
+                                          alongside code/ (newer than the 4-part
+                                          reorg). See LINEAGE.md item 9.
+
+--------------------------------------------------------------
+ RUN THE ENGINE  (the self-test)
+--------------------------------------------------------------
+    cd C:\Users\jtwee\Documents\isaac_project\2_the_machine\code
+    python isaac.py            (expect: 6/6 passed)
+
+    On Windows, if box characters error out:
+        set PYTHONUTF8=1   (then run)   — or:  PYTHONUTF8=1 python isaac.py
+
+    All the demo scripts live beside isaac.py in 2_the_machine/code/ and
+    import it directly. The neural-transplant subproject is in
+    2_the_machine/code/neural_transplant/ (run its scripts from inside it).
+
+--------------------------------------------------------------
+ WHAT'S IN EACH PART  (each folder has its own README index)
+--------------------------------------------------------------
+ 1_history_of_development/
+     handoffs/         session handoffs + notes (the running diary)
+     sis_and_lineage/  the SIS versions (v2/v35/v41), xAGI, Intellon lineage
+     intellon_era/     THE ORIGIN (Mar-Apr 2026). INTELLON_HISTORY.md = the
+                       authoritative timeline; corpus/ = source artifacts;
+                       python_v4_package/ = the runnable first system (Isaac's
+                       direct code ancestor). Recovered 2026-06-29.
+     proposals/        engine / matrix / crystallizer design proposals
+     LINEAGE.md        the reconstructed origin-to-now timeline (points into
+                       intellon_era/ for the early detail)
+
+ 2_the_machine/
+     code/             isaac.py (the engine) + demos + neural_transplant/
+     docs/             build state, theory-of-operation, manual, architecture,
+                       implementation rules, spec, curricula
+     evidence/         the empirical CLAIMS/findings (GPT-2 reading, compression,
+                       transplant, ternary) — the lab record, NOT the theory
+
+ 3_the_theory/
+     Latent_Theory_of_Informational_Structure.docx   <- the keystone
+     sources/          the framework papers it consolidates (Intellon, Puzzle
+                       Piece, Structure of Information, topology, persistence...)
+
+ 4_the_story/
+     THE_STORY_OF_ISAAC.md
+
+ overviews/            CONFIDENTIAL masters, Collected Papers, project overview
+                       — consolidated briefings that span all four parts
+
+--------------------------------------------------------------
+ BACKUP / OLD (safe to ignore):
+     C:\Users\jtwee\Downloads\New folder (3)\   <- old scratch + zip history
+
+ CLAUDE'S MEMORY (notes between sessions):
+     C:\Users\jtwee\.claude\projects\
+         c--Users-jtwee-Downloads-New-folder--3-\memory\   (MEMORY.md is the index)
+==============================================================

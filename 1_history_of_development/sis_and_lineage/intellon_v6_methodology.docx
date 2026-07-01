@@ -1,0 +1,449 @@
+**Intellon Machine v6**
+
+Complete Methodology for Independent Verification
+
+March 30, 2026
+
+# **1. Abstract**
+
+This document describes the complete methodology, data structures, algorithms, and verification procedures for the Intellon Machine v6 system. The system receives unlabeled input/output observation pairs and a set of callable tools whose behavior is unknown. Through structured experimentation, profile-guided hypothesis testing, procedural composition (chaining), inverse relationship discovery, and self-generated verification, the system discovers reusable procedures that explain the observations and generalize to novel inputs.
+
+The system is deterministic in its logic: expected result versus actual result, pass or fail. There is no probability, no gradient descent, no statistical inference. Every conclusion is verified through direct tool calls against reality. Every claim is independently reproducible.
+
+# **2. System Architecture**
+
+## **2.1 Components**
+
+The system consists of four components:
+
+- Tool Set: A collection of callable functions. The system knows only that these exist and can be called with inputs to produce outputs. It does not know what any tool does prior to experimentation.
+
+- Seed Observations: Unlabeled input/output pairs organized in foundational order. Each observation records either a unary transformation (one input, one output) or a binary operation (two inputs, one output). No operation names, categories, or hints are provided.
+
+- Discovery Engine: The algorithm that explores tools, matches observations, builds chains, discovers inverses, and verifies results.
+
+- Verification Engine: Self-generated test cases that confirm discovered procedures generalize beyond the seed data.
+
+## **2.2 Tool Set Specification**
+
+The system has access to 60 tools organized across 10 domains. The domains are not revealed to the system; they exist only for human reference.
+
+| **Domain** | **Count** | **Examples** |
+| --- | --- | --- |
+| Arithmetic | 15 | ADD, SUB, MUL, DIV, MOD, POW, NEG, ABS, FLOOR, CEIL, ROUND, SIGN, MIN, MAX |
+| Comparison | 6 | EQ, NEQ, GT, LT, GTE, LTE |
+| Logic | 4 | AND, OR, NOT, XOR |
+| Type Checking | 4 | IS_NUM, IS_BOOL, IS_STR, IS_NULL |
+| Type Conversion | 3 | TO_NUM, TO_STR, TO_BOOL |
+| String | 11 | S_LEN, S_AT, S_CAT, S_UPPER, S_LOWER, S_REV, S_FIND, S_SLICE, S_CONTAINS, S_CHAR, S_CODE |
+| Sequence | 10 | A_LEN, A_GET, A_FIRST, A_LAST, A_REV, A_SORT, A_SUM, A_HAS, A_PUSH, A_CONCAT, A_RANGE, A_UNIQUE |
+| Bitwise | 6 | BIT_AND, BIT_OR, BIT_XOR, BIT_NOT, BIT_SHL, BIT_SHR |
+
+## **2.3 Tool Calling Interface**
+
+Every tool has a fixed arity (1 or 2 arguments) and a deterministic output. The system calls a tool by name with arguments and receives exactly one return value. If the tool cannot process the given inputs (type mismatch, division by zero, index out of bounds), it returns null. The system has no other interface to tools beyond calling them and reading the return value.
+
+## **2.4 Seed Data Specification**
+
+Observations are provided in 8 phases in foundational order. The ordering ensures dependencies are available before dependent concepts, but the system is not told why the order matters or what the phases represent.
+
+Each observation is one of two shapes:
+
+- Unary: { input: value, output: value } — one input produces one output
+
+- Binary: { a: value, b: value, output: value } — two inputs produce one output
+
+Input and output values can be: numbers (integer or decimal), booleans, strings, arrays, or null. No type annotations are provided.
+
+| **Phase** | **Name (human reference only)** | **Observation Count** | **Types Present** |
+| --- | --- | --- | --- |
+| 1 | Arithmetic | 46 | Numbers, negatives, decimals |
+| 2 | Place Value | 19 | Numbers, decimals |
+| 3 | Comparison & Logic | 27 | Numbers, booleans |
+| 4 | Types & Conversion | 19 | Numbers, strings, booleans, null |
+| 5 | Strings | 24 | Strings, numbers |
+| 6 | Sequences | 20 | Arrays, numbers, booleans |
+| 7 | Bitwise | 18 | Numbers |
+| 8 | Algebra (Inverse) | 8 | Numbers |
+
+# **3. Discovery Algorithm**
+
+The algorithm proceeds in six sequential phases. Each phase builds on the results of previous phases.
+
+## **3.1 Phase 1: Tool Experimentation**
+
+**Purpose: **Build behavioral profiles for every tool through direct experimentation.
+
+**Method: **For each tool, call it with a diverse set of probe inputs spanning all data types (numbers, negatives, decimals, strings, booleans, arrays, null). Record every successful call as a sample.
+
+Probe inputs for binary tools (arity 2):
+
+  [2,3], [5,1], [0,0], [10,3], [-3,5], [3.7,2], ["hi","lo"], ["abc",2],
+
+  [true,false], [true,true], [[1,2],[3,4]], [[1,2,3],1], [null,5], [7,0]
+
+Probe inputs for unary tools (arity 1):
+
+  0, 1, 5, -3, 9, 42, 3.7, "hello", "", "A", true, false, [1,2,3], [], [3,1,2], null
+
+**Output per tool: **A profile containing:
+
+- samples: Array of {input, output} pairs from successful calls
+
+- accepts: Which input types produced non-null results (number, string, boolean, array)
+
+- returns: Which output types were observed (number, string, boolean, array)
+
+- arity: 1 or 2
+
+**Key principle: **The system does not interpret what the tool does. It records raw input/output behavior. The profile is purely empirical.
+
+## **3.2 Phase 2: Observation Processing**
+
+**Purpose: **For each phase of seed data, discover which tool (or tool composition) explains the observations.
+
+### **3.2.1 Clustering**
+
+Within each phase, observations are grouped by shape:
+
+- Same observation type (unary vs binary)
+
+- Same output type (number, boolean, string, array)
+
+- Same array-ness of output (scalar vs array)
+
+Observations matching all three criteria are placed in the same cluster. This grouping uses only the structural shape of the data, not any semantic interpretation.
+
+### **3.2.2 Reuse Check**
+
+Before attempting discovery, the system checks whether any previously discovered procedure already explains the cluster. For each existing procedure, it tests every observation in the cluster. If all observations match, the procedure is reused and no new discovery is needed.
+
+This is how the system handles multi-digit arithmetic and decimal arithmetic: the ADD procedure discovered from single-digit observations also works for 47+35 and 3.7+2.4 because the underlying tool (ADD) is the same regardless of input magnitude.
+
+### **3.2.3 Profile-Guided Candidate Filtering**
+
+If no existing procedure matches, the system uses tool profiles to narrow the search space. For a cluster with:
+
+- Binary observations with numeric output: filter to tools that accept numbers and return numbers
+
+- Unary observations with boolean output: filter to tools that accept the input type and return booleans
+
+- Binary observations with string output: filter to tools that accept strings and return strings
+
+This filtering uses the empirical profiles from Phase 1. The system is NOT given a list of candidate tools. It infers candidates from observed tool behavior.
+
+**Narrowing ratio: **Typical result: 8–15 candidate tools out of 60 total (75–87% elimination before testing).
+
+### **3.2.4 Hypothesis Testing**
+
+The system tests candidates in this order, stopping at the first match:
+
+Layer 0 — Direct tool call:
+
+  For each candidate tool T:
+
+    Test: does T(obs.a, obs.b) == obs.output for ALL observations in cluster?
+
+    If yes: procedure = T(a, b). Confirmed.
+
+Layer 0b — Reversed arguments:
+
+  For each candidate tool T:
+
+    Test: does T(obs.b, obs.a) == obs.output for ALL observations?
+
+    If yes: procedure = T(b, a). Confirmed.
+
+Layer 1 — Tool with constant (unary clusters only):
+
+  For each binary tool T, for each constant C in [0,1,2,3,5,10,100]:
+
+    Test: does T(obs.input, C) == obs.output for ALL observations?
+
+    Also test: does T(C, obs.input) == obs.output?
+
+    If yes: procedure = T(x, C) or T(C, x). Confirmed.
+
+Layer 2 — Chained composition (unary clusters only):
+
+  For each known procedure P (unary), for each binary tool T, for each constant C:
+
+    Test: does T(P(obs.input), C) == obs.output for ALL observations?
+
+    If yes: procedure = T(P(x), C). Confirmed as chain.
+
+**Critical rule: **ALL observations in the cluster must match. A single failure rejects the hypothesis. This is deterministic verification, not statistical fitting.
+
+### **3.2.5 Self-Testing**
+
+Upon discovery, each procedure is immediately self-tested. The system generates novel inputs (not from the seed data) by randomly sampling from probe values of appropriate types, calls the procedure, and verifies the tool produces a non-null result. Self-test count: 10–15 per procedure.
+
+Self-testing confirms the procedure is well-formed and handles diverse inputs, not just the specific seed values.
+
+## **3.3 Phase 3: Inverse Discovery**
+
+**Purpose: **Discover which tools undo each other.
+
+**Method: **For every pair of binary numeric tools (T1, T2):
+
+  For each test pair (a, b) in [(3,5), (7,2), (4,6), (8,3), (1,9)]:
+
+    Compute: forward = T1(a, b)
+
+    Compute: reverse = T2(forward, b)
+
+    Check: does reverse == a?
+
+  If ALL five test pairs pass: T2 is the inverse of T1.
+
+This discovers, for example, that SUB undoes ADD (SUB(ADD(3,5), 5) == 3) and DIV undoes MUL.
+
+## **3.4 Phase 4: Property Discovery**
+
+**Commutativity: **For each binary numeric tool T, test whether T(a,b) == T(b,a) for test pairs [(3,5), (7,2), (1,8), (0,6)]. All four must pass.
+
+**Identity elements: **For each binary numeric tool T, for each candidate element E in [0, 1], test whether T(a, E) == a for test values [1, 5, 42]. All three must pass.
+
+## **3.5 Phase 5: Chain Building**
+
+**Purpose: **Compose existing unary procedures into new capabilities.
+
+**Method: **For every pair of unary procedures (P1, P2), test whether P2(P1(x)) produces valid (non-null) results across diverse inputs [1, 5, 10, 42, 99, 3.7, "hello", [1,2,3]]. If at least 3 inputs produce valid results and ALL tested inputs are valid, the chain is stored.
+
+**Deduplication: **Before storing a chain, test whether it produces the same output as any existing procedure or chain for inputs [1, 5, 42]. If identical, discard as redundant.
+
+## **3.6 Phase 6: Inverse Reasoning (Backsolving)**
+
+**Purpose: **Use discovered inverse relationships to solve problems the system was never shown.
+
+**Method: **Given a problem of the form "a OP X = c, find X":
+
+  1. Look up the inverse of OP in the inverse table
+
+  2. Compute: X = INVERSE_OP(c, a)
+
+  3. Verify: does OP(a, X) == c?
+
+  4. If verified: solution confirmed
+
+If the direct inverse lookup fails (the operation name doesn’t match a discovered forward operation), the system searches ALL discovered inverse pairs, testing each one until it finds one where the verification step passes. This allows it to solve problems even when the relationship between the problem and the inverse table is not immediately obvious.
+
+**Example: **Problem: a + X = 50, a = 13. Inverse table says SUB undoes ADD. Compute: X = SUB(50, 13) = 37. Verify: ADD(13, 37) = 50. Confirmed.
+
+# **4. Verification Methodology**
+
+## **4.1 Three-Layer Verification**
+
+Every discovered procedure passes through three independent verification checks:
+
+- Training verification: The procedure must reproduce ALL seed observations that triggered its discovery. 100% match required. A single mismatch rejects the procedure entirely.
+
+- Self-test verification: The procedure is tested with 10–15 self-generated novel inputs (randomly sampled, not from seed data). All calls must produce non-null results. This confirms the procedure handles diverse inputs, not just the seeds.
+
+- Generalization gauntlet: After all discovery is complete, every procedure and chain is tested with 15–20 novel random inputs spanning all supported types. Pass rate is reported as a percentage. 100% indicates complete generalization.
+
+## **4.2 Inverse Verification**
+
+Every inverse solve is verified bidirectionally:
+
+- Forward: Compute X using the inverse tool
+
+- Backward: Verify by computing OP(a, X) and checking it equals c
+
+Both directions must agree. An unverified inverse is reported as a failure.
+
+## **4.3 Deterministic Reproducibility**
+
+The system uses Math.random() for self-test input generation, which means exact tick counts and test counts will vary between runs. However, the following results are deterministic and must reproduce identically on every run:
+
+- The set of discovered procedures (which tools explain which observations)
+
+- The set of discovered inverse relationships
+
+- The set of discovered properties (commutativity, identity)
+
+- The set of solved inverse problems
+
+- Training verification: always 100%
+
+- Gauntlet pass rate: always 100% (procedures that would fail are not confirmed)
+
+The random variation affects only: total tick count, exact number of self-test and gauntlet trials, and chain deduplication order.
+
+# **5. Expected Results**
+
+## **5.1 Procedures Discovered**
+
+The system should discover approximately 8–12 direct procedures and 2–6 chains, covering:
+
+| **Category** | **Expected Procedures** | **Discovery Layer** |
+| --- | --- | --- |
+| Binary arithmetic | ADD(a,b), SUB(a,b), MUL(a,b), DIV(a,b) | L0 |
+| Unary arithmetic | NEG(x), ABS(x), FLOOR(x), etc. | L0 |
+| Place value | MOD(x,10), DIV(x,10) | L1 (tool + constant) |
+| Place worth | MUL(DIV(x,10),10) | L2 (chain) |
+| Comparison | EQ(a,b), GT(a,b), LT(a,b), GTE(a,b), LTE(a,b) | L0 |
+| Logic | AND(a,b), OR(a,b), NOT(x), XOR(a,b) | L0 |
+| Type checking | IS_NUM(x), IS_BOOL(x), IS_STR(x) | L0 |
+| String ops | S_LEN(x), S_AT(a,b), S_UPPER(x), S_LOWER(x), S_REV(x), etc. | L0 |
+| Sequence ops | A_LEN(x), A_GET(a,b), A_SORT(x), A_REV(x), A_SUM(x), etc. | L0 |
+| Bitwise | BIT_AND(a,b), BIT_OR(a,b), BIT_NOT(x), etc. | L0 |
+
+Note: The exact procedure count varies because seed clustering may group observations differently depending on which tool matches first. This is expected and does not indicate a defect.
+
+## **5.2 Inverse Relationships**
+
+The system should discover at minimum:
+
+- SUB undoes ADD
+
+- ADD undoes SUB
+
+- DIV undoes MUL
+
+Additional inverses (e.g., BIT_SHR undoes BIT_SHL) may be discovered depending on which tools pass the inverse test with integer test pairs.
+
+## **5.3 Properties**
+
+The system should discover at minimum:
+
+- Commutativity: ADD, MUL, MIN, MAX, BIT_AND, BIT_OR, BIT_XOR
+
+- Identity elements: ADD identity 0, MUL identity 1, SUB identity 0, DIV identity 1
+
+## **5.4 Inverse Solves**
+
+The system is presented with 8 algebra problems after inverse discovery:
+
+| **Problem** | **Expected Solution** | **Method** |
+| --- | --- | --- |
+| a+X=50, a=13 | X=37 | SUB(50,13) |
+| a+X=1000, a=777 | X=223 | SUB(1000,777) |
+| a*X=144, a=12 | X=12 | DIV(144,12) |
+| a*X=200, a=8 | X=25 | DIV(200,8) |
+| a-X=10, a=25 | X=15 | Search inverses, find ADD undoes SUB, then SUB(25,10)=15, verify |
+| a+X=3.7, a=1.2 | X=2.5 | SUB(3.7,1.2) |
+| a*X=81, a=9 | X=9 | DIV(81,9) |
+| a+X=0, a=-5 | X=5 | SUB(0,-5) |
+
+The system should solve 7–8 of these. The subtraction problem (a-X=10) may fail because the inverse table stores "ADD undoes SUB" which means ADD(SUB(a,b),b)=a, but solving a-X=c requires recognizing that X=a-c, which is a different application of the inverse. The fallback search mechanism attempts all inverses, which may or may not find the correct solution depending on test-pair ordering.
+
+## **5.5 Gauntlet**
+
+**Expected pass rate: **100%. Any procedure that passes training verification and self-testing will also pass the gauntlet because the underlying tools are deterministic.
+
+# **6. Comparison to Prior Versions**
+
+## **6.1 v8 (Fact Memorization)**
+
+| **Metric** | **v8** | **v6 Machine** | **Interpretation** |
+| --- | --- | --- | --- |
+| Knowledge units | 1,779 ghost nodes | ~9–12 procedures | 94× fewer units for same coverage |
+| Generalization | Neighbor overlap only | Any valid input | v6 handles inputs never seen in training |
+| Decimal handling | Required dedicated phase | Automatic (ADD works on all numbers) | No additional learning needed |
+| Multi-digit handling | Required dedicated phase | Automatic | Same procedure handles 3+5 and 111+222 |
+| Novel problem solving | Cannot solve unseen combinations | Solves via inverse reasoning | Qualitatively different capability |
+
+## **6.2 Progression Across Versions**
+
+| **Version** | **Approach** | **Ghost/Proc Count** | **Key Limitation** |
+| --- | --- | --- | --- |
+| v1 (labeled, directed) | Labeled curriculum, prescribed operations | 21 procedures | System told what to find |
+| v2 (unlabeled batches) | Clean unlabeled batches | 19 procedures | Still structured data delivery |
+| v3 (messy seeds) | Partial observations, self-directed | 14 procedures + 6 discoveries | Limited domain (numbers only) |
+| v6 (profile-guided) | Tool experimentation, multi-domain | ~9–12 + chains + inverses | Genuine exploration across all types |
+
+# **7. Reproduction Instructions**
+
+## **7.1 Requirements**
+
+- A JavaScript runtime (Node.js 16+ or any modern browser)
+
+- React 18+ (for the interactive UI version)
+
+- No external dependencies beyond React
+
+## **7.2 Running the Simulation**
+
+The simulation is contained in a single React JSX file (intellon_machine_v6.jsx). It can be run in any React-compatible environment. The simulation executes synchronously on mount and produces a complete log of all actions.
+
+## **7.3 Verification Checklist**
+
+An independent verifier should confirm:
+
+- Tool experimentation produces profiles for all 60 tools before any observation processing begins.
+
+- Profile-guided filtering narrows candidates before testing (visible in log as "Profile filter: N/60 tools match").
+
+- No procedure is confirmed without matching ALL observations in its cluster (not a subset).
+
+- Self-tests use inputs not present in the seed data.
+
+- Inverse relationships are verified bidirectionally (forward then reverse, 5 test pairs).
+
+- Inverse solves are verified by re-computing the forward operation.
+
+- The gauntlet uses novel random inputs and reports 100% for all confirmed procedures.
+
+- The reset button produces a fresh simulation run (procedure set should be identical; tick counts may vary due to random self-test inputs).
+
+- Chains are deduplicated against existing procedures before storage.
+
+- The system never accesses the tool domain labels, phase names, or any metadata not present in the observation records.
+
+## **7.4 Source Code Inspection**
+
+The verifier should inspect the following functions in the source code:
+
+| **Function** | **Purpose** | **What to Verify** |
+| --- | --- | --- |
+| runSim() | Main simulation loop | Phases execute in order; no data leaks between phases |
+| profiles[nm] | Tool profiles | Built only from probe calls, never from seed data |
+| groupSeeds() | Observation clustering | Groups by shape only (type, arity, output type) |
+| Profile-guided filter | Candidate narrowing | Uses profile.accepts and profile.returns, not tool names or domains |
+| Hypothesis testing loop | Tool matching | Tests ALL observations; single failure rejects |
+| selfTest() | Novel input verification | Inputs are randomly generated, not from seeds |
+| Inverse discovery loop | Inverse relationships | Tests 5 independent pairs; all must pass |
+| Inverse solve | Backsolving | Verification step re-computes forward operation |
+
+# **8. Theoretical Significance**
+
+## **8.1 What This Proves**
+
+The Intellon Machine v6 demonstrates that a system with no prior knowledge of its tools can, through structured experimentation and deterministic verification, discover reusable procedures that generalize to arbitrary inputs, compose those procedures into chains, discover structural relationships between tools, and use those relationships to solve novel problems it was never shown.
+
+This validates the core claim of the Intellon architecture: the intelligence is in the processing skill (how to find and use tools), not in memorized facts. A system that learns 9 procedures and 4 inverse relationships has equivalent or greater capability than one that memorizes 1,779 individual facts, because the procedures generalize and compose while the facts do not.
+
+## **8.2 What This Does Not Prove**
+
+- This does not prove the system can learn without any seed data. Seeds provide the initial signal that triggers exploration.
+
+- This does not prove the system can discover tools it has never called. The tool set must be provided.
+
+- This does not prove the system handles adversarial or contradictory data. All seed observations are consistent.
+
+- This does not prove scaling to very large tool sets (1000+) or very complex chains (3+ steps).
+
+- This does not prove the system can learn in a non-deterministic environment. All tools are pure functions.
+
+## **8.3 Relationship to Intellon Theory**
+
+The Intellon theory posits that intelligence emerges from persistence pressure: structures that accurately predict reality persist, structures that do not are discarded. The v6 system is a simplified test of this claim in a controlled environment:
+
+- Procedures that match observations persist (are stored and reused).
+
+- Hypotheses that fail are discarded (rejected candidates).
+
+- Discovered properties and inverses compound: later phases use earlier discoveries.
+
+- The system builds on itself: chains compose from procedures, inverse solves use inverse discoveries, and reuse checks leverage prior work.
+
+The full Intellon architecture adds energy-based persistence pressure, working memory constraints, session-based learning, and a machine-level instruction set. The v6 system validates the learning principle without yet implementing the full substrate.
+
+# **Appendix A: Complete Seed Data**
+
+All 190 seed observations across 8 phases are defined in the PHASES constant in the source code. Each observation is a plain JavaScript object with fields t (type: "u" for unary, "b" for binary), input fields (i for unary, a and b for binary), and o (expected output). No additional metadata is attached.
+
+# **Appendix B: Complete Tool Registry**
+
+All 60 tools are defined in the TOOLS object in the source code. Each tool is registered with a name, a pure function, an arity (1 or 2), and a domain label (used only for human reference in the UI, never accessed by the discovery algorithm).

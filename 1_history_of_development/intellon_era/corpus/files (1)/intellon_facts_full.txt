@@ -1,0 +1,2033 @@
+# Intellon facts — WordNet taxonomy + functional relationships
+# Auto-splits multi-sense words into /1, /2, etc.
+
+abducent is_a cranial nerve
+dying is_a end
+half-length is_a portrait
+unabridged is_a dictionary
+relative is_a organism
+comparative is_a adjective
+absorbent is_a sorbent
+adsorbent is_a sorbent
+adsorbate is_a sorbate
+abstinent is_a person
+ascetic is_a religious person
+piggy is_a young mammal
+concrete is_a paving
+outback is_a bush
+hi-fi is_a sound reproduction
+hi-fi is_a reproducer
+given is_a assumption
+unconfessed is_a people
+grasping is_a control
+grasping is_a understanding
+plundering is_a aggression
+going is_a act
+going is_a accomplishment
+activist is_a reformer
+potential is_a electrical phenomenon
+possible is_a possibility
+alcoholic is_a drunkard
+dependant is_a recipient
+additive is_a addition
+complementary is_a chromatic color
+ablative is_a oblique
+equal is_a person
+adhesive is_a material
+adherent is_a follower
+agglutinate is_a cling
+agglutinate is_a attach
+pasty is_a patch
+tarry is_a leave
+tarry is_a be
+adjective is_a major form class
+cloisonne is_a enamelware
+anticholinergic is_a medicine
+plus is_a arithmetic operation
+minus is_a arithmetic operation
+daring is_a fearlessness
+swashbuckling is_a demeanor
+cosmetic is_a toiletry
+dissident is_a person
+annoying is_a mistreatment
+abrasive is_a material
+fly is_a hit
+fly is_a dipterous insect
+heads-up is_a warning
+heuristic is_a rule
+deceased is_a person
+departed is_a person
+slain is_a dead
+abecedarian is_a novice
+egocentric is_a selfish person
+aspirant is_a applicant
+compulsive is_a person
+scanty is_a underpants
+analogue is_a similarity
+analog is_a similarity
+binomial is_a quantity
+postmortem is_a examination
+antecedent is_a referent
+antecedent is_a cause
+anterior is_a tooth
+prior is_a superior
+attendant is_a happening
+concomitant is_a happening
+resultant is_a vector
+resultant is_a ending
+posterior is_a tooth
+aquatic is_a plant
+precedent is_a example
+precedent is_a civil law
+propaedeutic is_a course
+hind is_a red deer
+hind is_a grouper
+hinder is_a disadvantage
+hinder is_a prevent
+appropriate is_a assign
+appropriate is_a assume
+collect is_a prayer
+cod is_a gadoid
+cod is_a saltwater fish
+collectible is_a curio
+collectable is_a curio
+payable is_a indebtedness
+bulletproof is_a proof
+brachiate is_a swing
+designing is_a creating by mental acts
+articulate is_a state
+aphasic is_a handicapped person
+mute is_a acoustic device
+speaking is_a utterance
+speaking is_a address
+walk-on is_a actor
+brazen is_a defy
+betrothed is_a lover
+clip-on is_a device
+captive is_a animal
+intent is_a goal
+intent is_a meaning
+woolgathering is_a dream
+dinky is_a locomotive
+taking is_a action
+winning is_a success
+hypnotic is_a hypnagogue
+audible is_a football play
+hopeful is_a applicant
+semiautomatic is_a semiautomatic firearm
+awake is_a change state
+insomniac is_a sick person
+waking is_a consciousness
+astringent is_a medicine
+styptic is_a medicine
+appalling is_a experience
+dread is_a fear
+frightening is_a bullying
+forbidding is_a prohibition
+chilling is_a temperature change
+creepy-crawly is_a animal
+rear is_a side
+rear is_a body part
+front is_a side
+front is_a appearance
+advance is_a motion
+directive is_a pronouncement
+hardback is_a book
+hardcover is_a book
+razorback is_a baleen whale
+razorback is_a swine
+retroflex is_a pronounce
+converse is_a proposition
+inverse is_a opposition
+receding is_a withdrawal
+receding is_a disappearance
+reflexive is_a personal pronoun
+blate is_a utter
+duckbill is_a monotreme
+duckbill is_a ganoid
+depilatory is_a cosmetic
+depilatory is_a compound
+bearing is_a support
+bearing is_a heraldry
+supporting is_a activity
+lovely is_a photographer's model
+grotesque is_a art
+malign is_a defame
+catty is_a weight unit
+champion is_a expert
+champion is_a defender
+optimum is_a good
+primo is_a part
+worst is_a attempt
+bottom is_a cargo ship
+fitter is_a tailor
+corrective is_a device
+worsening is_a change of state
+worsening is_a decline
+duplex is_a apartment
+quadrilateral is_a polygon
+trilateral is_a polygon
+stereo is_a reproducer
+stereo is_a photograph
+mono is_a infectious disease
+biped is_a animal
+quadruped is_a tetrapod
+African-American is_a american
+Afro-American is_a american
+Caucasian is_a natural language
+blond is_a chromatic color
+blond is_a person
+blonde is_a chromatic color
+blonde is_a person
+brunet is_a person
+brunette is_a person
+brown is_a chromatic color
+stainless is_a alloy steel
+daredevil is_a adventurer
+rash is_a series
+vaulting is_a dressage
+vaulting is_a structure
+paperback is_a book
+proletarian is_a commoner
+quality is_a attribute
+brachycephalic is_a adult
+dolichocephalic is_a adult
+game is_a diversion
+caitiff is_a cur
+chicken is_a domestic fowl
+chicken is_a contest
+craven is_a coward
+recreant is_a quitter
+dastard is_a coward
+poltroon is_a coward
+breathing is_a bodily process
+fluorescent is_a lighting fixture
+lit is_a literary study
+darkening is_a change of color
+twilight is_a light
+twilight is_a decline
+gleaming is_a radiance
+gleaming is_a flash
+blazing is_a fire
+sheeny is_a jew
+twinkling is_a moment
+mat is_a floor cover
+mat is_a sports equipment
+matt is_a dullness
+matte is_a dullness
+matte is_a mixture
+racist is_a bigot
+anti-Semite is_a hater
+sexist is_a antifeminist
+latitudinarian is_a liberal
+bone is_a white
+bone is_a connective tissue
+capitalist is_a person
+socialist is_a politician
+collectivist is_a socialist
+guttural is_a consonant
+grating is_a optical device
+grating is_a framework
+rasping is_a utterance
+husky is_a working dog
+myriad is_a large integer
+myriad is_a large indefinite quantity
+calm is_a disposition
+elaborate is_a develop
+minute is_a distance
+acatalectic is_a line of poetry
+catalectic is_a line of poetry
+hypercatalectic is_a line of poetry
+caudate is_a amphibian
+bobtail is_a shepherd dog
+bobtail is_a tail
+abortifacient is_a drug
+activating is_a activity
+anorectic is_a sick person
+motive is_a psychological feature
+motivating is_a act
+motor is_a machine
+sternutatory is_a compound
+cautious is_a people
+madcap is_a adventurer
+tearaway is_a daredevil
+central is_a workplace
+center is_a position
+midway is_a tract
+peripheral is_a electronic equipment
+afferent is_a nerve
+efferent is_a nerve
+predestinate is_a predetermine
+inevitable is_a destiny
+necessary is_a thing
+quicksilver is_a metallic element
+incurable is_a sick person
+characteristic is_a quality
+characteristic is_a property
+celibate is_a religious person
+continent is_a landmass
+vestal is_a woman
+virgin is_a innocent
+cyprian is_a woman
+wanton is_a sensualist
+smiling is_a facial expression
+melancholy is_a liquid body substance
+amber is_a yellow
+amber is_a natural resin
+amethyst is_a quartz
+gilt is_a coating
+gold is_a yellow
+avocado is_a edible fruit
+avocado is_a fruit tree
+azure is_a blue
+azure is_a color
+cerulean is_a blue
+sky-blue is_a blue
+beige is_a light brown
+cyan is_a bluish green
+teal is_a duck
+teal is_a green
+bronze is_a sculpture
+buff is_a implement
+buff is_a brown
+canary is_a finch
+canary is_a yellow
+caramel is_a brown
+caramel is_a sugar
+carnation is_a pink
+chartreuse is_a green
+chestnut is_a horse
+chestnut is_a callus
+coral is_a anthozoan
+coral is_a pink
+watercress is_a cress
+dun is_a saddle horse
+dun is_a light brown
+taupe is_a brown
+hazel is_a brown
+hazel is_a nut tree
+honey is_a sweetening
+honey is_a lover
+jade is_a horse
+jade is_a green
+khaki is_a fabric
+lavender is_a purple
+lavender is_a shrub
+lilac is_a shrub
+magenta is_a purplish red
+maroon is_a firework
+maroon is_a purplish red
+mauve is_a purple
+ocher is_a orange yellow
+ocher is_a earth color
+ochre is_a orange yellow
+ochre is_a earth color
+olive is_a chromatic color
+olive is_a drupe
+orange is_a chromatic color
+orange is_a citrus
+pink is_a chromatic color
+pink is_a collectivist
+salmon is_a salmonid
+salmon is_a chromatic color
+violet is_a purple
+violet is_a viola
+purplish-red is_a red
+carmine is_a red
+carmine is_a redden
+cerise is_a red
+cherry is_a red
+cherry is_a edible fruit
+ruby is_a red
+ruby is_a jewel
+scarlet is_a red
+rose is_a pink
+rose is_a wine
+russet is_a homespun
+rust is_a fungus
+rust is_a oxidation
+sage is_a herb
+sapphire is_a blue
+sapphire is_a jewel
+snuff is_a smell
+snuff is_a tobacco
+sorrel is_a horse
+sorrel is_a greens
+stone is_a building material
+stone is_a coldness
+straw is_a tube
+straw is_a yellow
+tan is_a light brown
+tan is_a trigonometric function
+tangerine is_a reddish orange
+tangerine is_a mandarin
+ultramarine is_a blue
+ultramarine is_a pigment
+umber is_a brown
+umber is_a earth color
+vermilion is_a red
+vermilion is_a redden
+cinnabar is_a arctiid
+cinnabar is_a mineral
+argent is_a tincture
+charcoal is_a writing implement
+charcoal is_a drawing
+jet is_a flow
+jet is_a airplane
+ebony is_a black
+ebony is_a tree
+iron-grey is_a gray
+iron-gray is_a gray
+pearly is_a tooth
+sable is_a marten
+sable is_a scarf
+off-white is_a white
+color is_a appearance
+colour is_a appearance
+bay is_a horse
+bay is_a recess
+ginger is_a liveliness
+ginger is_a flavorer
+indigo is_a violet
+indigo is_a shrub
+liver is_a internal organ
+liver is_a variety meat
+monochrome is_a photograph
+monochrome is_a painting
+motley is_a fabric
+calico is_a fabric
+polychrome is_a work
+polychrome is_a color
+roan is_a horse
+roan is_a leather
+tricolor is_a flag
+shot is_a rocket firing
+shot is_a propulsion
+etiolate is_a change
+gaudy is_a banquet
+pastel is_a chromatic color
+tramontane is_a north wind
+transalpine is_a foreigner
+barbarian is_a unpleasant person
+barbarian is_a primitive
+pop is_a popular music
+classified is_a newspaper ad
+spic is_a latin american
+spick is_a latin american
+grubby is_a sculpin
+buggy is_a carriage
+maculate is_a dishonor
+bawdy is_a obscenity
+ribald is_a vulgarian
+halal is_a meat
+kosher is_a nutriment
+hyaline is_a transparent substance
+hyaloid is_a membrane
+uttermost is_a limit
+walking is_a locomotion
+boon is_a good fortune
+nude is_a painting
+nude is_a statue
+overcast is_a casting
+overcast is_a whipstitch
+lowering is_a movement
+lowering is_a decrease
+midland is_a inside
+folding is_a change of shape
+folding is_a geological process
+agglomerate is_a collection
+agglomerate is_a volcanic rock
+aggregate is_a whole
+mass is_a physical property
+mass is_a magnitude
+knockdown is_a blow
+combustible is_a fuel
+fireproof is_a proof
+alight is_a descend
+alight is_a land
+roomy is_a friend
+cosy is_a cloth covering
+proportional is_a quantity
+moneymaking is_a acquisition
+nonprofit is_a organization
+ordinary is_a charge
+frequent is_a travel to
+public is_a body
+individualist is_a person
+sign is_a structure
+sign is_a clue
+narrative is_a message
+mum is_a secrecy
+mum is_a mother
+nonpareil is_a chocolate candy
+nonpareil is_a sweet
+compassionate is_a grieve
+caring is_a love
+total is_a whole
+livelong is_a sedum
+aliquot is_a divisor
+comprehensive is_a examination
+blanket is_a bedclothes
+blanket is_a layer
+omnibus is_a public transport
+omnibus is_a anthology
+umbrella is_a union
+umbrella is_a defense
+encyclical is_a letter
+eccentric is_a adult
+summary is_a statement
+homebound is_a people
+shut-in is_a sick person
+sociable is_a party
+conjunctive is_a function word
+copulative is_a verb
+connective is_a instrumentality
+connective is_a function word
+subconscious is_a mind
+consecrate is_a declare
+consecrate is_a give
+traditionalist is_a conservative
+ultraconservative is_a conservative
+neoliberal is_a liberal
+reformist is_a disputant
+consonant is_a phone
+crying is_a bodily process
+striking is_a touch
+staunch is_a check
+formative is_a language unit
+shaping is_a fabrication
+shaping is_a process
+withering is_a weakening
+caustic is_a compound
+corrosive is_a compound
+mordant is_a coloring material
+crushing is_a prevention
+ravaging is_a plundering
+content is_a thing
+content is_a cognition
+discontent is_a longing
+discontent is_a dissatisfy
+malcontent is_a person
+revenant is_a ghost
+stray is_a domestic animal
+runaway is_a victory
+runaway is_a person
+moot is_a lawsuit
+polemic is_a controversy
+polemic is_a writer
+eristic is_a art
+eristic is_a person
+bohemian is_a nonconformist
+maverick is_a calf
+maverick is_a nonconformist
+offbeat is_a rhythm
+conformist is_a conservative
+nonconformist is_a dissenter
+confluent is_a branch
+merging is_a convergence
+merging is_a blend
+branching is_a division
+medium is_a occupation
+roast is_a criticism
+roast is_a cut
+saute is_a dish
+saute is_a fry
+reprobate is_a wrongdoer
+reprobate is_a reject
+Praetorian is_a bodyguard
+antacid is_a agent
+aerial is_a pass
+aery is_a habitation
+aery is_a bird's nest
+incarnate is_a realize
+corporal is_a noncommissioned officer
+reincarnate is_a regenerate
+reincarnate is_a be born
+exact is_a necessitate
+provincial is_a rustic
+hick is_a rustic
+pokey is_a correctional institution
+poky is_a correctional institution
+stay-at-home is_a adult
+laxative is_a purgative
+aperient is_a medicine
+purgative is_a medicine
+faultfinding is_a criticism
+decussate is_a cross
+cuboid is_a parallelepiped
+perforate is_a enter
+perforate is_a pierce
+split is_a division
+prying is_a curiousness
+current is_a flow
+current is_a course
+occurrent is_a event
+latest is_a news
+maledict is_a raise
+blame is_a reproach
+blame is_a accusation
+custom-made is_a item
+custom is_a practice
+custom is_a trade
+tailor-made is_a clothing
+custom-built is_a item
+ready-to-wear is_a clothing
+prefab is_a structure
+circular is_a ad
+rotary is_a electrical converter
+heterocyclic is_a compound
+annual is_a reference book
+biennial is_a plant
+tatterdemalion is_a urchin
+hurt is_a change of integrity
+deaf is_a people
+deaf-mute is_a deaf person
+hearing is_a sensing
+hearing is_a proceeding
+Hollywood is_a film industry
+deciding is_a higher cognitive process
+determinant is_a cognitive factor
+determinant is_a square matrix
+determinative is_a cognitive factor
+determinative is_a function word
+declarative is_a mood
+interrogative is_a sentence
+interrogatory is_a questioning
+sedate is_a affect
+deductible is_a article
+deductible is_a sum
+walk-in is_a room
+walk-in is_a victory
+defeated is_a people
+noncompliant is_a person
+derivative is_a calculation
+derivative is_a word
+downcast is_a shaft
+rejoicing is_a utterance
+rejoicing is_a happiness
+gossamer is_a fibril
+knockabout is_a sloop
+breakable is_a article
+needy is_a poor people
+imperative is_a duty
+pressing is_a push
+pressing is_a part
+pleading is_a statement
+mendicant is_a pauper
+mendicant is_a religious
+suppliant is_a applicant
+supplicant is_a applicant
+supplicant is_a religious person
+egalitarian is_a moralist
+republican is_a advocate
+authoritarian is_a oppressor
+totalitarian is_a disciple
+demonstrative is_a pronoun
+appellative is_a name
+naming is_a decision
+naming is_a speech act
+referent is_a term
+breakaway is_a secession
+separatist is_a advocate
+indie is_a film company
+indie is_a pop group
+partisan is_a pike
+partisan is_a supporter
+partizan is_a pike
+partizan is_a supporter
+nonpartisan is_a person
+nonpartizan is_a person
+undesirable is_a unwelcome person
+obliterate is_a blur
+obliterate is_a change
+budding is_a asexual reproduction
+digitigrade is_a placental
+plantigrade is_a placental
+dilute is_a weaken
+dilute is_a corrupt
+squint is_a look
+squint is_a abnormality
+roundabout is_a ride
+winding is_a rotation
+bluff is_a deception
+frank is_a sausage
+oblique is_a abdominal
+hearsay is_a gossip
+reciprocal is_a hybridization
+mediate is_a negociate
+percipient is_a person
+discriminate is_a distinguish
+discriminate is_a spot
+sweeping is_a cleaning
+diacritic is_a mark
+eclectic is_a philosopher
+disposable is_a item
+throwaway is_a actor's line
+lateral is_a pass
+bullying is_a aggression
+cavalier is_a male aristocrat
+bowing is_a playing
+bowing is_a reverence
+ascendant is_a relative
+ascendent is_a relative
+governing is_a social control
+predominate is_a rise
+sovereign is_a head of state
+adjunct is_a construction
+assistant is_a worker
+associate is_a academic degree
+associate is_a accompaniment
+recessive is_a allele
+theatrical is_a performance
+drinkable is_a food
+potable is_a food
+drunk is_a drinker
+bacchanal is_a revel
+bacchanal is_a fan
+teetotal is_a abstain
+salt is_a taste
+salt is_a flavorer
+bouncing is_a recoil
+bubbly is_a sparkling wine
+desiccate is_a dry
+bovine is_a bovid
+humdrum is_a unvariedness
+driving is_a travel
+energizing is_a activity
+projectile is_a weapon
+projectile is_a vehicle
+propellant is_a substance
+propellent is_a substance
+eager is_a tidal flow
+aboriginal is_a person
+wee is_a time
+east is_a location
+eastward is_a cardinal compass point
+west is_a location
+westward is_a cardinal compass point
+edible is_a food
+comestible is_a food
+eatable is_a food
+numerate is_a read
+numerate is_a determine
+wearing is_a act
+wearing is_a geological process
+plodding is_a walk
+plodding is_a labor
+straining is_a effort
+straining is_a falsification
+strong-arm is_a beat
+strong-arm is_a intimidate
+elastic is_a fabric
+stretch is_a motion
+elective is_a course
+mandatory is_a district
+mandatory is_a recipient
+prerequisite is_a duty
+low-down is_a details
+stoic is_a adult
+hypothetical is_a hypothesis
+freelance is_a worker
+free-lance is_a worker
+unemployed is_a people
+employable is_a worker
+rallying is_a feat
+rallying is_a mobilization
+laden is_a fill
+spanking is_a discipline
+alpha is_a letter
+beta is_a letter
+preliminary is_a origin
+preliminary is_a athletic contest
+inquiring is_a request
+attenuate is_a weaken
+enlightened is_a people
+glowing is_a light
+entozoan is_a parasite
+equivalent is_a atomic mass
+equivalent is_a cognition
+coordinate is_a number
+coordinate is_a arrange
+equilateral is_a figure
+half-and-half is_a dairy product
+isoclinal is_a isogram
+occult is_a practice
+constituent is_a part
+must is_a staleness
+must is_a grape juice
+staple is_a commodity
+staple is_a paper fastener
+inessential is_a thing
+nonessential is_a thing
+scurvy is_a avitaminosis
+panegyric is_a praise
+belittling is_a disparagement
+euphoriant is_a psychoactive drug
+plane is_a heavier-than-air craft
+plane is_a hand tool
+evergreen is_a vascular plant
+fungible is_a commodity
+tickling is_a touch
+tingling is_a somesthesia
+accusative is_a oblique
+leftover is_a remainder
+expedient is_a means
+opportunist is_a selfish person
+carpetbag is_a bag
+nickel-and-dime is_a scrape
+veteran is_a expert
+veteran is_a serviceman
+fledgling is_a young bird
+uninitiate is_a people
+invalid is_a sick person
+fallow is_a cultivated land
+pizzicato is_a music
+satellite is_a equipment
+satellite is_a celestial body
+exterior is_a surface
+exterior is_a region
+cheating is_a deception
+apostate is_a quitter
+liege is_a feudal lord
+liege is_a follower
+insurgent is_a warrior
+insurgent is_a reformer
+subversive is_a radical
+renegade is_a quitter
+renegade is_a deserter
+foolproof is_a proof
+antic is_a diversion
+antic is_a joke
+queer is_a gay man
+rum is_a card game
+rum is_a liquor
+rummy is_a card game
+rummy is_a drinker
+spruce is_a conifer
+spruce is_a wood
+swagger is_a gait
+swagger is_a itinerant
+mod is_a adolescent
+swank is_a elegance
+swank is_a expose
+ex is_a letter
+ex is_a woman
+dowdy is_a pastry
+stick-in-the-mud is_a dawdler
+chic is_a elegance
+chichi is_a elegance
+chichi is_a dresser
+swish is_a sound
+fleet is_a collection
+fleet is_a steamship company
+swift is_a fence lizard
+swift is_a apodiform bird
+hurrying is_a motion
+straightaway is_a section
+rapid is_a waterway
+laggard is_a idler
+allegro is_a musical composition
+allegretto is_a musical composition
+adagio is_a dancing
+andante is_a musical composition
+largo is_a musical composition
+larghetto is_a musical composition
+embonpoint is_a fleshiness
+plump is_a noise
+roly-poly is_a pudding
+roly-poly is_a large person
+overweight is_a fleshiness
+anorexic is_a sick person
+slim is_a change state
+fatty is_a large person
+buttery is_a teashop
+skim is_a reading
+skim is_a covering
+approving is_a support
+well-wishing is_a greeting
+opening is_a beginning
+opening is_a motion
+beginning is_a change of state
+beginning is_a part
+inaugural is_a initiation
+initiative is_a beginning
+initiative is_a drive
+maiden is_a girl
+maiden is_a over
+starting is_a turn
+closing is_a termination
+year-end is_a end
+initial is_a letter
+initial is_a sign
+firstborn is_a offspring
+eldest is_a offspring
+freshman is_a lowerclassman
+freshman is_a novice
+premier is_a head of state
+premiere is_a performance
+premiere is_a perform
+sunset is_a periodic event
+ultimate is_a quality
+intermediate is_a chemical
+penultimate is_a syllable
+sophomore is_a lowerclassman
+antepenultimate is_a syllable
+bandy is_a hash out
+bandy is_a contend
+bowleg is_a leg
+halt is_a pause
+halt is_a ending
+lame is_a fabric
+crookback is_a cripple
+disabled is_a people
+handicapped is_a people
+maimed is_a people
+adamant is_a carbon
+ironclad is_a warship
+curling is_a game
+nappy is_a garment
+splayfoot is_a foot
+splay is_a bevel
+splay is_a move
+fore is_a front
+forehand is_a return
+backhand is_a return
+alien is_a hypothetical creature
+ceremonial is_a affair
+dress is_a clothing
+buckram is_a fabric
+buckram is_a stiffen
+vernacular is_a non-standard speech
+latter is_a second
+homeless is_a poor people
+smelling is_a sensing
+slaveholding is_a practice
+caller is_a visitor
+stale is_a make
+limp is_a gait
+briny is_a body of water
+saline is_a isotonic solution
+melting is_a heating
+breeding is_a sexual activity
+breeding is_a production
+instinct is_a aptitude
+replete is_a consume
+void is_a space
+temporary is_a worker
+utilitarian is_a moralist
+ornamental is_a plant
+functioning is_a process
+haywire is_a wire
+lateen is_a fore-and-aft sail
+fledgeling is_a young bird
+fledgeling is_a novice
+mere is_a pond
+overall is_a work-clothing
+pandemic is_a epidemic
+proprietary is_a ownership
+giving is_a disposal
+giving is_a sharing
+lavish is_a consume
+penny-pinching is_a frugality
+counterfeit is_a imitation
+counterfeit is_a re-create
+sham is_a imitation
+sham is_a deceiver
+fake is_a feint
+phony is_a deceiver
+phoney is_a deceiver
+bastard is_a variation
+bastard is_a unpleasant person
+mock is_a derision
+mock is_a treat
+pinchbeck is_a alloy
+pseudo is_a deceiver
+empyrean is_a surface
+go is_a board game
+go is_a attempt
+bully is_a attacker
+bully is_a hood
+cracking is_a breakage
+cracking is_a noise
+dandy is_a sailing vessel
+dandy is_a man
+swell is_a crescendo
+swell is_a wave
+smashing is_a breakage
+rubber is_a overshoe
+rubber is_a contraceptive
+goody-goody is_a sycophant
+saving is_a recovery
+dyspeptic is_a sick person
+cross is_a coupling
+gradual is_a antiphon
+haploid is_a organism
+diploid is_a organism
+polyploid is_a organism
+halcyon is_a mythical being
+suffering is_a pain
+erect is_a construct
+demulcent is_a medicine
+emollient is_a toiletry
+softening is_a natural process
+velvet is_a fabric
+velar is_a consonant
+fricative is_a continuant consonant
+continuant is_a obstruent
+sibilant is_a fricative consonant
+spirant is_a continuant consonant
+palatal is_a semivowel
+flint is_a silica
+intoxicant is_a drug
+intoxicant is_a beverage
+wounding is_a damage
+anthelmintic is_a medicine
+anthelminthic is_a medicine
+helminthic is_a medicine
+antimicrobial is_a agent
+antimicrobic is_a agent
+carminative is_a medicine
+curative is_a medicine
+healing is_a bodily process
+therapeutic is_a medicine
+preventive is_a device
+preventative is_a device
+restorative is_a device
+antipyretic is_a medicine
+hale is_a pull
+hale is_a compel
+sanguine is_a red
+arthritic is_a patient
+rheumatic is_a sick person
+asthmatic is_a person
+sallow is_a willow
+sallow is_a discolor
+lightweight is_a prizefighter
+worrying is_a agitation
+worrying is_a harassment
+lumbering is_a trade
+adjuvant is_a additive
+ministrant is_a curate
+reformatory is_a correctional institution
+heterosexual is_a person
+homosexual is_a person
+butch is_a lesbian
+homophile is_a person
+lesbian is_a homosexual
+transsexual is_a person
+transsexual is_a anomaly
+transvestite is_a person
+bisexual is_a sensualist
+soaring is_a flight
+squat is_a motion
+graduate is_a measuring instrument
+graduate is_a scholar
+postgraduate is_a collegian
+nasal is_a bone
+countertenor is_a singing voice
+countertenor is_a alto
+falsetto is_a head register
+soprano is_a pitch
+soprano is_a singing voice
+tenor is_a pitch
+contralto is_a singing voice
+contralto is_a singer
+baritone is_a brass
+baritone is_a singing voice
+bass is_a percoid fish
+bass is_a musical instrument
+contrabass is_a bowed stringed instrument
+mimic is_a impersonator
+mimic is_a imitate
+high-rise is_a tower
+walk-up is_a apartment building
+walk-up is_a apartment
+upland is_a natural elevation
+highland is_a natural elevation
+lowland is_a natural depression
+mansard is_a curb roof
+double-dealing is_a deception
+thieving is_a felony
+laureate is_a honoree
+anticipant is_a visionary
+desolate is_a destroy
+horizontal is_a orientation
+swimming is_a water sport
+leaning is_a act
+leaning is_a position
+diagonal is_a punctuation
+skew is_a reorient
+rearing is_a socialization
+rearing is_a upbringing
+weeping is_a bodily process
+sleeping is_a bodily process
+sleeping is_a rest
+prostrate is_a change
+sitting is_a motion
+pass is_a success
+pass is_a throw
+waste is_a activity
+waste is_a act
+belligerent is_a person
+opponent is_a person
+opponent is_a contestant
+baking is_a cooking
+baking is_a creating from raw materials
+warming is_a weather
+stifling is_a prevention
+tropic is_a latitude
+arctic is_a overshoe
+refrigerant is_a substance
+flaming is_a combustion
+anthropoid is_a primate
+imperfect is_a tense
+hominid is_a primate
+humanitarian is_a advocate
+fell is_a killing
+fell is_a seam
+brute is_a organism
+brute is_a attacker
+zany is_a fool
+comic is_a performer
+killing is_a termination
+killing is_a fatality
+slapstick is_a acoustic device
+slapstick is_a comedy
+flying is_a air travel
+precipitate is_a solid
+precipitate is_a change state
+precipitant is_a agent
+rush is_a motion
+deliberate is_a hash out
+transient is_a oscillation
+dicky is_a insert
+dicky is_a backseat
+dickey is_a insert
+dickey is_a backseat
+dyslectic is_a person
+burning is_a change of integrity
+burning is_a torture
+cardinal is_a finch
+key is_a device
+key is_a lever
+chief is_a supervisor
+chief is_a leader
+principal is_a financier
+principal is_a educator
+master is_a creation
+master is_a key
+lilliputian is_a small person
+signal is_a communication
+signal is_a incitement
+dirt is_a gossip
+dirt is_a dirtiness
+scrub is_a cleaning
+scrub is_a vegetation
+valedictory is_a oratory
+outboard is_a internal-combustion engine
+outboard is_a motorboat
+portable is_a typewriter
+tending is_a work
+incoming is_a arrival
+designate is_a plan
+designate is_a ordain
+elect is_a elite
+inpouring is_a inflow
+effluent is_a waste
+decadent is_a bad person
+epicurean is_a sensualist
+voluptuary is_a sensualist
+pampering is_a gratification
+developing is_a processing
+catching is_a acquiring
+catching is_a playing
+advisory is_a announcement
+revealing is_a speech act
+telltale is_a gossip
+agnostic is_a religious person
+hip is_a body part
+hip is_a ball-and-socket joint
+privy is_a outbuilding
+unknowing is_a ignorance
+heart-to-heart is_a talk
+eviscerate is_a devitalize
+eviscerate is_a remove
+wounded is_a people
+lacerate is_a tear
+doctrinaire is_a partisan
+co-ed is_a undergraduate
+conglomerate is_a corporation
+conglomerate is_a rock
+highbrow is_a intellectual
+anti-intellectual is_a plebeian
+philistine is_a plebeian
+lowbrow is_a plebeian
+accidental is_a musical notation
+deepening is_a development
+thickening is_a condensing
+lenitive is_a remedy
+palliative is_a remedy
+analgesic is_a medicine
+anodyne is_a medicine
+tempering is_a hardening
+weakening is_a decrease
+boring is_a production
+boring is_a creating by removal
+deadening is_a degradation
+soporific is_a hypnagogue
+pedestrian is_a traveler
+extrovert is_a person
+extravert is_a person
+meddling is_a change of state
+beetle is_a insect
+beetle is_a hammer
+jutting is_a change of shape
+bracing is_a strengthener
+drip-dry is_a dry
+bittersweet is_a vine
+melancholic is_a depressive
+bereaved is_a person
+mourning is_a expression
+mourning is_a sadness
+wailing is_a crying
+jolly is_a yawl
+succulent is_a vascular plant
+fitting is_a test
+meet is_a athletic contest
+stinging is_a pain
+notable is_a celebrity
+seafaring is_a travel
+seafaring is_a employment
+bouffant is_a hairdo
+giant is_a animal
+giant is_a enterprise
+epic is_a poem
+mammoth is_a elephant
+banging is_a fight
+banging is_a noise
+thumping is_a sound
+walloping is_a defeat
+macro is_a instruction
+outsize is_a size
+whacking is_a corporal punishment
+bantam is_a domestic fowl
+diminutive is_a word
+midget is_a small person
+petite is_a size
+flyspeck is_a atom
+infinitesimal is_a variable
+miniature is_a copy
+miniature is_a painting
+outlaw is_a principal
+antiknock is_a compound
+oozing is_a flow
+waterproof is_a coat
+waterproof is_a fabric
+leeward is_a side
+lee is_a side
+windward is_a side
+weather is_a atmospheric phenomenon
+weather is_a decay
+bootleg is_a covering
+bootleg is_a corn whiskey
+contraband is_a merchandise
+illegitimate is_a offspring
+foster is_a encourage
+foster is_a rear
+surrogate is_a agent
+surrogate is_a stand-in
+catarrhine is_a monkey
+platyrrhine is_a monkey
+platyrrhinian is_a monkey
+look-alike is_a person
+probable is_a applicant
+dud is_a flop
+dud is_a breakdown
+epidemic is_a outbreak
+absurd is_a situation
+spread-eagle is_a stretch
+spread-eagle is_a beat
+mini is_a skirt
+maxi is_a skirt
+elongate is_a lengthen
+oblong is_a plane figure
+sesquipedalian is_a polysyllable
+snub is_a rebuff
+snub is_a rejection
+truncate is_a shorten
+truncate is_a estimate
+fugitive is_a criminal
+fugitive is_a person
+choky is_a prison
+found is_a wage
+confiscate is_a take
+forfeit is_a act
+forfeit is_a penalty
+won is_a north korean monetary unit
+won is_a south korean monetary unit
+blaring is_a noise
+clarion is_a brass
+clarion is_a proclaim
+shattering is_a breakage
+murmuring is_a complaint
+murmuring is_a sound
+whispering is_a speaking
+whispering is_a noise
+rustling is_a larceny
+rustling is_a noise
+grumbling is_a complaint
+grumbling is_a noise
+rumbling is_a noise
+piano is_a percussion instrument
+pianissimo is_a softness
+forte is_a part
+fortissimo is_a volume
+beloved is_a lover
+darling is_a lover
+favorite is_a choice
+favourite is_a choice
+pet is_a animal
+pet is_a irritability
+lowercase is_a character
+uppercase is_a character
+majuscule is_a character
+star is_a topology
+star is_a character
+peanut is_a edible nut
+peanut is_a child
+dirigible is_a lighter-than-air craft
+emasculate is_a sterilize
+emasculate is_a weaken
+epicene is_a bisexual
+sissy is_a coward
+hermaphrodite is_a bisexual
+pseudohermaphrodite is_a bisexual
+married is_a person
+wed is_a unite
+wed is_a officiate
+macho is_a male
+distaff is_a staff
+distaff is_a sphere
+womanlike is_a femininity
+neuter is_a gender
+duplicate is_a copy
+twin is_a duplicate
+twin is_a sibling
+adult is_a animal
+grownup is_a person
+meridian is_a great circle
+inchoative is_a aspect
+juvenile is_a person
+seasonal is_a worker
+maximum is_a limit
+minimum is_a limit
+minimum is_a small indefinite quantity
+borderline is_a boundary
+token is_a object
+token is_a disk
+meaning is_a idea
+meaning is_a message
+nonsense is_a decoration
+nonsense is_a message
+mechanic is_a repairman
+mechanic is_a craftsman
+windup is_a termination
+singing is_a musical performance
+singing is_a disclosure
+philharmonic is_a orchestra
+cutthroat is_a murderer
+tearing is_a bodily process
+combatant is_a person
+noncombatant is_a serviceman
+civilian is_a citizen
+everlasting is_a composite
+blinking is_a reflex
+blooming is_a organic process
+fucking is_a sexual intercourse
+ambulatory is_a walk
+motile is_a perceiver
+movable is_a personal property
+immovable is_a property
+stabile is_a sculpture
+takeout is_a bid
+takeout is_a convenience food
+metallic is_a thread
+metallic is_a fabric
+metal is_a mixture
+metal is_a chemical element
+bimetal is_a material
+nonmetal is_a chemical element
+minimalist is_a artist
+extremist is_a radical
+Victorian is_a person
+monotone is_a intonation
+monolingual is_a person
+bilingual is_a linguist
+polyglot is_a person
+moral is_a meaning
+degenerate is_a reprobate
+degenerate is_a worsen
+libertine is_a bad person
+profligate is_a consumer
+legion is_a multitude
+legion is_a army
+few is_a elite
+overmuch is_a abundance
+least is_a matter
+immortal is_a spiritual being
+immortal is_a celebrity
+touching is_a act
+touching is_a contact
+stirring is_a agitation
+oncoming is_a start
+nationalist is_a advocate
+nationalist is_a national
+world is_a group
+world is_a concern
+internationalist is_a socialist
+internationalist is_a advocate
+interstate is_a highway
+cardboard is_a paper
+celluloid is_a medium
+celluloid is_a thermoplastic
+dummy is_a cartridge
+dummy is_a figure
+ersatz is_a substitute
+imitation is_a copying
+imitation is_a copy
+supernatural is_a causal agent
+magic is_a performance
+magic is_a supernaturalism
+witching is_a practice
+wizard is_a expert
+wizard is_a occultist
+net is_a computer network
+requisite is_a thing
+excess is_a indulgence
+excess is_a immoderation
+supernumerary is_a actor
+supernumerary is_a person
+surplus is_a overabundance
+nett is_a catch
+neurotic is_a sick person
+psychoneurotic is_a sick person
+hypochondriac is_a patient
+hysteric is_a neurotic
+nymphomaniac is_a pervert
+obsessive is_a neurotic
+obsessive-compulsive is_a neurotic
+schizoid is_a personality disorder
+patrician is_a leader
+plebeian is_a commoner
+aberrant is_a anomaly
+deviant is_a reprobate
+deviate is_a reprobate
+deviate is_a turn
+subnormal is_a simpleton
+hypertensive is_a patient
+hypotensive is_a patient
+psychic is_a occultist
+north is_a location
+northward is_a cardinal compass point
+northeastward is_a compass point
+northwestward is_a compass point
+south is_a location
+southward is_a cardinal compass point
+southeastward is_a compass point
+southwestward is_a compass point
+austral is_a argentine monetary unit
+Federal is_a agent
+Federal is_a yankee
+Yankee is_a american
+Confederate is_a southerner
+unseen is_a belief
+vesicatory is_a chemical agent
+vesicant is_a chemical agent
+recusant is_a dissenter
+obligate is_a relate
+obligate is_a entrust
+manifest is_a legal document
+manifest is_a appear
+patent is_a document
+charnel is_a vault
+repellant is_a power
+defensive is_a attitude
+antiaircraft is_a gun
+sinning is_a transgression
+drumhead is_a membrane
+antediluvian is_a oldster
+hand-me-down is_a garment
+newborn is_a baby
+novel is_a book
+parvenu is_a unpleasant person
+sunrise is_a periodic event
+sunrise is_a atmospheric phenomenon
+elderly is_a age group
+aging is_a organic process
+ageing is_a organic process
+ancient is_a person
+centenarian is_a oldster
+emeritus is_a retiree
+grizzly is_a brown bear
+hoar is_a ice
+nonagenarian is_a oldster
+octogenarian is_a oldster
+overage is_a assets
+sexagenarian is_a oldster
+teen is_a juvenile
+preteen is_a juvenile
+two-piece is_a swimsuit
+two-piece is_a business suit
+offside is_a mistake
+agape is_a religious ceremony
+agape is_a love
+winking is_a reflex
+capsulate is_a envelop
+fighting is_a conflict
+upbeat is_a rhythm
+upbeat is_a prosperity
+orderly is_a attendant
+rowdy is_a attacker
+rough-and-tumble is_a fight
+snafu is_a blunder
+snafu is_a snarl
+middling is_a commodity
+nondescript is_a person
+routine is_a procedure
+routine is_a software
+howling is_a utterance
+pyrotechnic is_a low explosive
+mineral is_a material
+positioning is_a activity
+avant-garde is_a artistic movement
+groundbreaking is_a beginning
+able opposite_of unable
+abaxial opposite_of adaxial
+acroscopic opposite_of basiscopic
+abducent opposite_of adducent
+nascent opposite_of dying
+abridged opposite_of unabridged
+absolute opposite_of relative
+absorbent opposite_of nonabsorbent
+adsorbent opposite_of nonadsorbent
+absorbable opposite_of adsorbable
+abstemious opposite_of gluttonous
+abstract opposite_of concrete
+abundant opposite_of scarce
+abused opposite_of unabused
+acceptable opposite_of unacceptable
+accessible opposite_of inaccessible
+accommodating opposite_of unaccommodating
+accurate opposite_of inaccurate
+accustomed opposite_of unaccustomed
+acidic opposite_of alkaline
+acidic opposite_of amphoteric
+alkaline opposite_of amphoteric
+acid-loving opposite_of alkaline-loving
+acknowledged opposite_of unacknowledged
+acquisitive opposite_of unacquisitive
+acropetal opposite_of basipetal
+active opposite_of inactive
+passive opposite_of active
+extinct opposite_of active
+stative opposite_of active
+quiet opposite_of active
+actual opposite_of potential
+acute opposite_of chronic
+virulent opposite_of avirulent
+adaptive opposite_of maladaptive
+addicted opposite_of unaddicted
+addictive opposite_of nonaddictive
+additive opposite_of subtractive
+addressed opposite_of unaddressed
+adequate opposite_of inadequate
+adhesive opposite_of nonadhesive
+adjective opposite_of substantive
+adoptable opposite_of unadoptable
+adorned opposite_of unadorned
+cholinergic opposite_of anticholinergic
+adroit opposite_of maladroit
+advantageous opposite_of disadvantageous
+adventurous opposite_of unadventurous
+advisable opposite_of inadvisable
+well-advised opposite_of ill-advised
+aerobic opposite_of anaerobic
+aesthetic opposite_of inaesthetic
+affected opposite_of unaffected
+affirmative opposite_of negative
+acceptive opposite_of rejective
+afloat opposite_of aground
+afraid opposite_of unafraid
+aggressive opposite_of unaggressive
+agitated opposite_of unagitated
+agreeable opposite_of disagreeable
+air-to-surface opposite_of air-to-air
+air-to-surface opposite_of surface-to-air
+air-to-air opposite_of surface-to-air
+alert opposite_of unalert
+algorithmic opposite_of heuristic
+alienable opposite_of inalienable
+apocrine opposite_of eccrine
+artesian opposite_of subartesian
+alphabetic opposite_of analphabetic
+altricial opposite_of precocial
+altruistic opposite_of egoistic
+ambiguous opposite_of unambiguous
+ambitious opposite_of unambitious
+ametropic opposite_of emmetropic
+meager opposite_of ample
+anabolic opposite_of catabolic
+anaclinal opposite_of cataclinal
+anastigmatic opposite_of astigmatic
+anticlinal opposite_of synclinal
+anadromous opposite_of catadromous
+anadromous opposite_of diadromous
+catadromous opposite_of diadromous
+anabatic opposite_of katabatic
+anal opposite_of oral
+analogue opposite_of digital
+analytic opposite_of synthetic
+inflectional opposite_of derivational
+apocarpous opposite_of syncarpous
+angry opposite_of unangry
+resentful opposite_of unresentful
+sentient opposite_of insentient
+animated opposite_of unanimated
+unenlivened opposite_of enlivened
+anonymous opposite_of onymous
+antemortem opposite_of postmortem
+antecedent opposite_of subsequent
+antrorse opposite_of retrorse
+aquatic opposite_of terrestrial
+aquatic opposite_of amphibious
+terrestrial opposite_of amphibious
+preceding opposite_of succeeding
+precedented opposite_of unprecedented
+nonprehensile opposite_of prehensile
+prenatal opposite_of perinatal
+prenatal opposite_of postnatal
+perinatal opposite_of postnatal
+preprandial opposite_of postprandial
+prewar opposite_of postwar
+retrograde opposite_of anterograde
+antemeridian opposite_of postmeridian
+appealable opposite_of unappealable
+appendaged opposite_of unappendaged
+appetizing opposite_of unappetizing
+appropriate opposite_of inappropriate
+due opposite_of undue
+apropos opposite_of malapropos
+apteral opposite_of peripteral
+arbitrable opposite_of nonarbitrable
+columned opposite_of noncolumned
+arboreal opposite_of nonarboreal
+arenaceous opposite_of argillaceous
+armed opposite_of unarmed
+armored opposite_of unarmored
+armless opposite_of armed
+artful opposite_of artless
+articulate opposite_of inarticulate
+speaking opposite_of nonspeaking
+articulated opposite_of unarticulated
+ashamed opposite_of unashamed
+assertive opposite_of unassertive
+associative opposite_of nonassociative
+attached opposite_of unattached
+affixed opposite_of unaffixed
+sessile opposite_of pedunculate
+vagile opposite_of sessile
+detached opposite_of attached
+stuck opposite_of unstuck
+attachable opposite_of detachable
+wary opposite_of unwary
+attentive opposite_of inattentive
+attractive opposite_of unattractive
+repulsive opposite_of attractive
+appealing opposite_of unappealing
+attributable opposite_of unattributable
+attributive opposite_of predicative
+pregnant opposite_of nonpregnant
+audible opposite_of inaudible
+subsonic opposite_of supersonic
+subsonic opposite_of sonic
+auspicious opposite_of inauspicious
+propitious opposite_of unpropitious
+authorized opposite_of unauthorized
+constitutional opposite_of unconstitutional
+autochthonous opposite_of allochthonous
+autoecious opposite_of heteroecious
+autogenous opposite_of heterogenous
+automatic opposite_of manual
+available opposite_of unavailable
+awake opposite_of asleep
+astringent opposite_of nonastringent
+aware opposite_of unaware
+witting opposite_of unwitting
+alarming opposite_of unalarming
+anemophilous opposite_of entomophilous
+reassuring opposite_of unreassuring
+front opposite_of back
+leading opposite_of following
+backed opposite_of backless
+backward opposite_of forward
+balconied opposite_of unbalconied
+barreled opposite_of unbarreled
+beaked opposite_of beakless
+bedded opposite_of bedless
+beneficed opposite_of unbeneficed
+stratified opposite_of unstratified
+ferned opposite_of fernless
+grassy opposite_of grassless
+gusseted opposite_of ungusseted
+hairless opposite_of hairy
+awned opposite_of awnless
+bearing opposite_of nonbearing
+beautiful opposite_of ugly
+bellied opposite_of bellyless
+banded opposite_of unbanded
+belted opposite_of unbelted
+beneficent opposite_of maleficent
+malicious opposite_of unmalicious
+benign opposite_of malign
+worst opposite_of best
+worse opposite_of better
+bettering opposite_of worsening
+bicameral opposite_of unicameral
+bidirectional opposite_of unidirectional
+faced opposite_of faceless
+bibbed opposite_of bibless
+unilateral opposite_of multilateral
+bimodal opposite_of unimodal
+binaural opposite_of monaural
+binucleate opposite_of trinucleate
+binucleate opposite_of mononuclear
+mononuclear opposite_of trinucleate
+bipedal opposite_of quadrupedal
+biped opposite_of quadruped
+white opposite_of black
+blond opposite_of brunet
+blemished opposite_of unblemished
+bloody opposite_of bloodless
+bold opposite_of timid
+bound opposite_of unbound
+laced opposite_of unlaced
+tangled opposite_of untangled
+bordered opposite_of unbordered
+lotic opposite_of lentic
+lower-class opposite_of middle-class
+lower-class opposite_of upper-class
+middle-class opposite_of upper-class
+brachycephalic opposite_of dolichocephalic
+cowardly opposite_of brave
+gutsy opposite_of gutless
+breast-fed opposite_of bottle-fed
+breathing opposite_of breathless
+crystalline opposite_of noncrystalline
+landed opposite_of landless
+light opposite_of dark
+shaded opposite_of unshaded
+moonlit opposite_of moonless
+bridgeable opposite_of unbridgeable
+dimmed opposite_of undimmed
+prejudiced opposite_of unprejudiced
+broad-minded opposite_of narrow-minded
+reconstructed opposite_of unreconstructed
+broken opposite_of unbroken
+brotherly opposite_of sisterly
+exergonic opposite_of endergonic
+identical opposite_of fraternal
+buried opposite_of unburied
+bony opposite_of boneless
+buttoned opposite_of unbuttoned
+capitalistic opposite_of socialistic
+cacophonous opposite_of euphonious
+calculable opposite_of incalculable
+calm opposite_of stormy
+camphorated opposite_of uncamphorated
+cared-for opposite_of uncared-for
+careful opposite_of careless
+carnivorous opposite_of herbivorous
+carnivorous opposite_of omnivorous
+herbivorous opposite_of omnivorous
+herbivorous opposite_of insectivorous
+omnivorous opposite_of insectivorous
+insectivorous opposite_of carnivorous
+holozoic opposite_of holophytic
+carpellate opposite_of acarpelous
+carpeted opposite_of uncarpeted
+carvel-built opposite_of clinker-built
+carved opposite_of uncarved
+acatalectic opposite_of catalectic
+acatalectic opposite_of hypercatalectic
+catalectic opposite_of hypercatalectic
+cauline opposite_of radical
+censored opposite_of uncensored
+caudate opposite_of acaudate
+caulescent opposite_of acaulescent
+causative opposite_of noncausative
+cautious opposite_of incautious
+cellular opposite_of noncellular
+compartmented opposite_of uncompartmented
+porous opposite_of nonporous
+central opposite_of peripheral
+centrifugal opposite_of centripetal
+afferent opposite_of efferent
+centralizing opposite_of decentralizing
+unsure opposite_of sure
+unconvinced opposite_of convinced
+diffident opposite_of confident
+certified opposite_of uncertified
+inevitable opposite_of evitable
+preventable opposite_of unpreventable
+changeable opposite_of unchangeable
+commutable opposite_of incommutable
+modifiable opposite_of unmodifiable
+adjusted opposite_of unadjusted
+altered opposite_of unaltered
+unamended opposite_of amended
+isometric opposite_of isotonic
+ionized opposite_of nonionized
+mutable opposite_of immutable
+characteristic opposite_of uncharacteristic
+charged opposite_of uncharged
+charitable opposite_of uncharitable
+chartered opposite_of unchartered
+owned opposite_of unowned
+chaste opposite_of unchaste
+cheerful opposite_of depressing
+chlamydeous opposite_of achlamydeous
+chondritic opposite_of achondritic
+monoclinic opposite_of triclinic
+monochromatic opposite_of polychromatic
+chromatic opposite_of achromatic
+saturated opposite_of unsaturated
+abaxial eq dorsal
+adaxial eq ventral
+abducent eq abducting
+adducent eq adductive
+adducent eq adducting
+adductive eq adducting
+emergent eq emerging
+cut eq shortened
+full-length eq uncut
+implicit eq unquestioning
+relative eq comparative
+absorbent eq absorptive
+absorbefacient eq sorbefacient
+assimilating eq assimilative
+assimilating eq assimilatory
+assimilative eq assimilatory
+spongy eq spongelike
+nonabsorbent eq nonabsorptive
+repellent eq resistant
+adsorbent eq adsorptive
+adsorbent eq surface-assimilative
+adsorptive eq surface-assimilative
+chemisorptive eq chemosorptive
+nonadsorbent eq nonadsorptive
+adsorbable eq adsorbate
+abstinent eq abstentious
+ascetic eq ascetical
+ascetic eq austere
+ascetical eq austere
+spartan eq ascetic
+spartan eq ascetical
+crapulent eq crapulous
+edacious eq esurient
+edacious eq rapacious
+esurient eq rapacious
+ravening eq edacious
+ravening eq esurient
+ravenous eq edacious
+ravenous eq esurient
+voracious eq edacious
+voracious eq esurient
+wolfish eq edacious
+wolfish eq esurient
+hoggish eq piggish
+hoggish eq piggy
+piggish eq piggy
+porcine eq hoggish
+porcine eq piggish
+swinish eq hoggish
+swinish eq piggish
+overgreedy eq too-greedy
+conceptional eq ideational
+conceptional eq notional
+ideational eq notional
+ideological eq ideologic
+real eq tangible
+abounding eq galore
+ample eq copious
+ample eq plenteous
+copious eq plenteous
+plentiful eq ample
+plentiful eq copious
+rich eq ample
+rich eq copious
+voluminous eq copious
+exuberant eq lush
+exuberant eq luxuriant
+lush eq luxuriant
+profuse eq exuberant
+profuse eq lush
+riotous eq exuberant
+riotous eq lush
+overabundant eq plethoric
+overabundant eq rife
+plethoric eq rife
+abused eq ill-treated
+abused eq maltreated
+ill-treated eq maltreated
+mistreated eq abused
+mistreated eq ill-treated
+unexceptionable eq unimpeachable
+exceptionable eq objectionable
+approachable eq reachable
+come-at-able eq get-at-able
+come-at-able eq getatable
+get-at-able eq getatable
+handy eq ready to hand
+inaccessible eq unaccessible
+outback eq remote
+pathless eq roadless
+pathless eq trackless
+roadless eq trackless
+untracked eq pathless
+untracked eq roadless
+untrod eq pathless
+untrod eq roadless
+untrodden eq pathless
+untrodden eq roadless
+unapproachable eq unreachable
+unapproachable eq unreached
+unreachable eq unreached
+un-come-at-able eq un-get-at-able
+un-come-at-able eq ungetatable
+un-get-at-able eq ungetatable
+accommodating eq accommodative
+complaisant eq obliging
+unaccommodating eq unobliging
+disobliging eq uncooperative
+close eq faithful
+high-fidelity eq hi-fi
+true eq dead on target
+veracious eq right
+away eq outside
+faulty eq incorrect
+faulty eq wrong
+incorrect eq wrong
+wide eq wide of the mark
+alkaline eq alkalic
+alkalescent eq alcalescent
+amphoteric eq amphiprotic
+acidophilic eq acidophilous
+acidophilic eq aciduric
+acidophilous eq aciduric
+accepted eq recognized
+accepted eq recognised
+recognized eq recognised
+given eq granted
+unappreciated eq unsung
+unappreciated eq unvalued
+unsung eq unvalued
+unavowed eq secret
+unrecognized eq unrecognised
+avaricious eq covetous
+avaricious eq grabby
+covetous eq grabby
+grasping eq avaricious
+grasping eq covetous
+prehensile eq avaricious
+prehensile eq covetous
+predaceous eq predacious
+predaceous eq predatory
+predacious eq predatory
+about eq astir
+acrobatic eq athletic
+acrobatic eq gymnastic
+athletic eq gymnastic
+agile eq nimble
+agile eq quick
+nimble eq quick
+spry eq agile
+spry eq nimble
+hyperactive eq overactive
+desk-bound eq deskbound
+abeyant eq dormant
+hypoactive eq underactive
+inert eq sluggish
+inert eq soggy
+sluggish eq soggy
+torpid eq inert
+torpid eq sluggish
+dull eq slow
+dull eq sluggish
+slow eq sluggish
+idle eq unused
+activist eq activistic
+passive eq inactive
+resistless eq supine
+resistless eq unresisting
+supine eq unresisting
+alive eq live
+dynamic eq active
+actual eq existent
+potential eq possible
+adaptive eq adaptative
+reconciling eq accommodative
+dysfunctional eq nonadaptive
+alcoholic eq alcohol-dependent
+dependent eq dependant
+dependent eq drug-addicted
+dependant eq drug-addicted
+hooked eq dependent
+hooked eq dependant
+strung-out eq dependent
+strung-out eq dependant
+addictive eq habit-forming
+cumulative eq accumulative
+addable eq addible
+extra eq additional
+complemental eq complementary
+complemental eq completing
+complementary eq completing
+summational eq summative
+supplementary eq supplemental
+adequate eq equal
+capable eq adequate to
+capable eq equal to
+inadequate eq unequal
+deficient eq lacking
+deficient eq wanting
+lacking eq wanting
+
+# Functional relationships
+combustion causes heat
+heat causes expansion
+expansion produces pressure
+pressure produces motion
+motion produces rotation
+rotation produces electricity
+engine requires fuel
+engine has cylinder
+engine has piston
+cylinder has containment
+fuel has energy
+energy requires oxygen
+steam requires water
+steam requires heat
+boiler produces steam
+boiler requires heat
+boiler requires water
+turbine requires steam
+turbine produces rotation
+fire causes heat
+water has hydrogen
+water has oxygen
+plant produces oxygen
+sun produces light
+sun produces heat
+light requires energy
+gravity causes attraction
+attraction causes orbit

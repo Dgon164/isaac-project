@@ -1,0 +1,28 @@
+# ============================================================
+# Isaac project — .gitignore for the shared (collaborator) repo
+# ============================================================
+
+# --- Large / regenerable data (GitHub rejects >100MB; these auto-download) ---
+**/data/
+*.npz
+*.npy
+*.tar.gz
+*.zip
+*.pt
+*.safetensors
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# --- Personal / confidential (kept OUT of the shared repo) ---
+4_the_story/
+overviews/CONFIDENTIAL_ultimate_complete.docx
+overviews/CONFIDENTIAL_unified_briefing.docx
+overviews/ISAAC_Confidential_Overview.md
+
+# --- OS ---
+.DS_Store
+Thumbs.db

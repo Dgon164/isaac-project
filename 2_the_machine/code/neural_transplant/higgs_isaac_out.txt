@@ -1,0 +1,13 @@
+loading HIGGS...
+nodes before transplant: 4
+========================================================
+  HIGGS through Isaac  (chance acc ~0.53)
+========================================================
+  his boxes, no lens (raw 28-d)     acc 0.525   (0.0s, his loop)
+  his lens: strip-DC + Fisher-14    acc 0.526   (0.0s, his loop)
+  his lens: strip-DC + Fisher-6     acc 0.526   (0.0s, his loop)
+  his lens: lift-512 + Fisher-40    acc 0.558   (0.1s, his loop)
+========================================================
+nodes after: 9  (boxes are nodes beside language)
+language still works: the cat sat .
+ref: logistic 0.642, RF 0.721, HGB 0.726, deep-net AUC ~0.88

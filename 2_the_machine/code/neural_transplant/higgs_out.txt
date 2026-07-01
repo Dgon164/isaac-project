@@ -1,0 +1,20 @@
+loading HIGGS (openml ~98k)...
+  X=(98049, 28)  class balance=0.529
+================================================================
+  HIGGS — hard tabular. ACC and AUC (chance ACC ~0.53, AUC 0.50)
+================================================================
+C:\Users\jtwee\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\sklearn\neural_network\_multilayer_perceptron.py:785: ConvergenceWarning: Stochastic Optimizer: Maximum iterations (120) reached and the optimization hasn't converged yet.
+  warnings.warn(
+  model                            ACC     AUC
+  --------------------------------------------
+  logistic (linear floor)        0.642   0.684
+  box (crystal, raw)             0.514     -- 
+  box + LDA lens                 0.471     -- 
+  box + interactions + lens      0.471     -- 
+  RandomForest-300               0.721   0.797
+  HistGradientBoosting           0.726   0.801
+  MLP (128,64)                   0.691   0.760
+  --------------------------------------------
+  ref (full HIGGS): logistic AUC ~0.64, BDT ~0.81, deep net ~0.88.
+  READ: does box+interactions reach the trees? = is the high-order
+  structure recoverable cheaply on the box's tabular home turf.

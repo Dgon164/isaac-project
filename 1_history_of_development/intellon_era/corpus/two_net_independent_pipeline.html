@@ -1,0 +1,289 @@
+
+<div style="padding:1rem 0;">
+<div style="font-size:13px;color:var(--color-text-secondary);margin-bottom:10px;">
+<b style="font-weight:500;">Two independent nets:</b> Net 1 observes image → produces signature. Net 2 observes that signature as fresh input → produces second-order signature. Each property classified from Net 2's output. Compare: Net 1 alone, Net 2 alone, both with LDA.
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px 10px;margin-bottom:8px;font-size:13px;">
+<label style="color:var(--color-text-secondary);display:flex;align-items:center;gap:6px;">Grid: <select id="gs"><option value="16" selected>16x16</option><option value="20">20x20</option></select></label>
+<label style="color:var(--color-text-secondary);display:flex;align-items:center;gap:6px;">Net1 dims: <input type="number" id="d1" value="64" min="8" max="256" style="width:50px;"></label>
+<label style="color:var(--color-text-secondary);display:flex;align-items:center;gap:6px;">Net1 proj K: <input type="number" id="k1" value="64" min="4" max="256" style="width:50px;"></label>
+<label style="color:var(--color-text-secondary);display:flex;align-items:center;gap:6px;">Net1 outer K: <input type="number" id="o1" value="12" min="2" max="64" style="width:45px;"></label>
+<label style="color:var(--color-text-secondary);display:flex;align-items:center;gap:6px;">Net2 dims: <input type="number" id="d2" value="32" min="4" max="128" style="width:50px;"></label>
+<label style="color:var(--color-text-secondary);display:flex;align-items:center;gap:6px;">Net2 outer K: <input type="number" id="o2" value="8" min="2" max="32" style="width:45px;"></label>
+<label style="color:var(--color-text-secondary);display:flex;align-items:center;gap:6px;">Cal/class: <input type="number" id="nCal" value="30" min="5" max="200" style="width:50px;"></label>
+<label style="color:var(--color-text-secondary);display:flex;align-items:center;gap:6px;">Tests: <input type="number" id="nTest" value="300" min="50" max="1000" style="width:55px;"></label>
+<label style="color:var(--color-text-secondary);display:flex;align-items:center;gap:6px;">Seeds: <input type="number" id="nSeeds" value="10" min="1" max="50" style="width:50px;"></label>
+<label style="color:var(--color-text-secondary);display:flex;align-items:center;gap:6px;">Cop-out θ: <input type="number" id="copout" value="0.7" min="0.3" max="0.95" step="0.05" style="width:50px;"></label>
+</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+<button onclick="runFull()">Run benchmark</button>
+<button onclick="stopped=true">Stop</button>
+</div>
+<div id="progress" style="margin-bottom:12px;">
+<div style="height:6px;background:var(--color-background-secondary);border-radius:3px;overflow:hidden;"><div id="pbar" style="height:100%;width:0%;background:#534AB7;transition:width .1s;"></div></div>
+<div id="ptext" style="font-size:12px;color:var(--color-text-tertiary);margin-top:4px;">Click "Run benchmark"</div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;" id="cards">
+<div style="padding:12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);font-size:13px;color:var(--color-text-tertiary);">Net 1 only</div>
+<div style="padding:12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);font-size:13px;color:var(--color-text-tertiary);">Net 1 → Net 2</div>
+<div style="padding:12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);font-size:13px;color:var(--color-text-tertiary);">Net 1 → Net 2 + LDA</div>
+</div>
+<div style="position:relative;width:100%;height:320px;margin-bottom:16px;"><canvas id="chart"></canvas></div>
+<div id="details" style="padding:12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);font-size:13px;color:var(--color-text-secondary);line-height:1.8;"></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+var stopped=false,chartObj=null;
+var PN=['digit','size','posX','posY','fgInt','bgInt','rotation'];
+var PC=['#534AB7','#0F6E56','#993C1D','#185FA5','#3B6D11','#854F0B','#993556'];
+var digitList=[0,1,2,3,4,5,6,7,8,9],sizeList=[0.6,0.8,1.0,1.2,1.4];
+var posXList=[25,37,50,63,75],posYList=[25,37,50,63,75];
+var fgList=[6,9,12,15],bgList=[0,2,4],rotList=[0,15,30,345];
+function VF(p){return{digit:digitList,size:sizeList,posX:posXList,posY:posYList,fgInt:fgList,bgInt:bgList,rotation:rotList}[p]}
+function CH(p){return Math.round(100/VF(p).length)}
+var DS=[[[.3,.1],[.7,.1],[.8,.3],[.8,.7],[.7,.9],[.3,.9],[.2,.7],[.2,.3],[.3,.1]],[[.4,.1],[.5,.1],[.5,.9],[.4,.9],[.6,.9]],[[.2,.2],[.5,.1],[.8,.2],[.8,.4],[.2,.9],[.8,.9]],[[.2,.1],[.8,.1],[.5,.5],[.8,.5],[.8,.7],[.5,.9],[.2,.9]],[[.7,.9],[.7,.1],[.2,.6],[.8,.6]],[[.8,.1],[.2,.1],[.2,.45],[.7,.45],[.8,.6],[.7,.9],[.2,.9]],[[.7,.1],[.3,.1],[.2,.4],[.2,.7],[.3,.9],[.7,.9],[.8,.7],[.7,.5],[.2,.5]],[[.2,.1],[.8,.1],[.6,.5],[.5,.9]],[[.5,.1],[.8,.2],[.8,.4],[.5,.5],[.2,.2],[.2,.4],[.5,.5],[.2,.6],[.2,.8],[.5,.9],[.8,.8],[.8,.6],[.5,.5]],[[.8,.5],[.3,.5],[.2,.3],[.3,.1],[.7,.1],[.8,.3],[.8,.7],[.7,.9],[.3,.9]]];
+function dd(g,gs,d,cx,cy,sz,fg,bg,rot){for(var i=0;i<gs*gs;i++)g[i]=bg;var st=DS[d];if(!st)return;var rad=rot*Math.PI/180,sc=sz*gs*.45;for(var s=0;s<st.length-1;s++){var x0=(st[s][0]-.5)*sc,y0=(st[s][1]-.5)*sc,x1=(st[s+1][0]-.5)*sc,y1=(st[s+1][1]-.5)*sc;if(rot){var r=rad,rx0=x0*Math.cos(r)-y0*Math.sin(r),ry0=x0*Math.sin(r)+y0*Math.cos(r),rx1=x1*Math.cos(r)-y1*Math.sin(r),ry1=x1*Math.sin(r)+y1*Math.cos(r);x0=rx0;y0=ry0;x1=rx1;y1=ry1}x0+=cx;y0+=cy;x1+=cx;y1+=cy;var steps=Math.max(Math.abs(x1-x0),Math.abs(y1-y0))*2+1;for(var t=0;t<=steps;t++){var f=t/steps,px=x0+(x1-x0)*f,py=y0+(y1-y0)*f,ix=Math.round(px),iy=Math.round(py);for(var dy=-1;dy<=1;dy++)for(var dx=-1;dx<=1;dx++){var nx=ix+dx,ny=iy+dy;if(nx>=0&&nx<gs&&ny>=0&&ny<gs){var v=fg*(1-Math.sqrt(dx*dx+dy*dy)*.4);if(v>g[ny*gs+nx])g[ny*gs+nx]=v}}}}}
+function RP(){return{digit:digitList[Math.floor(Math.random()*10)],size:sizeList[Math.floor(Math.random()*5)],posX:posXList[Math.floor(Math.random()*5)],posY:posYList[Math.floor(Math.random()*5)],fgInt:fgList[Math.floor(Math.random()*4)],bgInt:bgList[Math.floor(Math.random()*3)],rotation:rotList[Math.floor(Math.random()*4)]}}
+function MI(gs,p){var g=new Float64Array(gs*gs);dd(g,gs,p.digit,p.posX*gs/100,p.posY*gs/100,p.size,p.fgInt,p.bgInt,p.rotation);return g}
+function makeRNG(s){s=s|0;if(!s)s=1;return function(){s^=s<<13;s^=s>>17;s^=s<<5;return(s>>>0)/4294967296}}
+
+function buildLayer(inD,outD,oK,rng){
+var wS=Math.min(.9,.9/Math.sqrt(inD/16));
+var Wp=new Float64Array(outD*inD),bp=new Float64Array(outD);
+var Wr=new Float64Array(outD*outD),br=new Float64Array(outD);
+for(var i=0;i<outD*inD;i++)Wp[i]=(rng()-.5)*wS;
+for(var i=0;i<outD;i++)bp[i]=(rng()-.5)*.3;
+var mask=null;
+if(oK<outD){
+mask=[];for(var i=0;i<outD;i++){
+var pool=[];for(var j=0;j<outD;j++)if(j!==i)pool.push(j);
+for(var j=pool.length-1;j>0;j--){var k=Math.floor(rng()*(j+1));var t=pool[j];pool[j]=pool[k];pool[k]=t}
+mask.push(pool.slice(0,oK-1).concat([i]))}
+for(var i=0;i<outD;i++){var m=mask[i];for(var mi=0;mi<m.length;mi++){Wr[i*outD+m[mi]]=(rng()-.5)*wS*.6}br[i]=(rng()-.5)*.15}
+}else{
+for(var i=0;i<outD*outD;i++)Wr[i]=(rng()-.5)*wS*.6;
+for(var i=0;i<outD;i++)br[i]=(rng()-.5)*.15;
+}
+return{Wp:Wp,bp:bp,Wr:Wr,br:br,mask:mask,inD:inD,outD:outD};
+}
+
+function fwdLayer(L,inp){
+var D=L.outD,I=L.inD;
+var h=new Float64Array(D);
+for(var i=0;i<D;i++){var s=L.bp[i];for(var j=0;j<I;j++)s+=L.Wp[i*I+j]*inp[j];h[i]=Math.tanh(s)}
+var v=new Float64Array(D);
+if(L.mask){for(var i=0;i<D;i++){var s=L.br[i];var m=L.mask[i];for(var mi=0;mi<m.length;mi++)s+=L.Wr[i*D+m[mi]]*h[i]*h[m[mi]];v[i]=s}}
+else{for(var i=0;i<D;i++){var s=L.br[i];for(var j=0;j<D;j++)s+=L.Wr[i*D+j]*h[i]*h[j];v[i]=s}}
+return v;
+}
+
+function buildProjection(inD,outD,sK,rng){
+if(sK>=inD){
+var P=new Float64Array(outD*inD);var wS=1/Math.sqrt(inD);
+for(var i=0;i<outD*inD;i++)P[i]=(rng()-.5)*2*wS;
+return{t:'d',P:P,inD:inD,outD:outD};
+}
+var idx=[],pw=[];var wS=1/Math.sqrt(sK);
+for(var i=0;i<outD;i++){
+var pool=[];for(var j=0;j<inD;j++)pool.push(j);
+for(var j=pool.length-1;j>0;j--){var k=Math.floor(rng()*(j+1));var t=pool[j];pool[j]=pool[k];pool[k]=t}
+idx.push(pool.slice(0,sK));var w=[];for(var j=0;j<sK;j++)w.push((rng()-.5)*2*wS);pw.push(w)}
+return{t:'s',idx:idx,w:pw,sK:sK,inD:inD,outD:outD};
+}
+
+function fwdProj(P,inp){
+var out=new Float64Array(P.outD);
+if(P.t==='d'){for(var i=0;i<P.outD;i++){var s=0;for(var j=0;j<P.inD;j++)s+=P.P[i*P.inD+j]*inp[j];out[i]=s}}
+else{for(var i=0;i<P.outD;i++){var s=0;for(var j=0;j<P.sK;j++)s+=P.w[i][j]*inp[P.idx[i][j]];out[i]=s}}
+return out;
+}
+
+function computeNull(proj,layer,gs,n){
+var D=layer.outD,mu=new Float64Array(D),mu2=new Float64Array(D);
+for(var i=0;i<n;i++){
+var noise=new Float64Array(gs*gs);for(var j=0;j<gs*gs;j++)noise[j]=Math.random()*15;
+var sig=fwdLayer(layer,fwdProj(proj,noise));
+for(var d=0;d<D;d++){mu[d]+=sig[d];mu2[d]+=sig[d]*sig[d]}}
+for(var d=0;d<D;d++){mu[d]/=n;mu2[d]=Math.sqrt(Math.max(mu2[d]/n-mu[d]*mu[d],0))+1e-15}
+return{mu:mu,sd:mu2};
+}
+
+function znorm(sig,nl){var D=sig.length,r=new Float64Array(D);for(var i=0;i<D;i++)r[i]=(sig[i]-nl.mu[i])/nl.sd[i];return r}
+
+function invertMatrix(M,n){var aug=[];for(var i=0;i<n;i++){var row=new Float64Array(2*n);for(var j=0;j<n;j++)row[j]=M[i][j];row[n+i]=1;aug.push(row)}for(var i=0;i<n;i++){var mx=Math.abs(aug[i][i]),mxR=i;for(var r=i+1;r<n;r++)if(Math.abs(aug[r][i])>mx){mx=Math.abs(aug[r][i]);mxR=r}if(mxR!==i){var t=aug[i];aug[i]=aug[mxR];aug[mxR]=t}var piv=aug[i][i];if(Math.abs(piv)<1e-12)piv=1e-12;for(var j=0;j<2*n;j++)aug[i][j]/=piv;for(var r=0;r<n;r++){if(r===i)continue;var f=aug[r][i];for(var j=0;j<2*n;j++)aug[r][j]-=f*aug[i][j]}}var inv=[];for(var i=0;i<n;i++){var row=new Float64Array(n);for(var j=0;j<n;j++)row[j]=aug[i][n+j];inv.push(row)}return inv}
+
+function computeLDA(sigs,labels,vals,D){
+var K=vals.length,N=sigs.length;
+var gMu=new Float64Array(D);for(var i=0;i<N;i++)for(var d=0;d<D;d++)gMu[d]+=sigs[i][d];for(var d=0;d<D;d++)gMu[d]/=N;
+var cMu={},cN={};vals.forEach(function(v){cMu[v]=new Float64Array(D);cN[v]=0});
+for(var i=0;i<N;i++){cN[labels[i]]++;for(var d=0;d<D;d++)cMu[labels[i]][d]+=sigs[i][d]}
+vals.forEach(function(v){if(cN[v]>0)for(var d=0;d<D;d++)cMu[v][d]/=cN[v]});
+var Sw=[];for(var i=0;i<D;i++)Sw.push(new Float64Array(D));
+for(var i=0;i<N;i++){var l=labels[i];for(var a=0;a<D;a++){var da=sigs[i][a]-cMu[l][a];for(var b=a;b<D;b++){var v=da*(sigs[i][b]-cMu[l][b]);Sw[a][b]+=v;if(a!==b)Sw[b][a]+=v}}}
+var Sb=[];for(var i=0;i<D;i++)Sb.push(new Float64Array(D));
+vals.forEach(function(v){var n=cN[v];if(!n)return;for(var a=0;a<D;a++){var da=cMu[v][a]-gMu[a];for(var b=a;b<D;b++){var vv=n*da*(cMu[v][b]-gMu[b]);Sb[a][b]+=vv;if(a!==b)Sb[b][a]+=vv}}});
+for(var i=0;i<D;i++)Sw[i][i]+=1e-5;
+var inv=invertMatrix(Sw,D);
+var M=[];for(var i=0;i<D;i++){var row=new Float64Array(D);for(var j=0;j<D;j++){var s=0;for(var k=0;k<D;k++)s+=inv[i][k]*Sb[k][j];row[j]=s}M.push(row)}
+var nC=Math.min(K-1,D);var vecs=[];var mat=M.map(function(r){return new Float64Array(r)});
+for(var c=0;c<nC;c++){var v=new Float64Array(D);for(var i=0;i<D;i++)v[i]=Math.random()-.5;var ev=0;
+for(var it=0;it<300;it++){var nv=new Float64Array(D);for(var i=0;i<D;i++){var s=0;for(var j=0;j<D;j++)s+=mat[i][j]*v[j];nv[i]=s}var nm=Math.sqrt(nv.reduce(function(s,x){return s+x*x},0));if(nm<1e-15)break;ev=nm;for(var i=0;i<D;i++)v[i]=nv[i]/nm}
+vecs.push({vec:v,val:ev});for(var i=0;i<D;i++)for(var j=0;j<D;j++)mat[i][j]-=ev*v[i]*v[j]}
+return{vecs:vecs,nC:nC,project:function(sig){var out=new Float64Array(nC);for(var c=0;c<nC;c++){var s=0;for(var d=0;d<D;d++)s+=vecs[c].vec[d]*sig[d];out[c]=s}return out}}}
+
+function buildGauss(sigs,labels,vals,nD){
+var models=[];vals.forEach(function(val){
+var sub=[];for(var i=0;i<labels.length;i++)if(labels[i]===val)sub.push(sigs[i]);
+if(sub.length<2){models.push({val:val,mu:new Float64Array(nD),sd:new Float64Array(nD).fill(1)});return}
+var mu=new Float64Array(nD),sd=new Float64Array(nD);
+sub.forEach(function(s){for(var i=0;i<nD;i++)mu[i]+=s[i]});for(var i=0;i<nD;i++)mu[i]/=sub.length;
+sub.forEach(function(s){for(var i=0;i<nD;i++){var d=s[i]-mu[i];sd[i]+=d*d}});
+for(var i=0;i<nD;i++)sd[i]=Math.sqrt(sd[i]/sub.length)+1e-15;
+models.push({val:val,mu:mu,sd:sd})});return models}
+
+function classifyG(sig,models,nD){
+var best=0,bestLL=-Infinity,lls=[];
+for(var c=0;c<models.length;c++){var ll=0,m=models[c];for(var i=0;i<nD;i++){var z=(sig[i]-m.mu[i])/m.sd[i];ll+=-0.5*z*z-Math.log(m.sd[i])}lls.push(ll);if(ll>bestLL){bestLL=ll;best=c}}
+var mx=bestLL,es=0;lls.forEach(function(l){es+=Math.exp(l-mx)});
+return{val:models[best].val,conf:Math.exp(lls[best]-mx)/es}}
+
+function runFull(){
+stopped=false;
+var gs=parseInt(document.getElementById('gs').value)||16,inDim=gs*gs;
+var d1=parseInt(document.getElementById('d1').value)||64;
+var k1=parseInt(document.getElementById('k1').value)||64;
+var o1=parseInt(document.getElementById('o1').value)||12;
+var d2=parseInt(document.getElementById('d2').value)||32;
+var o2=parseInt(document.getElementById('o2').value)||8;
+var nCal=parseInt(document.getElementById('nCal').value)||30;
+var nTest=parseInt(document.getElementById('nTest').value)||300;
+var nSeeds=parseInt(document.getElementById('nSeeds').value)||10;
+var coTh=parseFloat(document.getElementById('copout').value)||.7;
+var nP=PN.length;
+var all1=[],all2=[],all2L=[];
+var bestInfo=null,bestOv=0;
+var idx=0;
+
+function doSeed(){
+if(stopped||idx>=nSeeds){finish();return}
+var seed=Math.floor(Math.random()*2147483647);
+var rng=makeRNG(seed);
+var proj1=buildProjection(inDim,d1,k1,rng);
+var layer1=buildLayer(d1,d1,o1,rng);
+var layer2=buildLayer(d1,d2,o2,rng);
+var nl1=computeNull(proj1,layer1,gs,30);
+
+function fullPipeline(img){
+var compressed=fwdProj(proj1,img);
+var sig1=fwdLayer(layer1,compressed);
+var sig1n=znorm(sig1,nl1);
+var sig2=fwdLayer(layer2,sig1n);
+return{sig1:sig1n,sig2:sig2};
+}
+
+var calP=[];var cal1=[],cal2=[];
+for(var i=0;i<nCal*10;i++){
+var p=RP();calP.push(p);
+var r=fullPipeline(MI(gs,p));
+cal1.push(r.sig1);cal2.push(r.sig2);
+}
+
+var res1={},res2={},res2L={};
+PN.forEach(function(prop){
+var vals=VF(prop);
+var labels=calP.map(function(p){return p[prop]});
+var models1=buildGauss(cal1,labels,vals,d1);
+var models2=buildGauss(cal2,labels,vals,d2);
+var lda2=computeLDA(cal2,labels,vals,d2);
+var ldaSigs=cal2.map(function(s){return lda2.project(s)});
+var models2L=buildGauss(ldaSigs,labels,vals,lda2.nC);
+
+var testP=[];var t1=[],t2=[];
+for(var i=0;i<nTest;i++){
+var p=RP();testP.push(p);
+var r=fullPipeline(MI(gs,p));
+t1.push(r.sig1);t2.push(r.sig2);
+}
+
+var c1=0,c2=0,c2l=0,cop1=0,cop2=0,cop2l=0;
+for(var t=0;t<nTest;t++){
+var truth=testP[t][prop];
+var r1=classifyG(t1[t],models1,d1);
+if(r1.conf<coTh)cop1++;else if(r1.val===truth)c1++;
+var r2=classifyG(t2[t],models2,d2);
+if(r2.conf<coTh)cop2++;else if(r2.val===truth)c2++;
+var ldaSig=lda2.project(t2[t]);
+var r2l=classifyG(ldaSig,models2L,lda2.nC);
+if(r2l.conf<coTh)cop2l++;else if(r2l.val===truth)c2l++;
+}
+res1[prop]={full:Math.round(100*c1/nTest),cop:Math.round(100*cop1/nTest)};
+res2[prop]={full:Math.round(100*c2/nTest),cop:Math.round(100*cop2/nTest)};
+res2L[prop]={full:Math.round(100*c2l/nTest),cop:Math.round(100*cop2l/nTest)};
+});
+
+all1.push(res1);all2.push(res2);all2L.push(res2L);
+var ov=PN.reduce(function(s,p){return s+res2L[p].full},0)/nP;
+if(ov>bestOv){bestOv=ov;bestInfo={seed:seed,r1:res1,r2:res2,r2L:res2L}}
+
+idx++;
+document.getElementById('pbar').style.width=Math.round(100*idx/nSeeds)+'%';
+document.getElementById('ptext').textContent='Seed '+idx+'/'+nSeeds+' (best: '+Math.round(bestOv)+'%)';
+setTimeout(doSeed,0);
+}
+
+function finish(){document.getElementById('ptext').textContent=all1.length+' seeds complete';render(all1,all2,all2L,bestInfo)}
+doSeed();
+}
+
+function render(a1,a2,a2L,info){
+var n=a1.length,nP=PN.length;
+function avg(a,p){return Math.round(a.reduce(function(s,r){return s+r[p].full},0)/n)}
+function avgC(a,p){return Math.round(a.reduce(function(s,r){return s+r[p].cop},0)/n)}
+function best(a,p){return Math.max.apply(null,a.map(function(r){return r[p].full}))}
+
+function card(title,col,arr,border){
+var h='<div style="font-size:13px;font-weight:500;color:'+col+';margin-bottom:6px;">'+title+'</div>';
+var ov=0;
+PN.forEach(function(p,i){
+var f=avg(arr,p),c=avgC(arr,p),b=best(arr,p),ch=CH(p);ov+=f;
+h+='<div style="padding:2px 0;font-size:11px;display:flex;justify-content:space-between;">';
+h+='<span style="color:'+PC[i]+';">'+p+'</span>';
+h+='<span><b style="font-weight:500;">'+f+'%</b> <span style="color:var(--color-text-tertiary);">cop:'+c+'% '+((f/ch).toFixed(1))+'x best:'+b+'%</span></span></div>';
+});
+h+='<div style="border-top:1px solid var(--color-border-tertiary);margin-top:4px;padding-top:4px;font-weight:500;font-size:14px;">Overall: '+Math.round(ov/nP)+'%</div>';
+return '<div style="padding:10px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);'+(border?'border:1.5px solid var(--color-border-info);':'')+'">'+h+'</div>';
+}
+
+document.getElementById('cards').innerHTML=
+card('Net 1 only','#888780',a1,false)+
+card('Net 1 → Net 2 (raw)','#534AB7',a2,false)+
+card('Net 1 → Net 2 + LDA','#0F6E56',a2L,true);
+
+var dk=matchMedia('(prefers-color-scheme:dark)').matches,tc=dk?'#c2c0b6':'#5F5E5A';
+if(chartObj)chartObj.destroy();
+chartObj=new Chart(document.getElementById('chart'),{
+type:'bar',data:{labels:PN,datasets:[
+{label:'Net 1 only',data:PN.map(function(p){return avg(a1,p)}),backgroundColor:'rgba(136,135,128,0.4)',borderRadius:3},
+{label:'Net1→Net2 raw',data:PN.map(function(p){return avg(a2,p)}),backgroundColor:dk?'#AFA9EC':'#534AB7',borderRadius:3},
+{label:'Net1→Net2+LDA',data:PN.map(function(p){return avg(a2L,p)}),backgroundColor:dk?'#5DCAA5':'#0F6E56',borderRadius:3},
+{label:'Chance',data:PN.map(function(p){return CH(p)}),backgroundColor:'rgba(150,150,150,0.2)',borderRadius:3}
+]},options:{responsive:true,maintainAspectRatio:false,
+plugins:{legend:{labels:{color:tc,font:{size:11}}},title:{display:true,text:'Net 1 vs Net 1→Net 2 vs Net 1→Net 2+LDA ('+n+' seeds)',color:tc,font:{size:13,weight:'500'}}},
+scales:{x:{grid:{display:false},ticks:{color:tc,font:{size:10}}},y:{grid:{color:dk?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.06)'},ticks:{color:tc},min:0,max:100}}}
+});
+
+var dh='<b style="font-weight:500;">Comparison:</b><br><br>';
+var ov1=Math.round(PN.reduce(function(s,p){return s+avg(a1,p)},0)/nP);
+var ov2=Math.round(PN.reduce(function(s,p){return s+avg(a2,p)},0)/nP);
+var ov2L=Math.round(PN.reduce(function(s,p){return s+avg(a2L,p)},0)/nP);
+dh+='Net 1 only: '+ov1+'% → Net1→Net2 raw: '+ov2+'% ('+(ov2>=ov1?'+':'')+(ov2-ov1)+'%) → +LDA: '+ov2L+'% ('+(ov2L>=ov1?'+':'')+(ov2L-ov1)+'% from Net 1)<br><br>';
+PN.forEach(function(p,i){
+var v1=avg(a1,p),v2=avg(a2,p),v2l=avg(a2L,p),ch=CH(p);
+var winner=v2l>=v2&&v2l>=v1?'Net2+LDA':v2>=v1?'Net2 raw':'Net1';
+dh+='<span style="color:'+PC[i]+';font-weight:500;">'+p+':</span> '+v1+'% → '+v2+'% → '+v2l+'% ('+((v2l/ch).toFixed(1))+'x) — <b style="font-weight:500;">'+winner+'</b><br>';
+});
+dh+='<br><b style="font-weight:500;">Architecture:</b> Image → proj to '+document.getElementById('d1').value+'D → outer product (K='+document.getElementById('o1').value+') → znorm → outer product to '+document.getElementById('d2').value+'D (K='+document.getElementById('o2').value+') → LDA per property → Gaussian → cop-out';
+dh+='<br><b style="font-weight:500;">Key question:</b> Does Net 2\'s second-order interactions disentangle what Net 1 entangled?';
+document.getElementById('details').innerHTML=dh;
+}
+</script>

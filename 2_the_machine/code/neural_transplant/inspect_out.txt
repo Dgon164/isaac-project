@@ -1,0 +1,60 @@
+======================================================================
+  A. ONE EVENT — raw value -> glyph
+======================================================================
+    lepton_pT                     0.908   ->  0_3
+    lepton_eta                    0.329   ->  1_3
+    lepton_phi                    0.359   ->  2_3
+    missing_energy_magnitude      1.498   ->  3_5
+    missing_energy_phi           -0.313   ->  4_2
+    jet1pt                        1.096   ->  5_4
+    jet1eta                      -0.558   ->  6_1
+    jet1phi                      -1.588   ->  7_0
+    jet1b-tag                     2.173   ->  8_5
+    jet2pt                        0.813   ->  9_2
+    jet2eta                      -0.214   ->  10_2
+    jet2phi                       1.271   ->  11_5
+    jet2b-tag                     2.215   ->  12_5
+    jet3pt                        0.500   ->  13_0
+    jet3eta                      -1.261   ->  14_0
+    jet3phi                       0.732   ->  15_4
+    jet3b-tag                     0.000   ->  16_3
+    jet4pt                        0.399   ->  17_0
+    jet4eta                      -1.139   ->  18_0
+    jet4phi                      -0.001   ->  19_2
+    jet4b-tag                     0.000   ->  20_3
+    m_jj                          0.302   ->  21_0
+    m_jjj                         0.833   ->  22_1
+    m_lv                          0.986   ->  23_1
+    m_jlv                         0.978   ->  24_3
+    m_bb                          0.780   ->  25_2
+    m_wbb                         0.992   ->  26_3
+    m_wwbb                        0.798   ->  27_1
+
+======================================================================
+  B. COMBINATORIAL SPARSITY — fraction of w-feature glyph-windows
+     that occur only ONCE (his matrix can't generalize over unique ones)
+======================================================================
+    w=1:     6 distinct windows,   0.0% occur only once
+    w=2:    36 distinct windows,   0.0% occur only once
+    w=3:   108 distinct windows,   0.0% occur only once
+    w=4:   207 distinct windows,   4.8% occur only once
+    w=5:  3578 distinct windows,  69.6% occur only once
+
+======================================================================
+  C. HIS MATRIX AT TEST — frames activated per held-out event
+     (W_norm @ x is his attention; x is what _encode lights up)
+======================================================================
+    his matrix: 40312 frames; 91.9% of frames seen only ONCE (memorized, not learned)
+    per test event, _encode activates 0.7 frames on average (of 40312); 30% activate ZERO
+
+======================================================================
+  D. DATA MICROSCOPE (looking, not Isaac): is the relationship in the
+     numbers preserved after glyphing? m_wbb vs its best partner
+======================================================================
+    best continuous partner of m_wbb = m_wwbb  (|corr|=0.89)
+    continuous: |corr|=0.89 (strong linear relationship in the NUMBERS)
+    glyph-space: knowing m_wwbb's bin pins m_wbb's bin only 51% of the time (1/6=16% = no info)
+
+  READ: if windows are all unique (B) and _encode lights up almost
+  nothing at test (C), his exact-match attention has NOTHING to match.
+  The info is in the NUMBERS' proximity, not in glyph IDENTITY.
