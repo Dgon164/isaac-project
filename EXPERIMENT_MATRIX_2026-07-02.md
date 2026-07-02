@@ -190,6 +190,40 @@ speakers) breaks fixed-frame registration — the audio analogue of
 scale, motivating log-time or correlation alignment (registration-as-
 search, phase 3, now in two modalities).
 
+**F5 CLOCK WORLD — the anti-invariance benchmark** (`rebuild/clock_world.py`,
+12k upright + 2k tilted, 48×48, exact angle ground truth; data/clocks_48.npz).
+Everywhere else rotation is nuisance; here rotation IS the signal — pose IS
+the answer, "the transformation is information" made literal. Fine-grained:
+hour hand moves 0.5°/min; 720 classes. (VLMs are famously bad at this task —
+honest competence here is disproportionately strong evidence.)
+Protocol: generic polar percepts around the detected center (angular ink
+histogram × radial extent — the log-polar cousin); hands = two angular
+peaks; hour-vs-minute told apart by radial length/width — which must be
+ELECTED as differentia, not coded; time = composition of the two poses.
+Then the law test: discover() on extracted (θ_m, θ_h mod 30) across many
+clocks → the consistency equation of clockness, θ_h mod 30 = θ_m/12
+(linear, coefficient 0.0833) — success: UNDERSTOOD, exact.
+Success: minute within ±6° (±1 tick) ≥90%; exact (h,m) ≥85%; the law
+recovered. Honesty: near-overlap times (hands within ~10°) must be
+DECLARED ambiguous, not guessed.
+Predicted failures: hand-overlap confusion (11:55–12:05 family); hour-hand
+minute-fraction (0.5°/min) below angular resolution at 48px — the hour
+hand tells the hour only, minute must come from the minute hand (fine —
+but the system should discover that division of labor); tilted faces
+without using the 12-anchor tick = systematic bias — tests whether the
+orientation anchor gets DISCOVERED as a door.
+
+**F6 Pose-labeled invariance benchmarks.** smallNORB (5 object categories ×
+18 azimuths × 9 elevations × 6 lightings, pose labels INCLUDED — the
+capsule-network benchmark; fetch pending) and affNIST (translation) — plus
+our own transform sweeps on MNIST/Omniglot (already scripted). smallNORB's
+role is the PHASE-4 experiment: feed pairs (same object, different pose)
+to the invariant-discovery machinery — invariants as conservation laws of
+the pose group, LEARNED not hand-coded. Success: discovered invariants
+transfer to held-out azimuths (train 2/3 of viewpoints, test the rest);
+predicted failure: lighting variation contaminates the pose group (it's a
+different group) — factoring TWO groups at once is the real test.
+
 ## Standing honesty criteria (all experiments)
 1. Confident-wrong is the only true failure; predicted face-plants are data.
 2. Every claim of UNDERSTOOD carries scope + surviving rivals.
