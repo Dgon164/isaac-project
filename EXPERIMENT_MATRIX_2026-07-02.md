@@ -141,6 +141,55 @@ early-stopping nulls. Success: ≥5× gate speedup with ≥99% identical
 admit/reject decisions. Predicted failure: borderline candidates flip —
 if >1%, keep full perms for near-threshold cases only (two-stage).
 
+## F. Harder perception + first audio (added 2026-07-02)
+
+| dataset | size | why this one |
+|---|---|---|
+| Fashion-MNIST | 70k × 784, fetch_openml | the drop-in "harder MNIST": texture classes, strokes don't help |
+| CIFAR-10 | 60k × 32×32×3, data/ | natural color images — the perception wall at full height |
+| Omniglot | 1,623 chars × ~20 ex, data/ | ONE-SHOT concept learning — the most Isaac-shaped benchmark there is |
+| FSDD spoken digits | ~3k WAVs, data/ | first audio: streams are the wave crystallizer's native food |
+| Speech Commands | 65k WAVs (later) | scale-up once FSDD proves the audio pipeline |
+
+**F1 Fashion-MNIST.** Same protocol as MNIST (registration + generic
+percepts + ideals/differentia). Success: ≥80% (kNN literature ~85%);
+differentia inspection tells us WHICH percepts fashion needs that digits
+didn't. PREDICTED FAILURE: holes/crossings useless here — texture
+percepts (local variance, edge density — still generic retina ops) become
+the taught-feature test round 2: does the machinery elect them?
+
+**F2 CIFAR-10 — the designed face-plant for vision.** Raw + registered
+doors + exemplars, plus color-ratio doors (generic: channel ratios =
+cheap color constancy). Success is HONESTY, not accuracy: predicted
+30–45% (raw-pixel kNN gets ~35–40%); every confident bluff counts
+against. The measured gap to CNN-land (~95%) becomes the quantified
+statement of what the perception program still owes: local features,
+composition, hierarchy. If we beat 50% with explainable doors, that is
+genuinely news.
+
+**F3 Omniglot one-shot.** Protocol: 20-way one-shot episodes (1 example
+per novel character, classify a query) — registration + exemplar match +
+differentia on the fly. Success: ≥60% (chance 5%; Lake's BPL 96.7%,
+humans ~95.5%). PREDICTION: registration carries a long way (characters
+are strokes, pose-heavy); the gap to Lake's 96.7% measures exactly what
+STROKE-GRAPH percepts (the taught-feature roadmap item) are worth —
+before building them. Also the natural home for the archive/forgetting
+rules: 1,623 concepts, 20 exemplars each.
+
+**F4 FSDD spoken digits.** Protocol: NO MFCC (hand-crafted); generic
+transduction only — spectrogram via FFT (established, explainable),
+quantile band-energy doors per frame, time-registration (onset/duration
+= pose), then BOTH roads: exemplar match on registered band-doors, AND
+wave_consolidate on the band-door stream (do spoken digits have
+discoverable circles — formant handoffs?). Success: ≥85% ten-way
+(MFCC+kNN literature ~97%); honesty on speaker transfer: train 5
+speakers, test the 6th — predicted drop to ~60–75% (speaker variation
+is audio's translation problem; the pose/identity factoring question
+in a new domain). PREDICTED FAILURE: time-warping (slow vs fast
+speakers) breaks fixed-frame registration — the audio analogue of
+scale, motivating log-time or correlation alignment (registration-as-
+search, phase 3, now in two modalities).
+
 ## Standing honesty criteria (all experiments)
 1. Confident-wrong is the only true failure; predicted face-plants are data.
 2. Every claim of UNDERSTOOD carries scope + surviving rivals.
