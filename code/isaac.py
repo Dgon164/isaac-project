@@ -398,8 +398,15 @@ def _disc_col(A, term):
 
 
 class _Enumerator:
-    def __init__(self, max_degree=3, n_perm=40, pct=95):
+    def __init__(self, max_degree=3, n_perm=40, pct=95, max_terms=16):
         self.max_degree, self.n_perm, self.pct = max_degree, n_perm, pct
+        # max_terms: on AUTOCORRELATED real data (e.g. a smooth time series)
+        # the iid permutation null is too easy — shuffling destroys the
+        # autocorrelation, so weak junk beats it forever and admission never
+        # stops (found the hard way: a 20-CPU-hour runaway on sunspots).
+        # The cap is the emergency brake; the proper cure is a BLOCK
+        # permutation null for temporal targets (post-mortem item).
+        self.max_terms = max_terms
         self.terms, self.coefs, self.intercept = [], np.array([]), 0.0
 
     def fit(self, X, y):
@@ -411,7 +418,7 @@ class _Enumerator:
         frontier = [(i,) for i in range(n_atoms)]
         frontier += [(i, j) for i in range(n_vars) for j in range(i, n_vars)]
         seen = set(frontier)
-        while True:
+        while len(self.terms) < self.max_terms:
             cand = [t for t in frontier if t not in self.terms]
             M = np.column_stack([_disc_col(self.A, t) for t in cand])
             Ms = (M - M.mean(0)) / (M.std(0) + 1e-12)

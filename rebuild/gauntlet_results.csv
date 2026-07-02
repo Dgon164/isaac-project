@@ -1,0 +1,11 @@
+dataset,task,n_train,n_test,doors,exemplar,note,secs
+kepler,8 rows,4,4,NO RULE,R2 -149195221712.68,"PREDICTED FAIL (a^1.5 inexpressible, n=8): +1.42*exp(0.575*x0) -1.54",0
+clocks,read time,2000,2000,min±6°: 22.9%,time±1m: 13.9%,ambig declared 0; LAW: NO RULE +0.00*exp(0.786887*x0) +0.00*exp(1.61*x0,1
+fsdd,10-way audio,2500,500,53.8%,46.6%,SPEAKER-TRANSFER; mixed-speaker: doors 61% ex 92%,1
+omniglot,20-way 1-shot,20,4000,-,51.6%,"200 episodes; chance 5%; humans ~95.5, BPL 96.7",2
+fraud,rare 0.17%,150000,50000,97.98%,99.94%,minority RECALL (the needle): 79% — accuracy is majority theater here,44
+smallnorb,5-way pose-varied,8000,2000,39.1%,87.7%,viewpoint variation unhandled (phase-4 target); chance 20%,3
+cifar10,10-way,15000,4000,26.6%,32.6%,DESIGNED FACE-PLANT; success = honesty about it,8
+fashion,10-way,20000,5000,69.3%,76.5%,cap 20k/5k; texture percepts absent (predicted gap),37
+mnist,10-way,20000,5000,86.4%,95.2%,cap 20k/5k of 70k; topology-rematch check separate,30
+sunspots,-,0,0,CRASH,CRASH,urllib.error.URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify ,4
