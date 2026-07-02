@@ -1,7 +1,11 @@
 # ISAAC — Current Build State
 
 **The single source of truth for what Isaac can do right now.**
-Last savepoint: **2026-06-22**
+Last savepoint: **2026-07-01**
+
+> **Authoritative engine (2026-07-01):** `isaac_project\code\isaac.py` (project
+> root `code\`, NOT `2_the_machine\code\` — that copy is older). Self-test now
+> expects **7/7** (waves added).
 
 > **Maintenance rule:** when you add, change, or break a capability, update THIS
 > file in the same step. The Manual explains the theory; this doc tracks the
@@ -108,6 +112,121 @@ one piece deliberately bracketed for later.
 ---
 
 ## Changelog (savepoints)
+
+### 2026-07-01c — DISCOVERY: the challenge loop (the thing that learns things)
+
+- **`discover(X, y, name)`** — given examples of something he cannot do, find
+  the rule: staged null-gated term enumeration (candidates grow only around
+  admitted terms; admission must beat the max-over-candidates correlation on
+  permuted residuals; survivors ARE the equation), validated on a held-out
+  half. Four honest verdicts: **UNDERSTOOD** (equation, held-out R² ≥ 0.9) /
+  **PARTIAL** (real equation, part explained, stated) / **CAPTURED**
+  (nearest-exemplar prediction beats the permuted null — caught, tracked,
+  not yet said; no nets) / **NO RULE** (proven nothing at this class).
+- **`apply_law(name, X)`** — an UNDERSTOOD law becomes a `law:<name>` node
+  (equation in meta, fact indexed); the challenge is computable from then on.
+  (Named apply_law — `solve()` was already taken by the token-problem solver;
+  collision found the hard way.)
+- **Status: RAN — self-test `test_discovery` 5/5, suite 9/9.** Recovered
+  `+1.00*x2*x2 -1.00*x3 +1.00*x0*x1` and `+1.00*x0*x1*cos(x2-x3)` EXACTLY
+  (held-out R² 1.000, reusable R² 1.000); said NO RULE on noise; CAPTURED
+  sin(3·x0·x1) (0.547 vs equation's 0.152) — the four epistemic verdicts,
+  live in one method.
+- This is the in-engine port of the equation-discovery program (rebuild C /
+  equation_discovery scripts). Waves = a sensor; discover() = the learner.
+- **2026-07-01d addendum — "only linear / no complex numbers" rumor killed:**
+  the solver is linear in COEFFICIENTS over a nonlinear library, and the
+  library was enriched with unary transcendentals (sin/cos/exp at a scale
+  grid) + a REFINE pass that hill-climbs parameters INSIDE nonlinearities
+  (frequency/decay/scale — where regression cannot reach). Complex-number
+  structure = damped-oscillation pairs: recovered exp((-a+bi)t)'s real face
+  `+1.00*cos(3*t)*exp(-0.4025*t)` with the 0.4 decay OFF-GRID. Single-input
+  `0.5x² + 1.5·sin(2x)` recovered exactly (the case that used to degenerate
+  to polynomials). Legibility hardening en route: trial-refit lookahead with
+  reuse-aware parsimony (a scale-atom must BUY its flexibility; already-paid
+  flexibility is free), structurally diverse shortlist (heavy-tailed raw
+  variables lose correlation contests to bounded atoms — guarantee simple
+  candidates a trial), completion bonus (a trial that finishes the equation
+  outranks Taylor-expanding a surrogate term by term). test_discovery 7/7,
+  every recovered equation exact and legible.
+- **Open:** auto-trigger from shrug (compute/lookup failure → discover);
+  symbolic/token challenges (currently numeric); law graduation for CAPTURED
+  (function recovery attacking the exemplar memory — audit 2.6/2.8 loop);
+  nested compositions f(g(x)) beyond degree-3 products (the deep/dense
+  regime) still land in CAPTURED, by design.
+
+### 2026-07-01b — THE GREAT REWIRING: five dormant organs connected
+
+Audit found the engine full of built-but-never-called organs (0 call sites:
+recognize_doors, transduce-pattern, predict_next, fit_lens, react...). Five
+wiring jobs, zero new mechanisms, self-test now **8/8** (test_tracking added):
+
+1. **The clock is his.** `follow(circle)` + tracked `tick()`: phase register
+   and dwell counter live in Scratch; transitions are the circle's own
+   `wave_next` doors; evidence comes through `recognize_doors` (partial
+   recognition = permanence, the dormant organ, now load-bearing); learned
+   dwell (net meta, measured at consolidation) dead-reckons when evidence is
+   hidden. Phase 100% correct through occlusion in the self-test.
+2. **Statuses are world state.** Registration (expected-vs-observed, each
+   tick) opens `world.set_state(entity, "missing X")` after 2-tick persistence
+   and clears on sight or when the entity leaves the stage (phase advance —
+   absence-by-night opens no status). Isaac now owns a World instance.
+   Status doors (miss:X) join the same tick — statuses are doors.
+3. **Discovery reaches reasoning.** `_teach_fact` (fact_index + tagged door;
+   not teach() — the tokenizer would shred structured names) records part_of,
+   phase_of, and blocks facts. The status-explanation pass (ordinary
+   co-activation scoped to the entity's phase rows) and the conditional
+   rescue both teach `blocks` facts. Self-test: blocks(disk) <- cloud doors
+   AND the cloud group node, queryable in fact_index.
+4. **Conditional rescue in consolidation** (ported from rebuild E): a door
+   exiled by heavy interference re-joins its group when membership is
+   re-tested where a candidate blocker is absent — blocker taught as a fact
+   in the same move. Needed immediately: the new 1.4x edge margin (which
+   stops single-false-edge component bridging) exiles occluded members.
+5. **Boxes are gone from the live path.** `fit_lens` default = null-gated
+   correlation eigenbasis (the basis must beat chance); `crystallize_features`
+   stores observed per-dim log-densities ("doors" meta), `classify_features`
+   scores by summed log-likelihood. Legacy box meta still written for
+   recognize_matrix/old scripts. Smoke test on diagonal (box-killer) data:
+   **99.2% vs old boxes ~88%.**
+
+Backup: `code\backups\isaac_pre-wiring_2026-07-01.py`. Caveat: clock ticks
+are sensory ticks — mixing unrelated observe() streams into a followed
+episode dead-reckons the clock; keep one stream per episode.
+
+### 2026-07-01 — WAVES: temporal crystallization wired into the engine
+
+- **What:** the static crystallizer is order-blind (compares door profiles).
+  New idle-mode pass `wave_consolidate()` watches the whole matrix MOVE:
+  co-activation **groups** (simultaneous activation as a first-class thing),
+  **handoff edges** (one group dims as another lights — prior-frame vs
+  later-frame registration), **circles** (waves that return to their start),
+  and one level of recursion (circle activity becomes a door; same machinery
+  → patterns of patterns, circles of circles).
+- **Sensing:** `tick(active)` records one instant of simultaneous activation.
+  `observe()` ticks each token with its type doors; the think loop ticks each
+  context; `transduce`/`react` inherit via lookup. Any retina/game loop can
+  call `tick()` directly. Log lives in `activation_log`.
+- **Discoveries enter the net** as nodes (`wave:sun_light[2]`,
+  `circle:dark>light>tools`) with tags `wave` / `wave_next` — composable
+  upward like anything else.
+- **Null discipline (the key method):** every admission beats a **jitter
+  null** (±2–5-step shifts: keeps each door's own rhythm, breaks precise
+  co-timing; jitter ONE side per pair). A full circular shift is the WRONG
+  null for periodic waves — it relands in phase, making real simultaneity
+  unbeatable. Handoffs must beat 1.5× the null's max.
+- **Status: RAN** — self-test `test_waves` 4/4 (groups exact incl. zero noise
+  doors; both planted circles; circles present as net nodes; shuffled-time
+  control: groups survive, ALL movement dies). Full suite **7/7**.
+- **Reference implementation + planted-truth harness:**
+  `isaac_project\rebuild\wave_crystallizer.py` (5/5) and
+  `rebuild\RESULTS.md` (Rebuild D) — includes the two generator lessons
+  (fixed-length eras clock-lock to waves; global-clock processes are
+  genuinely phase-locked — independent waves need independent phases).
+- **Backup:** `code\backups\isaac_pre-wave_2026-07-01.py`.
+- **Open:** feed a REAL stream (his own activation log during long tasks;
+  a glyph-retina game session); wave concepts as parts for uptake-edge
+  composition (rebuild B) — circles that consume each other's affordances.
 
 ### 2026-06-22 — perception/decision stack, his way
 Added `transduce` (state-walk) and `Scratch` (working memory) to the engine.

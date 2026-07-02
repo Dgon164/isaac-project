@@ -214,6 +214,451 @@ def _fisher(H, y, k):
     return np.argsort(-(sb / sw))[:k]
 
 
+# ═════════════════════════════════════════════════════════════════
+# WAVES — the temporal crystallizer.
+#
+# The static crystallizer compares door PROFILES: it is order-blind by
+# construction. This pass watches the whole matrix MOVE — compares each
+# instant to the next — and crystallizes three things the profile view
+# cannot see:
+#   simultaneity  doors that light together        (co-activation groups)
+#   movement      one group dims as another lights (handoff edges)
+#   circles       waves that return to their start (closed handoff paths)
+# Applied recursively: a circle's activity becomes a door one level up.
+#
+# Null discipline: every claim must beat a JITTER null — small ±2..5-step
+# shifts that keep each door's own rhythm and rate but break precise
+# co-timing. (A full circular shift is the WRONG null for periodic waves:
+# it relands in phase 1-in-period times, so real simultaneity could never
+# beat it.) Jitter ONE side of each pair only — jittering both sometimes
+# hands them the same shift, which preserves relative timing.
+# ═════════════════════════════════════════════════════════════════
+
+_wave_rng = np.random.default_rng(0)
+
+
+def _wave_jitter(col):
+    return np.roll(col, int(_wave_rng.choice([-5, -4, -3, -2, 2, 3, 4, 5])))
+
+
+def _wave_groups(S, n_perm=40, pct=95):
+    """SIMULTANEITY: doors that fire together. Must beat an independence
+    floor (column permutation) AND a per-pair jitter null."""
+    T, D = S.shape
+    Z = (S - S.mean(0)) / (S.std(0) + 1e-12)
+    C = (Z.T @ Z) / T
+    floor_max = np.empty(n_perm)
+    pair_null = np.empty((n_perm, D, D))
+    for k in range(n_perm):
+        Zp = np.column_stack([_wave_rng.permutation(Z[:, j]) for j in range(D)])
+        Cp = (Zp.T @ Zp) / T
+        np.fill_diagonal(Cp, 0)
+        floor_max[k] = Cp.max()
+        Zj = np.column_stack([_wave_jitter(Z[:, j]) for j in range(D)])
+        pair_null[k] = (Z.T @ Zj) / T
+    floor = np.percentile(floor_max, pct)
+    pair_thr = np.percentile(pair_null, pct, axis=0)
+    pair_thr = np.maximum(pair_thr, pair_thr.T)
+    # 1.4x margin: connected components merge on a SINGLE edge, so a
+    # borderline false pair (the ~5% per-pair leak) can bridge two real
+    # groups into one. An edge must clearly beat its null, not graze it.
+    adj = (C > 1.4 * floor) & (C > 1.4 * pair_thr)
+    np.fill_diagonal(adj, False)
+    groups, unseen = [], set(range(D))
+    while unseen:
+        stack = [unseen.pop()]; comp = set(stack)
+        while stack:
+            j = stack.pop()
+            nxt = set(np.flatnonzero(adj[j])) & unseen
+            unseen -= nxt; comp |= nxt; stack += list(nxt)
+        if len(comp) > 1:
+            groups.append(tuple(sorted(int(x) for x in comp)))
+    return groups
+
+
+def _wave_handoff_counts(Goff, Gon):
+    """count[a,b] = instants where a switches off and b switches on (±1 step)."""
+    m = Goff.shape[1]
+    cnt = np.zeros((m, m))
+    for a in range(m):
+        off = ((Goff[:-1, a] == 1) & (Goff[1:, a] == 0)).astype(float)
+        w = off.copy(); w[1:] += off[:-1]; w[:-1] += off[1:]
+        for b in range(m):
+            if a != b:
+                on = (Gon[:-1, b] == 0) & (Gon[1:, b] == 1)
+                cnt[a, b] = float((w * on).sum())
+    return cnt
+
+
+def _wave_edges(G, n_perm=40):
+    """MOVEMENT: handoffs that beat 1.5× the jitter null's best day."""
+    real = _wave_handoff_counts(G, G)
+    m = G.shape[1]
+    null = np.zeros((n_perm, m, m))
+    for k in range(n_perm):
+        Gj = np.column_stack([_wave_jitter(G[:, j]) for j in range(m)])
+        null[k] = _wave_handoff_counts(G, Gj)
+    thr = null.max(axis=0)
+    return [(a, b) for a in range(m) for b in range(m)
+            if a != b and real[a, b] > max(1.5 * thr[a, b], 2.0)]
+
+
+def _wave_circles(edges, m):
+    """CIRCLES: closed paths in the handoff graph (rotation-canonical)."""
+    adj = defaultdict(list)
+    for a, b in edges:
+        adj[a].append(b)
+    found = set()
+
+    def dfs(start, node, path):
+        for nxt in adj[node]:
+            if nxt == start and len(path) > 1:
+                k = path.index(min(path))
+                found.add(tuple(path[k:] + path[:k]))
+            elif nxt not in path and len(path) < m:
+                dfs(start, nxt, path + [nxt])
+
+    for s in range(m):
+        dfs(s, s, [s])
+    return sorted(found)
+
+
+# ═════════════════════════════════════════════════════════════════
+# DISCOVERY — the challenge loop. The thing that learns things.
+#
+# Given examples of something he cannot do, find the rule:
+#   compare -> enumerate candidate relations -> admit only what beats its
+#   null -> the survivors ARE the equation -> install it as a law node ->
+#   the challenge is now computable.
+# Term growth is STAGED (candidates grow only around admitted terms — no
+# d^k blowup) and admission is NULL-GATED against the max-over-candidates
+# correlation on permuted residuals (selection-effect decoys die).
+# ═════════════════════════════════════════════════════════════════
+
+def _atom_specs(d):
+    """The vocabulary of forms. Linear-in-COEFFICIENTS over a NONLINEAR
+    library: unary transcendentals (sin/cos/exp at a scale grid — so a
+    single-input challenge is not reduced to polynomials) and pair forms.
+    Scales k live INSIDE the nonlinearity, where regression cannot reach —
+    the grid proposes them, the refine pass sharpens them. Complex-number
+    structure enters as damped-oscillation pairs: exp(-at)*cos(bt) is the
+    real face of exp((-a+bi)t)."""
+    specs = [("var", i, None, None) for i in range(d)]
+    for i in range(d):
+        for k in (0.5, 1.0, 2.0, 3.0, 4.5, 6.0, 8.0):
+            specs += [("sin", i, None, k), ("cos", i, None, k)]
+        for k in (0.25, 0.5, 1.0, -0.25, -0.5, -1.0):   # decay AND growth
+            specs.append(("exp", i, None, k))
+    for i in range(d):
+        for j in range(i + 1, d):
+            for k in (0.5, 1.0, 2.0):
+                specs += [("cosd", i, j, k), ("sind", i, j, k)]
+            for k in (0.5, 1.0, 1.5):
+                specs.append(("coshd", i, j, k))
+    return specs
+
+
+def _atom_col(X, spec):
+    kind, i, j, k = spec
+    if kind == "var":
+        return X[:, i]
+    if kind == "sin":
+        return np.sin(k * X[:, i])
+    if kind == "cos":
+        return np.cos(k * X[:, i])
+    if kind == "exp":
+        return np.exp(np.clip(-k * X[:, i], -30, 30))
+    diff = np.clip(X[:, i] - X[:, j], -20, 20)
+    if kind == "cosd":
+        return np.cos(k * diff)
+    if kind == "sind":
+        return np.sin(k * diff)
+    return np.cosh(np.clip(k * diff, -15, 15))
+
+
+def _atom_label(spec):
+    kind, i, j, k = spec
+    if kind == "var":
+        return f"x{i}"
+    if kind == "sin":
+        return f"sin({k:g}*x{i})"
+    if kind == "cos":
+        return f"cos({k:g}*x{i})"
+    if kind == "exp":
+        return f"exp({-k:g}*x{i})"
+    op = {"cosd": "cos", "sind": "sin", "coshd": "cosh"}[kind]
+    return f"{op}({k:g}*(x{i}-x{j}))"
+
+
+def _disc_col(A, term):
+    v = A[:, term[0]].copy()
+    for a in term[1:]:
+        v = v * A[:, a]
+    return v
+
+
+class _Enumerator:
+    def __init__(self, max_degree=3, n_perm=40, pct=95):
+        self.max_degree, self.n_perm, self.pct = max_degree, n_perm, pct
+        self.terms, self.coefs, self.intercept = [], np.array([]), 0.0
+
+    def fit(self, X, y):
+        self.X = X
+        self.specs = _atom_specs(X.shape[1])
+        self.A = np.column_stack([_atom_col(X, s) for s in self.specs])
+        n_atoms = self.A.shape[1]
+        n_vars = X.shape[1]
+        frontier = [(i,) for i in range(n_atoms)]
+        frontier += [(i, j) for i in range(n_vars) for j in range(i, n_vars)]
+        seen = set(frontier)
+        while True:
+            cand = [t for t in frontier if t not in self.terms]
+            M = np.column_stack([_disc_col(self.A, t) for t in cand])
+            Ms = (M - M.mean(0)) / (M.std(0) + 1e-12)
+            r = y - self._fit_predict(y)
+            rs = (r - r.mean()) / (r.std() + 1e-12)
+            real = np.abs(Ms.T @ rs) / len(y)
+            null_max = np.empty(self.n_perm)
+            for k in range(self.n_perm):
+                null_max[k] = np.max(np.abs(Ms.T @ _wave_rng.permutation(rs))) / len(y)
+            gate = np.percentile(null_max, self.pct)
+            if real.max() <= gate:
+                break                               # nothing beats its null
+            # raw residual correlation is myopic: a degenerate surrogate (a
+            # wide cosine mimicking a parabola) can out-correlate the TRUE
+            # form on a bounded range. Judge the top candidates by how far
+            # they actually go — trial-admit, refit, sharpen the inside-
+            # parameter, score by train R2; parsimony breaks ties.
+            base = list(self.terms)
+            trials = []
+            # shortlist needs STRUCTURAL DIVERSITY, not just top correlation:
+            # bounded transcendental atoms are better-conditioned than heavy-
+            # tailed raw variables, so the true raw-variable factor can sit
+            # below the correlation top-10 and never get trialed. Guarantee
+            # the best simple candidates (raw vars, low flexibility) a trial.
+            ranks = [int(i) for i in np.argsort(-real)]
+            simple = [ci for ci in ranks
+                      if any(self.specs[a][0] == "var" for a in cand[ci])
+                      and sum(1 for a in cand[ci]
+                              if self.specs[a][3] is not None) <= 1]
+            pure = [ci for ci in ranks
+                    if all(self.specs[a][3] is None for a in cand[ci])]
+            shortlist = list(dict.fromkeys(ranks[:8] + simple[:4] + pure[:3]))
+            for ci in shortlist:
+                if real[ci] <= gate:
+                    continue
+                self.terms = base + [cand[ci]]
+                self._refit(y)
+                self._refine_term(y, len(self.terms) - 1)
+                # explicit parsimony pressure: a scale-parameterized atom is
+                # flexible enough to mimic simpler forms on a bounded range
+                # (a wide cosine IS a parabola locally) — so it must BUY its
+                # flexibility with real R2. Flexibility already paid for is
+                # free: only NEWLY introduced scale-atoms are charged.
+                used_atoms = {a for t0 in base for a in t0}
+                comp = sum(1 for a in self.terms[-1]
+                           if self.specs[a][3] is not None
+                           and a not in used_atoms)
+                r2t = self._train_r2(y)
+                pred = self._fit_predict(y)
+                trials.append(dict(
+                    done=r2t >= 0.995, r2=r2t,
+                    sse=float(np.sum((y - pred) ** 2)), comp=comp,
+                    tlen=len(self.terms[-1]), terms=list(self.terms)))
+                self.terms = base
+            if not trials:
+                break
+            done_set = [tr for tr in trials if tr["done"]]
+            if done_set:
+                # completers are judged STATISTICALLY: the F-test says
+                # whether the best completer's edge over a rival is real
+                # (red-team A1: gap 0.00024 in R2 was F~80, decisive) or a
+                # noise-ceiling tie (2%-term surrogates: F~4). Significance
+                # decides; genuine ties go to the SIMPLER form.
+                bestd = min(done_set, key=lambda tr: tr["sse"])
+                dof = max(bestd["sse"] / len(y), 1e-30)
+                tied = [tr for tr in done_set
+                        if (tr["sse"] - bestd["sse"]) / dof < 10.0]
+                chosen = min(tied, key=lambda tr: (tr["comp"], tr["tlen"],
+                                                   tr["sse"]))
+            else:
+                chosen = max(trials,
+                             key=lambda tr: (tr["r2"] - 0.02 * tr["comp"],
+                                             -tr["tlen"]))
+            self.terms = chosen["terms"]
+            self._refit(y)
+            t = self.terms[-1]
+            if len(t) < self.max_degree:            # beam: grow around winners
+                for a in range(n_atoms):
+                    nt = tuple(sorted(t + (a,)))
+                    if len(nt) <= self.max_degree and nt not in seen:
+                        seen.add(nt); frontier.append(nt)
+        self._refine(y)                             # sharpen inside-parameters
+        if self.terms:                              # a term must carry weight
+            keep = [t for t, c in zip(self.terms, self.coefs)
+                    if abs(c) * _disc_col(self.A, t).std() > 0.02 * y.std()]
+            self.terms = keep
+            self._refit(y)
+        return self
+
+    def _refine(self, y, sweeps=3):
+        """Regression finds coefficients; it cannot reach parameters INSIDE a
+        nonlinearity (frequency, decay, scale). Hill-climb each admitted
+        term's k by trial-refit — the grid proposes, this sharpens."""
+        if not self.terms:
+            return
+        self._refit(y)
+        for _ in range(sweeps):
+            improved = False
+            for ti in range(len(self.terms)):
+                improved |= self._refine_term(y, ti)
+            if not improved:
+                break
+
+    def _refine_term(self, y, ti, sweeps=2):
+        improved_any = False
+        for _ in range(sweeps):
+            improved = False
+            t = self.terms[ti]
+            for pos, ai in enumerate(t):
+                kind, i, j, k = self.specs[ai]
+                if k is None:
+                    continue
+                base = self._train_r2(y)
+                for mult in (0.7, 0.85, 1.15, 1.4):
+                    s2 = (kind, i, j, float(k * mult))
+                    self.specs.append(s2)
+                    self.A = np.column_stack([self.A, _atom_col(self.X, s2)])
+                    trial = list(t); trial[pos] = len(self.specs) - 1
+                    old = self.terms[ti]
+                    self.terms[ti] = tuple(trial)
+                    self._refit(y)
+                    if self._train_r2(y) > base + 1e-6:
+                        improved = improved_any = True
+                        t = self.terms[ti]
+                        break
+                    self.terms[ti] = old
+                    self._refit(y)
+            if not improved:
+                break
+        return improved_any
+
+    def _train_r2(self, y):
+        p = self._fit_predict(y)
+        ss = float(np.sum((y - y.mean()) ** 2))
+        return 1 - float(np.sum((y - p) ** 2)) / max(ss, 1e-12)
+
+    def rival_check(self, y, f_thr=10.0):
+        """IDENTIFIABILITY: the classic look-alikes (parabola vs wide cosine,
+        exponential vs cubic, decay vs hyperbola...) agree on the dense
+        center of the data and split in tails and past turning points. For
+        each admitted single-feature term, swap in each rival FORM, refit,
+        refine, F-test. Rivals the data cannot reject stay ALIVE on the law's
+        record, each with a PROBE: where to sample to split them."""
+        SHAPES = [("linear", [("var",)]),
+                  ("quadratic", [("var",), ("var",)]),
+                  ("cubic", [("var",), ("var",), ("var",)]),
+                  ("cosine", [("cos", 1.0)]),
+                  ("sine", [("sin", 1.0)]),
+                  ("exp_decay", [("exp", 0.5)]),
+                  ("exp_growth", [("exp", -0.5)])]
+        out = []
+        n = len(y)
+        base_terms = [tuple(t) for t in self.terms]
+        base_sse = float(np.sum((y - self._fit_predict(y)) ** 2))
+        base_coefs, base_int = self.coefs.copy(), self.intercept
+        for ti, t in enumerate(base_terms):
+            feats = {self.specs[a][1] for a in t}
+            feats |= {self.specs[a][2] for a in t
+                      if self.specs[a][2] is not None}
+            if len(feats) != 1:
+                continue                      # unary confusions first
+            i = int(list(feats)[0])
+            kinds = tuple(sorted(self.specs[a][0] for a in t))
+            for shape_name, atoms in SHAPES:
+                s_kinds = tuple(sorted(a[0] for a in atoms))
+                if s_kinds == kinds:
+                    continue                  # that IS the current form
+                term = []
+                for a in atoms:
+                    spec = (a[0], i, None, a[1] if len(a) > 1 else None)
+                    self.specs.append(spec)
+                    self.A = np.column_stack([self.A,
+                                              _atom_col(self.X, spec)])
+                    term.append(len(self.specs) - 1)
+                self.terms = [list(x) for x in base_terms]
+                self.terms[ti] = tuple(term)
+                self.terms = [tuple(x) for x in self.terms]
+                self._refit(y)
+                self._refine_term(y, ti)
+                sse = float(np.sum((y - self._fit_predict(y)) ** 2))
+                better = min(sse, base_sse)
+                F = (max(sse, base_sse) - better) / max(better / n, 1e-30)
+                if F < f_thr:                 # the data cannot tell them apart
+                    lo, hi = self.X[:, i].min(), self.X[:, i].max()
+                    span = hi - lo
+                    xs = np.linspace(lo - 0.75 * span, hi + 0.75 * span, 300)
+                    Xs = np.tile(np.median(self.X, axis=0), (300, 1))
+                    Xs[:, i] = xs
+                    p_riv = self.predict(Xs)
+                    riv = dict(terms=[list(x) for x in self.terms],
+                               coefs=self.coefs.copy(),
+                               intercept=self.intercept,
+                               specs=list(self.specs),
+                               equation=self.equation())
+                    self.terms = [tuple(x) for x in base_terms]
+                    self.coefs, self.intercept = base_coefs, base_int
+                    p_cho = self.predict(Xs)
+                    gap = np.abs(p_cho - p_riv)
+                    x_star = float(xs[int(np.argmax(gap))])
+                    out.append(dict(term=ti, feature=i, rival=shape_name,
+                                    F=round(float(F), 1), model=riv,
+                                    probe=dict(feature=i, x=round(x_star, 2),
+                                               gap=round(float(gap.max()), 3),
+                                               beyond=bool(x_star < lo or
+                                                           x_star > hi)),
+                                    rival_equation=riv["equation"]))
+                self.terms = [tuple(x) for x in base_terms]
+                self._refit(y)
+        self.terms = [tuple(x) for x in base_terms]
+        self._refit(y)
+        return out
+
+    def _design(self, A=None):
+        A = self.A if A is None else A
+        if not self.terms:
+            return np.ones((A.shape[0], 1))
+        return np.column_stack([_disc_col(A, t) for t in self.terms]
+                               + [np.ones(A.shape[0])])
+
+    def _refit(self, y):
+        beta = np.linalg.lstsq(self._design(), y, rcond=None)[0]
+        self.coefs, self.intercept = beta[:-1], float(beta[-1])
+
+    def _fit_predict(self, y):
+        if not self.terms:
+            return np.full_like(y, y.mean())
+        return self._design() @ np.concatenate([self.coefs, [self.intercept]])
+
+    def predict(self, X):
+        X = np.asarray(X, float)
+        if not self.terms:
+            return np.full(len(X), self.intercept)
+        used = sorted({a for t in self.terms for a in t})
+        cols = {a: _atom_col(X, self.specs[a]) for a in used}
+        D = np.column_stack(
+            [np.prod([cols[a] for a in t], axis=0) for t in self.terms]
+            + [np.ones(len(X))])
+        return D @ np.concatenate([self.coefs, [self.intercept]])
+
+    def equation(self):
+        if not self.terms:
+            return "NO RULE (nothing beat the null)"
+        parts = [f"{c:+.2f}*{'*'.join(_atom_label(self.specs[a]) for a in t)}"
+                 for t, c in zip(self.terms, self.coefs)]
+        return " ".join(parts) + f" {self.intercept:+.2f}"
+
+
 class Isaac:
     def __init__(self):
         self.net = Net()
@@ -232,6 +677,14 @@ class Isaac:
         self._consolidated_up_to = 0     # how many sequences consolidated
         self._type_profiles = {}          # cached type profiles
 
+        # ── wave state ──────────────────────────────────────────
+        self.activation_log = []          # one frozenset of active nodes per instant
+        self.wave_logging = True          # observe/think record ticks automatically
+        self.waves = {}                   # wave_consolidate() results
+        self.followed = {}                # circles being tracked (his clock)
+        self.phase_log = {}               # circle -> [(log_index, phase)]
+        self.world = World(self)          # entity states: temporary statuses live here
+
     # ── observation ─────────────────────────────────────────────
 
     def observe(self, tokens):
@@ -249,6 +702,11 @@ class Isaac:
             self._dirty_nodes.add(t)
         # Stage 1: immediately slot new tokens into existing types
         self._sense(tokens)
+        # wave sensing: each token is one instant; it lights together with
+        # the types it opens — simultaneity the wave pass can see
+        if self.wave_logging:
+            for t in tokens:
+                self.tick({t} | self.net.get_doors(t, tag="type"))
 
     def _sense(self, tokens):
         """Stage 1 (SENSE): check if new tokens fit existing types.
@@ -537,6 +995,441 @@ class Isaac:
         return self.consolidate(tag=tag, min_shared=min_shared,
                                 verbose=verbose, full=True)
 
+    # ── waves: temporal crystallization ─────────────────────────
+
+    def tick(self, active):
+        """Record one instant of simultaneous activation. Any sensing path
+        may call this directly (a retina, a game loop, a sensor frame);
+        observe() and the think loop call it automatically.
+
+        If a circle is being followed (see follow()), every tick also advances
+        his phase register, registers expectation against observation, and
+        opens/clears temporary statuses — whose miss-doors join THIS tick, so
+        the ordinary machinery can crystallize them later. (Clock ticks are
+        sensory ticks: mixing unrelated observe() streams into a followed
+        sensor stream will dead-reckon the clock forward — keep one stream
+        per episode, or pause with wave_logging=False.)"""
+        if not active:
+            return
+        active = set(active)
+        for circle in list(self.followed):
+            active |= self._track(circle, active)
+        self.activation_log.append(frozenset(active))
+
+    def follow(self, circle):
+        """Attend to a discovered circle: initialize his clock over its phases.
+        State lives in scratch; transitions are the circle's own wave_next
+        doors; dwell (for dead reckoning) was learned at consolidation."""
+        phases = [p for p in self.net.get_predecessors(circle, tag="wave")
+                  if str(p).startswith("wave:")]
+        if not phases:
+            return False
+        order, pset = [phases[0]], set(phases)
+        while len(order) < len(phases):
+            nxt = [d for d in self.net.get_doors(order[-1], tag="wave_next")
+                   if d in pset and d not in order]
+            if not nxt:
+                order += [p for p in phases if p not in order]
+                break
+            order.append(nxt[0])
+        self.followed[circle] = {
+            "order": order,
+            "members": {p: set(self.net.get_predecessors(p, tag="wave"))
+                        for p in order},
+            "dwell": {p: float(self.net.get_meta(p, "dwell", 3.0))
+                      for p in order}}
+        self.scratch.write(f"phase@{circle}", None)
+        self.scratch.write(f"dwell@{circle}", 0)
+        self.phase_log.setdefault(circle, [])
+        return True
+
+    def _track(self, circle, active):
+        """One clock step: evidence advances the phase (via recognize_doors —
+        partial recognition, so an occluded entity still fires); learned dwell
+        dead-reckons when evidence is hidden. Expected-but-dark doors that
+        persist open temporary statuses: a status is a world-state fact AND a
+        door fed back into the stream."""
+        f = self.followed[circle]
+        reg, dw = f"phase@{circle}", f"dwell@{circle}"
+        fired = self.recognize_doors(active, tag="part", threshold=0.5)
+        cur = self.scratch.read(reg)
+        order = f["order"]
+        if cur is None:                                # first evidence seats the clock
+            cands = [p for p in order if p in fired]
+            if not cands:
+                return set()
+            cur = max(cands, key=lambda p: fired[p])
+            self.scratch.write(reg, cur)
+            self.scratch.write(dw, 0)
+        nxt = order[(order.index(cur) + 1) % len(order)]
+        advanced = False
+        if fired.get(nxt, 0) >= 0.5 and fired.get(cur, 0) < 0.5:
+            advanced = True
+        elif cur not in fired and (self.scratch.read(dw) or 0) >= f["dwell"][cur]:
+            advanced = True
+        if advanced:
+            # the entity leaves the stage: nothing is expected of it now, so
+            # its open statuses close (absence-by-night is not a status)
+            for d in f["members"][cur]:
+                self.scratch.write(f"miss#{circle}#{d}", 0)
+                self.world.clear_state(cur, f"missing {d}")
+            self.scratch.write(reg, nxt); self.scratch.write(dw, 0); cur = nxt
+        else:
+            self.scratch.incr(dw)
+        # registration: what the phase EXPECTS vs what is seen
+        extras = set()
+        for d in f["members"][cur]:
+            key = f"miss#{circle}#{d}"
+            if d in active:
+                self.scratch.write(key, 0)
+                self.world.clear_state(cur, f"missing {d}")
+            else:
+                self.scratch.incr(key)
+                if (self.scratch.read(key) or 0) >= 2:   # persistent, not flicker
+                    extras.add(f"miss:{d}")
+                    self.world.set_state(cur, f"missing {d}")
+        self.phase_log[circle].append((len(self.activation_log), cur))
+        return extras
+
+    def _teach_fact(self, subject, relation, obj):
+        """Index a discovered relation for the reasoning layer (fact_index +
+        a tagged door). Not teach(): the tokenizer would shred structured
+        node names like 'wave:a_b[2]'."""
+        if obj not in self.fact_index[(subject, relation)]:
+            self.fact_index[(subject, relation)].append(obj)
+        self.net.add_door(str(subject), str(obj), tag=relation)
+
+    # ── discovery: the challenge loop ───────────────────────────
+
+    def discover(self, X, y, name=None, verbose=False):
+        """THE CHALLENGE LOOP. Given examples of something he cannot yet do
+        (inputs X -> outcome y), find the rule. Half the examples are held
+        out — the rule must WORK, not merely fit. Four honest verdicts:
+
+          UNDERSTOOD  explicit equation, validated held-out (R2 >= 0.9)
+          PARTIAL     a real equation that explains part; the rest is dark
+          CAPTURED    no equation yet, but stored examples predict held-out
+                      outcomes past the permuted null — caught, not said
+          NO RULE     nothing beats chance: proven nothing, at this class
+
+        An UNDERSTOOD/PARTIAL law becomes a node (law:<name>) with its
+        equation in meta; apply_law() applies it from then on — the
+        challenge has become computable. Facts are indexed for reasoning."""
+        X = np.asarray(X, float); y = np.asarray(y, float)
+        good = np.isfinite(X).all(1) & np.isfinite(y)     # red-team A8
+        if not good.all():
+            X, y = X[good], y[good]
+        half = len(y) // 2
+        enum = _Enumerator()
+        enum.fit(X[:half], y[:half])
+        p = enum.predict(X[half:])
+        ss = float(np.sum((y[half:] - y[half:].mean()) ** 2))
+        r2 = 1 - float(np.sum((y[half:] - p) ** 2)) / max(ss, 1e-12)
+        # right-enough-to-use vs form-true: a surrogate can match the law on
+        # the dense CENTER of the observed range yet diverge at its EDGES.
+        # Score the outer quarter of the held-out set separately and LABEL
+        # the law's scope — both grades are usable, neither is silently the
+        # other.
+        dist = np.linalg.norm(X[half:] - X[:half].mean(0), axis=1)
+        edge = dist >= np.percentile(dist, 75)
+        if edge.sum() >= 20:
+            ss_e = float(np.sum((y[half:][edge] - y[half:][edge].mean()) ** 2))
+            r2_edge = 1 - float(np.sum((y[half:][edge] - p[edge]) ** 2)) \
+                / max(ss_e, 1e-12)
+        else:
+            r2_edge = r2
+        scope = "form-true (edges hold)" if r2_edge >= 0.85 else \
+            "range-valid (usable inside observed range)"
+        cap_r2, cap_null = self._capture(X, y, half)
+        if enum.terms and r2 >= 0.9:
+            verdict = "UNDERSTOOD"
+        elif cap_r2 > max(cap_null + 0.1, 0.2) and cap_r2 > r2 + 0.1:
+            verdict = "CAPTURED"
+        elif enum.terms and r2 >= 0.2:
+            verdict = "PARTIAL"
+        else:
+            verdict = "NO RULE"
+        rivals = []
+        if verdict in ("UNDERSTOOD", "PARTIAL") and enum.terms:
+            rivals = enum.rival_check(y[:half])
+        if name and verdict in ("UNDERSTOOD", "PARTIAL"):
+            node = f"law:{name}"
+            self.net.add_door("law", node, tag="law")
+            self.net.set_meta(node, "model", dict(
+                terms=list(enum.terms), coefs=enum.coefs,
+                intercept=enum.intercept, d=X.shape[1], r2=r2,
+                specs=list(enum.specs), rivals=rivals))
+            self.net.set_meta(node, "equation", enum.equation())
+            self._teach_fact(node, "explains", name or "challenge")
+        if verbose:
+            print(f"    discover[{name}]: {verdict} [{scope}]  R2 {r2:.3f}  "
+                  f"edge {r2_edge:.3f}  captured {cap_r2:.3f}  "
+                  f"eq: {enum.equation()}")
+        return dict(verdict=verdict, equation=enum.equation(),
+                    r2=r2, r2_edge=r2_edge, scope=scope, captured_r2=cap_r2,
+                    rivals=[dict(rival=r["rival"], F=r["F"], probe=r["probe"])
+                            for r in rivals])
+
+    def apply_law(self, name, X):
+        """Apply a discovered law: the challenge, now computable.
+        (Distinct from solve(), the token-problem solver.)"""
+        m = self.net.get_meta(f"law:{name}", "model")
+        if m is None or np.asarray(X).shape[1] != m["d"]:
+            return None
+        X = np.asarray(X, float)
+        used = sorted({a for t in m["terms"] for a in t})
+        cols = {a: _atom_col(X, m["specs"][a]) for a in used}
+        D = np.column_stack(
+            [np.prod([cols[a] for a in t], axis=0) for t in m["terms"]]
+            + [np.ones(len(X))])
+        return D @ np.concatenate([m["coefs"], [m["intercept"]]])
+
+    def confirm(self, name, X, y):
+        """Resolve a tied law with NEW evidence — ideally sampled at the
+        probe the tie names. F-tests every live rival against the chosen
+        form on the new data: decisively beaten rivals retire; a rival that
+        decisively wins OVERTURNS the law, which is rewritten. 'Check both
+        and keep whichever fits, until confirmed.'"""
+        node = f"law:{name}"
+        m = self.net.get_meta(node, "model")
+        if m is None:
+            return None
+        X = np.asarray(X, float); y = np.asarray(y, float)
+
+        def sse_of(model):
+            used = sorted({a for t in model["terms"] for a in t})
+            cols = {a: _atom_col(X, model["specs"][a]) for a in used}
+            D = np.column_stack([np.prod([cols[a] for a in t], axis=0)
+                                 for t in model["terms"]]
+                                + [np.ones(len(X))])
+            p = D @ np.concatenate([model["coefs"], [model["intercept"]]])
+            return float(np.sum((y - p) ** 2))
+
+        chosen = dict(terms=m["terms"], coefs=m["coefs"],
+                      intercept=m["intercept"], specs=m["specs"])
+        s0, n = sse_of(chosen), len(y)
+        kept, winner = [], None
+        for r in m.get("rivals", []):
+            s1 = sse_of(r["model"])
+            better = min(s0, s1)
+            F = (max(s0, s1) - better) / max(better / n, 1e-30)
+            if F < 10.0:
+                kept.append(r)                       # still genuinely tied
+            elif s1 < s0 and (winner is None or s1 < winner[0]):
+                winner = (s1, r)
+        if winner is not None:
+            r = winner[1]
+            m.update(terms=r["model"]["terms"], coefs=r["model"]["coefs"],
+                     intercept=r["model"]["intercept"],
+                     specs=r["model"]["specs"], rivals=[])
+            self.net.set_meta(node, "equation", r["model"]["equation"])
+            self.net.set_meta(node, "model", m)
+            return dict(status=f"OVERTURNED -> {r['rival']}", rivals_left=[])
+        m["rivals"] = kept
+        self.net.set_meta(node, "model", m)
+        return dict(status="CONFIRMED" if not kept
+                    else f"STILL TIED ({len(kept)})",
+                    rivals_left=[r["rival"] for r in kept])
+
+    def _capture(self, X, y, half):
+        """Nearest-exemplar prediction (presence, not average): do stored
+        examples predict held-out outcomes past a permuted-outcome null?
+        If yes, the relationship is CAUGHT even while unarticulated —
+        tracked until discovery can articulate it. No net, no training."""
+        mu, sd = X[:half].mean(0), X[:half].std(0) + 1e-12
+        A, B = (X[:half] - mu) / sd, (X[half:] - mu) / sd
+        d2 = ((B[:, None, :] - A[None, :, :]) ** 2).sum(-1)
+        nn = np.argsort(d2, 1)[:, :5]
+        yh = y[half:]
+        ss = float(np.sum((yh - yh.mean()) ** 2))
+
+        def r2_of(vals, nn_idx):
+            pred = vals[nn_idx].mean(1)
+            return 1 - float(np.sum((yh - pred) ** 2)) / max(ss, 1e-12)
+
+        # per-feature 1-D neighbors too: a rule living in ONE feature must
+        # not be drowned by 30 irrelevant distance dimensions (red-team A4)
+        nns = [nn]
+        for j in range(A.shape[1]):
+            d1 = np.abs(B[:, j:j + 1] - A[None, :, j])
+            nns.append(np.argsort(d1, 1)[:, :5])
+        real, best_nn = max(((r2_of(y[:half], m), m) for m in nns),
+                            key=lambda t: t[0])
+        null = max(r2_of(_wave_rng.permutation(y[:half]), best_nn)
+                   for _ in range(20))
+        return real, null
+
+    def wave_consolidate(self, min_count=5, n_perm=40, verbose=False):
+        """IDLE MODE, temporal: crystallize the activation STREAM.
+
+        Where consolidate() compares door profiles (order-blind),
+        this compares each instant of the whole matrix to the next:
+          groups   — doors that light together (simultaneity, a real thing)
+          edges    — one group dims as another lights (the wave moving)
+          circles  — waves that return to their start
+          level 2  — the same three over circle-activity: patterns of patterns
+        Discoveries enter the net as first-class nodes (tag 'wave', order in
+        tag 'wave_next') so they can compose upward like anything else.
+        Every admission beats a jitter null. Shuffle the log in time and
+        the groups survive but every edge and circle dies — that is exactly
+        the slice of structure the static crystallizer cannot see."""
+        log = self.activation_log
+        empty = {"groups": [], "edges": [], "circles": [], "level2": {}}
+        if len(log) < 30:
+            return empty
+        counts = defaultdict(int)
+        for fs in log:
+            for n in fs:
+                counts[n] += 1
+        doors = sorted(str(n) for n, c in counts.items() if c >= min_count)
+        if len(doors) < 2:
+            return empty
+        idx = {n: j for j, n in enumerate(doors)}
+        S = np.zeros((len(log), len(doors)))
+        for t, fs in enumerate(log):
+            for n in fs:
+                j = idx.get(str(n))
+                if j is not None:
+                    S[t, j] = 1.0
+        groups_ix = _wave_groups(S, n_perm)
+        if not groups_ix:
+            return empty
+        G = np.column_stack([(S[:, list(g)].mean(1) >= 0.5).astype(float)
+                             for g in groups_ix])
+
+        # conditional rescue: a door exiled from its group by heavy
+        # interference re-joins when membership is re-tested WHERE a candidate
+        # blocker is absent — and the blocker is a 'blocks' fact, discovered
+        # in the same move. (Occlusion weakens correlation; conditioning on
+        # the blocker's absence restores it. Decompose to find comparability.)
+        grouped_ix = {j for g in groups_ix for j in g}
+        pending_blocks = []
+        for j in range(len(doors)):
+            if j in grouped_ix or doors[j].startswith("miss:"):
+                continue
+            x = S[:, j]
+            if x.std() < 1e-9:
+                continue
+            best = None
+            for gi in range(len(groups_ix)):
+                uncond = float(np.corrcoef(x, G[:, gi])[0, 1])
+                for bi in range(len(groups_ix)):
+                    if bi == gi:
+                        continue
+                    off = G[:, bi] == 0
+                    if off.sum() < 150:
+                        continue
+                    xs, gs = x[off], G[off, gi]
+                    if xs.std() < 1e-9 or gs.std() < 1e-9:
+                        continue
+                    c = float(np.corrcoef(xs, gs)[0, 1])
+                    null = [abs(float(np.corrcoef(
+                        _wave_rng.permutation(xs), gs)[0, 1]))
+                        for _ in range(30)]
+                    if c > max(2 * np.percentile(null, 95), 0.35) \
+                            and c - uncond > 0.1:
+                        if best is None or c > best[0]:
+                            best = (c, gi, bi)
+            if best is not None:
+                _, gi, bi = best
+                groups_ix[gi] = tuple(sorted(groups_ix[gi] + (j,)))
+                pending_blocks.append((bi, doors[j]))
+        if pending_blocks:                       # membership changed: re-derive
+            G = np.column_stack([(S[:, list(g)].mean(1) >= 0.5).astype(float)
+                                 for g in groups_ix])
+
+        groups = [tuple(doors[j] for j in g) for g in groups_ix]
+        edges_ix = _wave_edges(G, n_perm)
+        circles_ix = _wave_circles(edges_ix, len(groups))
+
+        # discoveries become nodes — same naming shape as type crystals.
+        # 'wave' doors: member -> group (identity); 'part' doors: group ->
+        # member (so recognize_doors can fire the group from partial members
+        # — permanence through the existing organ). Dwell meta = his clock.
+        gname = []
+        for gi, g in enumerate(groups):
+            name = f"wave:{'_'.join(g[:2])}[{len(g)}]"
+            gname.append(name)
+            col = G[:, gi]
+            runs, r = [], 0
+            for v in col:
+                r = r + 1 if v else (runs.append(r) or 0 if r else 0)
+            if r:
+                runs.append(r)
+            self.net.set_meta(name, "dwell", float(np.mean(runs)) if runs else 3.0)
+            for m in g:
+                self.net.add_door(m, name, tag="wave")
+                self.net.add_door(name, m, tag="part")
+                self._teach_fact(m, "part_of", name)
+        edges = [(gname[a], gname[b]) for a, b in edges_ix]
+        for a, b in edges:
+            self.net.add_door(a, b, tag="wave_next")
+        circles = []
+        for c in circles_ix:
+            cname = "circle:" + ">".join(groups[i][0] for i in c)
+            circles.append(cname)
+            for i in c:
+                self.net.add_door(gname[i], cname, tag="wave")
+                self.net.add_door(cname, gname[i], tag="part")
+                self._teach_fact(gname[i], "phase_of", cname)
+        for bi, dname in pending_blocks:         # rescue's discovered blockers
+            self._teach_fact(gname[bi], "blocks", dname)
+
+        # one level up: each circle's activity is a door; same machinery
+        level2 = {}
+        if len(circles_ix) >= 2:
+            A = np.column_stack([G[:, list(c)].max(1) for c in circles_ix])
+            K = np.ones(3) / 3.0                     # smooth handoff flicker
+            A = np.column_stack([(np.convolve(A[:, j], K, mode="same") >= 0.5)
+                                 .astype(float) for j in range(A.shape[1])])
+            keys = [tuple(int(v) for v in r) for r in A]
+            uniq = sorted(set(keys))
+            if len(uniq) >= 2:
+                S2 = np.zeros((len(keys), len(uniq)))
+                for t, k in enumerate(keys):
+                    S2[t, uniq.index(k)] = 1.0
+                e2 = _wave_edges(S2, n_perm)
+                level2 = {"states": uniq, "edges": e2,
+                          "circles": _wave_circles(e2, len(uniq))}
+
+        # statuses are doors: explain each one WITHIN its entity's own
+        # timeframe (the ticks where the tracker had that phase) using the
+        # SAME co-activation machinery — explanations EMERGE, then enter the
+        # reasoning layer as 'blocks' facts.
+        explanations = []
+        for sd in [d for d in doors if d.startswith("miss:")]:
+            target = sd[5:]
+            for gname_t in self.net.get_doors(target, tag="wave"):
+                ent_members = set(self.net.get_predecessors(gname_t, tag="wave"))
+                for circle, plog in self.phase_log.items():
+                    rows = [ti for ti, ph in plog if ph == gname_t and ti < len(log)]
+                    if len(rows) < 60:
+                        continue
+                    cols = [d for d in doors
+                            if d not in ent_members
+                            and (not d.startswith("miss:") or d == sd)]
+                    sub = S[np.array(rows)][:, [idx[d] for d in cols]]
+                    for eg in _wave_groups(sub, n_perm):
+                        names_e = [cols[j] for j in eg]
+                        if sd in names_e:
+                            co = [n for n in names_e if n != sd]
+                            for c in co:
+                                self._teach_fact(c, "blocks", target)
+                            for W in set(self.net.get_doors(co[0], tag="wave")) if co else set():
+                                if set(self.net.get_predecessors(W, tag="wave")) <= set(co) | {sd}:
+                                    self._teach_fact(W, "blocks", target)
+                            explanations.append((sd, sorted(co)))
+
+        self.waves = {"groups": groups, "edges": edges, "circles": circles,
+                      "circle_orders": [[gname[i] for i in c] for c in circles_ix],
+                      "level2": level2, "explanations": explanations}
+        if verbose:
+            print(f"    waves: {len(groups)} groups, {len(edges)} handoffs, "
+                  f"{len(circles)} circles, "
+                  f"{len(level2.get('circles', []))} level-2 circles, "
+                  f"{len(explanations)} explained statuses")
+        return self.waves
+
     def _encode(self, context):
         """Encode context tokens into the input vector.
         Full frame gets highest weight. Partial trailing frames get lower.
@@ -698,6 +1591,10 @@ class Isaac:
         self._ensure_compiled()
         if not self._compiled:
             return (None, 0.0) if mode == "lookup" else (False, 0.0)
+
+        # wave sensing: thinking about a context IS simultaneous activation
+        if self.wave_logging and context:
+            self.tick(set(context))
 
         # ── Stage 2: RECALL — what do I know about this? ────────
         knowledge = self._recall(context)
@@ -999,24 +1896,42 @@ class Isaac:
 
     # ── crystal: transplant a net/features into box-concepts IN THE NET ──
 
-    def fit_lens(self, name, X, y=None, lift=0, select=None, seed=0):
+    def fit_lens(self, name, X, y=None, lift=0, select=None, seed=0,
+                 rotate=True):
         """Register an ALIGNER as net infrastructure: optional random lift
-        (spread the data so classes pull apart) + strip-DC (centering, his
-        'remove the shared') + discriminative dim-select. It is WIRED now but
-        lives in the net as a 'lens:<name>' node, so a learned aligner (his
-        crystallizer finding the box-friendly view) can replace it later with
-        the same interface. This is the alignment step, made his, made swappable."""
+        (spread the data so classes pull apart) + basis-first alignment +
+        discriminative dim-select. Lives in the net as a 'lens:<name>' node.
+
+        The default alignment is now the NULL-GATED BASIS (the learned aligner
+        this slot was reserved for): standardize, then rotate only along
+        correlations that beat the sampling null (~3/sqrt(n)) — the basis
+        itself must beat chance, otherwise near-identity eigenvectors are
+        noise-driven arbitrary rotations. rotate=False restores plain
+        strip-DC."""
         g = np.random.default_rng(seed); R = b = None; H = np.asarray(X, float)
         if lift:
             R = g.standard_normal((H.shape[1], lift)) / np.sqrt(H.shape[1])
             b = g.standard_normal(lift) * 0.1
             H = np.maximum(H @ R + b, 0.0)
-        dc = H.mean(0); Hc = H - dc
+        mu = sd = rot = None
+        dc = H.mean(0)
+        if rotate and len(H) >= 30:
+            mu, sd = H.mean(0), H.std(0) + 1e-12
+            Z = (H - mu) / sd
+            C = np.nan_to_num(np.corrcoef(Z, rowvar=False))
+            gate = np.abs(C) >= 3.0 / np.sqrt(len(Z))
+            np.fill_diagonal(gate, True)
+            w, V = np.linalg.eigh(np.where(gate, C, 0.0))
+            rot = V[:, np.argsort(-w, kind="stable")]
+            Hc = Z @ rot
+        else:
+            Hc = H - dc
         dims = (_fisher(Hc, y, select)
                 if (select and y is not None and select < Hc.shape[1]) else None)
         node = f"lens:{name}"
         self.net.add_door("lens", node, tag="lens")
-        self.net.set_meta(node, "transform", dict(R=R, b=b, dc=dc, dims=dims))
+        self.net.set_meta(node, "transform",
+                          dict(R=R, b=b, dc=dc, mu=mu, sd=sd, rot=rot, dims=dims))
         return name
 
     def apply_lens(self, name, X):
@@ -1027,47 +1942,64 @@ class Isaac:
         H = np.asarray(X, float)
         if t.get("R") is not None:
             H = np.maximum(H @ t["R"] + t["b"], 0.0)
-        if t.get("dc") is not None:
+        if t.get("rot") is not None:
+            H = ((H - t["mu"]) / t["sd"]) @ t["rot"]
+        elif t.get("dc") is not None:
             H = H - t["dc"]
         if t.get("dims") is not None:
             H = H[:, t["dims"]]
         return H
 
-    def crystallize_features(self, X, y, lens=None, margin=1.5):
-        """Transplant: one box-concept per class as a NODE in the net, with
-        per-dim [lo,hi,med] in its meta, tagged 'crystal'. These concepts sit in
-        the same net as his language/math knowledge — one substrate."""
+    def crystallize_features(self, X, y, lens=None, margin=1.5, bins=12):
+        """Transplant: one concept per class as a NODE in the net, tagged
+        'crystal'. The concept's doors are now OBSERVED DISTRIBUTIONS
+        (quantile-binned per-dim log-densities) — observe + matmul, not a
+        fitted box. Boxes were a ceiling: they cap on diagonal data and flip
+        verdicts under re-encoding (rebuild A head-to-head). The legacy box
+        meta is still written so recognize_matrix and old scripts keep
+        running; classification no longer uses it."""
         H = self.apply_lens(lens, X)
+        d = H.shape[1]
+        qs = np.linspace(0, 100, bins + 1)[1:-1]
+        edges = np.stack([np.percentile(H[:, j], qs) for j in range(d)])
         Hq, qlo, qhi = _quantize(H)
         for c in np.unique(y):
-            obs = Hq[y == c]
-            self.net.add_door("crystal", f"concept:{c}", tag="crystal")
-            self.net.set_meta(f"concept:{c}", "box", dict(
-                lo=np.percentile(obs, 1, axis=0) - margin,
-                hi=np.percentile(obs, 95, axis=0) + margin,
-                med=np.median(obs, axis=0)))
-            self.net.set_meta(f"concept:{c}", "label", c)
-        self.net.set_meta("crystal", "calib", dict(qlo=qlo, qhi=qhi, lens=lens))
+            obs = H[y == c]
+            ld = np.empty((d, bins))
+            for j in range(d):
+                cnt = np.bincount(np.searchsorted(edges[j], obs[:, j]),
+                                  minlength=bins).astype(float)
+                ld[j] = np.log((cnt + 1.0) / (cnt.sum() + bins))
+            node = f"concept:{c}"
+            self.net.add_door("crystal", node, tag="crystal")
+            self.net.set_meta(node, "doors", ld)          # observed densities
+            self.net.set_meta(node, "label", c)
+            obs_q = Hq[y == c]                            # legacy box, kept
+            self.net.set_meta(node, "box", dict(
+                lo=np.percentile(obs_q, 1, axis=0) - margin,
+                hi=np.percentile(obs_q, 95, axis=0) + margin,
+                med=np.median(obs_q, axis=0)))
+        self.net.set_meta("crystal", "calib",
+                          dict(qlo=qlo, qhi=qhi, lens=lens, edges=edges))
         return sorted(self.net.get_doors("crystal", tag="crystal"))
 
     def classify_features(self, X):
-        """Classify by his membership (count in-range) + centroid (median dist)
-        over the crystal concept-nodes. Lens + boxes both live in the net."""
+        """Classify by summed log-likelihood over each concept's observed
+        density doors — graded membership, one matmul-shaped decision.
+        Lens + doors both live in the net."""
         calib = self.net.get_meta("crystal", "calib")
         H = self.apply_lens(calib["lens"], np.atleast_2d(np.asarray(X, float)))
-        Hq, _, _ = _quantize(H, calib["qlo"], calib["qhi"])
-        boxes = [(self.net.get_meta(n, "label"), self.net.get_meta(n, "box"))
-                 for n in sorted(self.net.get_doors("crystal", tag="crystal"))]
-        out = []
-        for xi in Hq:
-            best, bc, bd = None, -1, 1e18
-            for label, bx in boxes:
-                inr = (xi >= bx["lo"]) & (xi <= bx["hi"]); cnt = int(inr.sum())
-                dist = float(np.abs(xi[inr] - bx["med"][inr]).sum()) if cnt else 1e18
-                if cnt > bc or (cnt == bc and dist < bd):
-                    bc, bd, best = cnt, dist, label
-            out.append(best)
-        return np.array(out)
+        edges = calib["edges"]
+        concepts = [(self.net.get_meta(n, "label"), self.net.get_meta(n, "doors"))
+                    for n in sorted(self.net.get_doors("crystal", tag="crystal"))]
+        n, d = H.shape
+        scores = np.zeros((n, len(concepts)))
+        for j in range(d):
+            idx = np.searchsorted(edges[j], H[:, j])
+            for k, (_, ld) in enumerate(concepts):
+                scores[:, k] += ld[j][idx]
+        labels = np.array([lab for lab, _ in concepts], dtype=object)
+        return labels[np.argmax(scores, axis=1)]
 
     # ── recognition by PARTIAL DOOR OVERLAP (recursive) ──
 
@@ -2021,6 +2953,288 @@ def test_persistence():
     return correct == 7
 
 
+def test_waves():
+    _div("WAVES — simultaneity, movement, circles")
+    isaac = Isaac()
+    rng = np.random.default_rng(5)
+    # two independent routines wave through his doors, noise flickers around:
+    # day cycle (dwell 3):   sun+light -> work+tools -> moon+dark -> ...
+    # tide cycle (dwell 5):  tide_in+wet <-> tide_out+dry
+    P1 = [("sun", "light"), ("work", "tools"), ("moon", "dark")]
+    P2 = [("tide_in", "wet"), ("tide_out", "dry")]
+    noise = ["gull", "cloud", "truck", "radio"]
+    for _ in range(8):                       # fresh phases: independent waves
+        o1, o2 = int(rng.integers(0, 9)), int(rng.integers(0, 10))
+        for s in range(75):
+            active = set(P1[((s + o1) // 3) % 3]) | set(P2[((s + o2) // 5) % 2])
+            active = {a for a in active if rng.random() < 0.9}   # sensor flicker
+            active |= {n for n in noise if rng.random() < 0.3}
+            isaac.tick(active)
+    waves = isaac.wave_consolidate()
+
+    correct = 0
+    got = {frozenset(g) for g in waves["groups"]}
+    want = {frozenset(p) for p in P1 + P2}
+    ok = got == want
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  simultaneity: the 5 planted pairs, "
+          f"no noise doors ({len(waves['groups'])} groups)")
+
+    ok = sorted(len(c) for c in waves["circle_orders"]) == [2, 3]
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  circles: day-cycle (3) and tide-cycle (2) "
+          f"→ {waves['circles']}")
+
+    ok = all(isaac.net.get_predecessors(c, tag="wave") for c in waves["circles"])
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  circles entered the net as nodes "
+          f"(composable upward)")
+
+    # shuffled time: co-occurrence survives, ALL movement must die
+    shuffled = Isaac()
+    order = rng.permutation(len(isaac.activation_log))
+    shuffled.activation_log = [isaac.activation_log[i] for i in order]
+    w2 = shuffled.wave_consolidate()
+    ok = ({frozenset(g) for g in w2["groups"]} == want
+          and not w2["edges"] and not w2["circles"])
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  shuffled-time control: groups survive, "
+          f"movement dies ({len(w2['edges'])} edges, {len(w2['circles'])} circles)")
+
+    print(f"\n  {correct}/4")
+    return correct == 4
+
+
+def test_tracking():
+    _div("TRACKING — his clock, temporary statuses, emergent explanation")
+    isaac = Isaac()
+    rng = np.random.default_rng(9)
+    SUNd = ["disk", "light", "warm", "sky"]
+    NIGHTd = ["moon", "stars"]
+    CLOUDd = ["cloud_a", "cloud_b"]
+    NOISEd = ["gull", "truck"]
+
+    def build(T):
+        day = np.zeros(T, dtype=int); cl = np.zeros(T, dtype=int)
+        t, ph = 0, 1
+        while t < T:
+            for _ in range(int(rng.integers(8, 15))):
+                if t < T:
+                    day[t] = ph; t += 1
+            ph = 1 - ph
+        t = int(rng.integers(0, 5))
+        while t < T:
+            for _ in range(int(rng.integers(6, 14))):
+                if t < T:
+                    cl[t] = 1; t += 1
+            t += int(rng.integers(8, 16))
+        ticks = []
+        for t in range(T):
+            a = set()
+            base = (SUNd if day[t] else NIGHTd)
+            for dname in base:
+                if dname == "disk" and day[t] and cl[t]:
+                    if rng.random() < 0.05:
+                        a.add(dname)
+                elif rng.random() < 0.9:
+                    a.add(dname)
+            for dname in CLOUDd:
+                if (cl[t] and rng.random() < 0.9) or rng.random() < 0.05:
+                    a.add(dname)
+            a |= {dname for dname in NOISEd if rng.random() < 0.3}
+            ticks.append(a)
+        return ticks, day, cl
+
+    # phase A: plain sensing -> consolidation discovers identity + rhythm
+    ticksA, _, _ = build(1400)
+    for a in ticksA:
+        isaac.tick(a)
+    waves = isaac.wave_consolidate()
+    sun_g = next((g for g in waves["groups"] if "light" in g), None)
+    sun_name = f"wave:{'_'.join(sun_g[:2])}[{len(sun_g)}]" if sun_g else None
+    circle = next((c for c in waves["circles"]
+                   if sun_name in isaac.net.get_predecessors(c, tag="wave")), None)
+    ok = circle is not None and isaac.follow(circle)
+    correct = int(ok)
+    print(f"  {'✓' if ok else '✗'}  day/night circle discovered and followed "
+          f"({circle})")
+    if not ok:
+        print(f"\n  {correct}/5")
+        return False
+
+    # phase B: tracked sensing — clock, statuses, world state
+    ticksB, dayB, clB = build(900)
+    state_hits = phase_hits = 0
+    for t, a in enumerate(ticksB):
+        isaac.tick(a)
+        _, ph = isaac.phase_log[circle][-1] if isaac.phase_log[circle] else (0, None)
+        phase_hits += ((ph == sun_name) == bool(dayB[t]))
+        want = bool(dayB[t] and clB[t])
+        state_hits += (isaac.world.has_state(sun_name, "missing disk") == want)
+    ok = phase_hits / len(ticksB) >= 0.9
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  clock in scratch: phase correct "
+          f"{phase_hits/len(ticksB)*100:.1f}% (incl. occlusion)")
+    ok = state_hits / len(ticksB) >= 0.85
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  temporary status via world state: "
+          f"'sun missing disk' tracks (day AND cloud) "
+          f"{state_hits/len(ticksB)*100:.1f}%/tick")
+
+    # consolidate again: statuses are doors -> explanation emerges -> fact
+    isaac.wave_consolidate()
+    blockers = set()
+    for (s, r), objs in isaac.fact_index.items():
+        if r == "blocks" and "disk" in objs:
+            blockers.add(s)
+    ok = any("cloud" in str(b) for b in blockers) and \
+        not any(n in str(b) for b in blockers for n in NOISEd)
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  explanation emerged and was taught as a "
+          f"fact: blocks(disk) <- {sorted(str(b) for b in blockers)}")
+
+    # permanence through the existing organ
+    fired = isaac.recognize_doors({"light", "warm", "sky"}, tag="part")
+    ok = fired.get(sun_name, 0) >= 0.5
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  recognize_doors: sun fires from partial "
+          f"doors, disk hidden (score {fired.get(sun_name, 0):.2f})")
+
+    print(f"\n  {correct}/5")
+    return correct == 5
+
+
+def test_discovery():
+    _div("DISCOVERY — the challenge loop: the thing that learns things")
+    isaac = Isaac()
+    rng = np.random.default_rng(12)
+    n = 1600
+
+    # (a) a hidden law -> UNDERSTOOD, and the law is REUSABLE
+    X = rng.normal(0, 1, (n, 5))
+    y = X[:, 0] * X[:, 1] + X[:, 2] ** 2 - X[:, 3] + rng.normal(0, 0.02, n)
+    res = isaac.discover(X, y, name="challenge_a")
+    ok = res["verdict"] == "UNDERSTOOD"
+    correct = int(ok)
+    print(f"  {'✓' if ok else '✗'}  hidden law found: {res['verdict']} "
+          f"(held-out R2 {res['r2']:.3f})")
+    print(f"       equation: {res['equation']}")
+
+    Xn = rng.normal(0, 1, (400, 5))
+    yn = Xn[:, 0] * Xn[:, 1] + Xn[:, 2] ** 2 - Xn[:, 3]
+    p = isaac.apply_law("challenge_a", Xn)
+    r2n = 1 - np.sum((yn - p) ** 2) / np.sum((yn - yn.mean()) ** 2)
+    ok = r2n >= 0.99
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  the law is now COMPUTABLE: apply_law() on "
+          f"new instances R2 {r2n:.3f}")
+
+    # (b) a transcendental law (the physics shape)
+    Xb = np.column_stack([rng.lognormal(0, .4, n), rng.lognormal(0, .4, n),
+                          rng.normal(0, 1, n), rng.normal(0, 1, n)])
+    yb = Xb[:, 0] * Xb[:, 1] * np.cos(Xb[:, 2] - Xb[:, 3])
+    yb = yb + rng.normal(0, 0.01 * yb.std(), n)
+    resb = isaac.discover(Xb, yb, name="challenge_b")
+    ok = resb["verdict"] == "UNDERSTOOD"
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  transcendental law: {resb['verdict']} "
+          f"(R2 {resb['r2']:.3f})  {resb['equation']}")
+
+    # (c) pure noise -> he must SAY there is nothing
+    resc = isaac.discover(X, rng.normal(0, 1, n))
+    ok = resc["verdict"] == "NO RULE"
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  pure noise: {resc['verdict']} "
+          f"(no invented equation)")
+
+    # (d) a rule his equation class cannot say (yet): caught, not said
+    Xd = np.column_stack([rng.normal(0, 1, (n, 2)), rng.normal(0, 1, (n, 1))])
+    yd = np.sin(3.0 * Xd[:, 0] * Xd[:, 1])
+    resd = isaac.discover(Xd, yd)
+    ok = resd["verdict"] in ("CAPTURED", "PARTIAL") and resd["r2"] < 0.9
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  hard rule sin(3*x0*x1): {resd['verdict']} "
+          f"(equation R2 {resd['r2']:.3f}, captured {resd['captured_r2']:.3f})"
+          f" — partially said / caught, honestly not UNDERSTOOD")
+
+    # (e) single input, mixed forms — 'it only does linear' is dead here
+    Xe = rng.uniform(-3, 3, (n, 1))
+    ye = 0.5 * Xe[:, 0] ** 2 + 1.5 * np.sin(2 * Xe[:, 0]) \
+        + rng.normal(0, 0.02, n)
+    rese = isaac.discover(Xe, ye, name="challenge_e")
+    ok = rese["verdict"] == "UNDERSTOOD"
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  one input, transcendental+poly: "
+          f"{rese['verdict']} (R2 {rese['r2']:.3f})")
+    print(f"       equation: {rese['equation']}")
+
+    # (f) damped oscillation — the real face of exp((-a+bi)t): complex
+    # structure arrives as an exp*cos PAIR, and the decay 0.4 is NOT on the
+    # atom grid — the refine pass must find it
+    t = rng.uniform(0, 5, n).reshape(-1, 1)
+    yf = np.exp(-0.4 * t[:, 0]) * np.cos(3.0 * t[:, 0]) \
+        + rng.normal(0, 0.01, n)
+    resf = isaac.discover(t, yf, name="challenge_f")
+    ok = resf["verdict"] == "UNDERSTOOD"
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  damped oscillation (complex pair, "
+          f"off-grid decay): {resf['verdict']} (R2 {resf['r2']:.3f})")
+    print(f"       equation: {resf['equation']}")
+
+    print(f"\n  {correct}/7")
+    return correct == 7
+
+
+def test_rivalry():
+    _div("RIVALRY — the classic look-alikes, held open until confirmed")
+    isaac = Isaac()
+    rng = np.random.default_rng(15)
+    n = 1200
+
+    # a pendulum observed only near its center: cos(0.5x) on |x|<1.2 —
+    # parabola territory. The tie must be DECLARED, with a probe.
+    X = rng.uniform(-1.2, 1.2, (n, 2))
+    y = 5.0 * np.cos(0.5 * X[:, 0]) + rng.normal(0, 0.02, n)
+    res = isaac.discover(X, y, name="pendulum")
+    ties = res["rivals"]
+    ok = len(ties) > 0
+    correct = int(ok)
+    print(f"  {'✓' if ok else '✗'}  narrow-range cosine: tie declared with "
+          f"{[t['rival'] for t in ties]} (F {[t['F'] for t in ties]})")
+
+    probes_out = [t for t in ties if t["probe"]["beyond"]]
+    ok = len(probes_out) > 0
+    correct += ok
+    p0 = (probes_out or ties or [dict(probe=dict(x=0))])[0]["probe"]
+    print(f"  {'✓' if ok else '✗'}  probe points OUTSIDE the observed range: "
+          f"sample x0 near {p0.get('x')} (observed was ±1.2)")
+
+    # the discriminating data arrives — the tie must resolve to the cosine
+    X2 = rng.uniform(-4.5, 4.5, (600, 2))
+    y2 = 5.0 * np.cos(0.5 * X2[:, 0]) + rng.normal(0, 0.02, 600)
+    c = isaac.confirm("pendulum", X2, y2)
+    eq = isaac.net.get_meta("law:pendulum", "equation")
+    ok = c is not None and not c["rivals_left"] and "cos" in eq
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  confirm(): {c['status'] if c else None} "
+          f"-> {eq[:60]}")
+
+    # control: a TRUE parabola, same narrow range — must resolve the other way
+    yb = 5.0 - 0.6 * X[:, 0] ** 2 + rng.normal(0, 0.02, n)
+    isaac.discover(X, yb, name="bowl")
+    y2b = 5.0 - 0.6 * X2[:, 0] ** 2 + rng.normal(0, 0.02, 600)
+    cb = isaac.confirm("bowl", X2, y2b)
+    eqb = isaac.net.get_meta("law:bowl", "equation")
+    ok = cb is not None and not cb["rivals_left"] and "x0*x0" in eqb \
+        and "cos" not in eqb.split("x0*x0")[0]
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  control (true parabola): "
+          f"{cb['status'] if cb else None} -> {eqb[:60]}")
+
+    print(f"\n  {correct}/4")
+    return correct == 4
+
+
 # ═════════════════════════════════════════════════════════════════
 # MAIN
 # ═════════════════════════════════════════════════════════════════
@@ -2036,6 +3250,10 @@ if __name__ == "__main__":
     results["reasoning"] = test_reasoning()
     results["decompose"] = test_decompose()
     results["persistence"] = test_persistence()
+    results["waves"] = test_waves()
+    results["tracking"] = test_tracking()
+    results["discovery"] = test_discovery()
+    results["rivalry"] = test_rivalry()
 
     _div("SUMMARY")
     for name, passed in results.items():
