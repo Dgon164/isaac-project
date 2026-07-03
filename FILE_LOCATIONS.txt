@@ -43,8 +43,14 @@ Plus four meta files at the root:
 --------------------------------------------------------------
  RUN THE ENGINE  (the self-test)
 --------------------------------------------------------------
-    cd C:\Users\jtwee\Documents\isaac_project\2_the_machine\code
-    python isaac.py            (expect: 6/6 passed)
+    *** THE LIVE ENGINE (since 2026-07-01) is at the PROJECT ROOT: ***
+    cd C:\Users\jtwee\Documents\isaac_project\code
+    python isaac.py            (expect: 10/10 capability areas passed)
+
+    The curated shareable repo is Documents\isaac-paperclip\ (isaac.py there
+    is byte-identical; its experiments/ + RESULTS_LEDGER.md are the verified
+    evidence). The 2_the_machine\code\isaac.py copy is a STALE 07-01 snapshot
+    (see README_STALE_COPY.md beside it) — do not run or edit it.
 
     On Windows, if box characters error out:
         set PYTHONUTF8=1   (then run)   — or:  PYTHONUTF8=1 python isaac.py

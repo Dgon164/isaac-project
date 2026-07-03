@@ -1258,18 +1258,68 @@ class Isaac:
         scope = "form-true (edges hold)" if r2_edge >= 0.85 else \
             "range-valid (usable inside observed range)"
         cap_r2, cap_null = self._capture(X, y, half)
+        # a real partial equation is knowledge whatever the headline verdict
+        # says — it must never be discarded because capture scored higher
+        # (the CAPTURED-erases-law bug, 2026-07-03 audit)
+        has_law = bool(enum.terms) and r2 >= 0.2
         if enum.terms and r2 >= 0.9:
             verdict = "UNDERSTOOD"
         elif cap_r2 > max(cap_null + 0.1, 0.2) and cap_r2 > r2 + 0.1:
             verdict = "CAPTURED"
-        elif enum.terms and r2 >= 0.2:
+        elif has_law:
             verdict = "PARTIAL"
         else:
             verdict = "NO RULE"
+
+        # ═══ THE ACCOUNTING (audit 2.8): articulated% + captured% + noise%
+        # = 100. Articulated = what the kept equation explains (held-out).
+        # Captured = what exemplars additionally predict ON THE RESIDUAL,
+        # past a permuted null. Noise = the remainder that beat nothing in
+        # this expressive class — proven noise AT THIS CLASS, not absolutely.
+        art = max(0.0, min(r2, 1.0)) if has_law else 0.0
+        if has_law:
+            resid = y - np.concatenate([enum.predict(X[:half]), p])
+            if resid[half:].std() > 1e-9 * max(y.std(), 1e-12):
+                capres, capres_null = self._capture(X, resid, half)
+            else:
+                capres, capres_null = 0.0, 0.0
+        else:
+            resid, capres, capres_null = y - y.mean(), cap_r2, cap_null
+        cap_frac = (max(0.0, min(capres, 1.0)) * (1.0 - art)
+                    if capres > max(capres_null + 0.1, 0.1) else 0.0)
+        accounting = dict(
+            articulated=round(100 * art, 1),
+            captured=round(100 * cap_frac, 1),
+            noise=round(100 * (1.0 - art - cap_frac), 1),
+            noise_meaning="proven at THIS expressive class only: neither the "
+                          "equation library nor exemplar capture beat the "
+                          "permuted null on this remainder")
+        # the unexplained share is a FIRST-CLASS object with a dossier:
+        # can't say what it is; can characterize how it behaves; track it
+        dossier = None
+        if (1.0 - art) > 0.05:
+            rs = resid[half:]
+            cr = np.zeros(X.shape[1])
+            if rs.std() > 1e-12:
+                Z = (X[half:] - X[half:].mean(0)) / (X[half:].std(0) + 1e-12)
+                cr = np.abs((Z * ((rs - rs.mean()) / rs.std())[:, None]
+                             ).mean(0))
+            top = np.argsort(-cr)[:3]
+            dossier = dict(
+                unknown=f"x:{name or 'challenge'}",
+                share_pct=round(100 * (1.0 - art), 1),
+                captured_pct_of_it=round(
+                    100 * cap_frac / max(1e-9, 1.0 - art), 1),
+                responsive_channels=[[int(j), round(float(cr[j]), 3)]
+                                     for j in top],
+                rms=round(float(np.sqrt(np.mean(rs ** 2))), 4),
+                edge_rms=round(float(np.sqrt(np.mean(rs[edge] ** 2)))
+                               if edge.sum() else 0.0, 4))
+
         rivals = []
-        if verdict in ("UNDERSTOOD", "PARTIAL") and enum.terms:
+        if has_law:
             rivals = enum.rival_check(y[:half])
-        if name and verdict in ("UNDERSTOOD", "PARTIAL"):
+        if name and has_law:
             node = f"law:{name}"
             self.net.add_door("law", node, tag="law")
             self.net.set_meta(node, "model", dict(
@@ -1277,25 +1327,33 @@ class Isaac:
                 intercept=enum.intercept, d=X.shape[1], r2=r2,
                 specs=list(enum.specs), rivals=rivals))
             self.net.set_meta(node, "equation", enum.equation())
+            self.net.set_meta(node, "accounting", accounting)
+            if dossier:
+                self.net.set_meta(node, "residual_dossier", dossier)
             self._teach_fact(node, "explains", name or "challenge")
         if verbose:
             print(f"    discover[{name}]: {verdict} [{scope}]  R2 {r2:.3f}  "
                   f"edge {r2_edge:.3f}  captured {cap_r2:.3f}  "
                   f"eq: {enum.equation()}")
+            print(f"      accounting: articulated {accounting['articulated']}"
+                  f"% + captured {accounting['captured']}% + noise "
+                  f"{accounting['noise']}% = 100")
         riv_summary = [dict(rival=r["rival"], F=r["F"], probe=r["probe"])
                        for r in rivals]
         self.record_finding(
-            "law" if verdict in ("UNDERSTOOD", "PARTIAL") else "verdict",
+            "law" if has_law else "verdict",
             name or "challenge", verdict=verdict, equation=enum.equation(),
             r2=r2, r2_edge=r2_edge, scope=scope, captured_r2=cap_r2,
             n=len(y), d=X.shape[1], rivals=riv_summary,
+            accounting=accounting, dossier=dossier,
             model=(dict(terms=list(enum.terms), coefs=enum.coefs,
                         intercept=enum.intercept, d=X.shape[1], r2=r2,
                         specs=list(enum.specs))
-                   if verdict in ("UNDERSTOOD", "PARTIAL") else None))
+                   if has_law else None))
         return dict(verdict=verdict, equation=enum.equation(),
                     r2=r2, r2_edge=r2_edge, scope=scope, captured_r2=cap_r2,
-                    rivals=riv_summary)
+                    rivals=riv_summary, accounting=accounting,
+                    dossier=dossier)
 
     def apply_law(self, name, X):
         """Apply a discovered law: the challenge, now computable.
@@ -1310,6 +1368,24 @@ class Isaac:
             [np.prod([cols[a] for a in t], axis=0) for t in m["terms"]]
             + [np.ones(len(X))])
         return D @ np.concatenate([m["coefs"], [m["intercept"]]])
+
+    def validate_law(self, name, X, y):
+        """Re-validate a (possibly inherited) law on NEW evidence before
+        trusting it. load_ledger() restores laws as APPLICABLE; this is the
+        check that keeps 'applicable' from silently meaning 'still true'.
+        Returns HOLDS (R2 >= 0.9) / DEGRADED (>= 0.2) / FAILS, recorded in
+        the ledger either way. (2026-07-03: apply_law was applied blind.)"""
+        p = self.apply_law(name, X)
+        if p is None:
+            return None
+        y = np.asarray(y, float)
+        ss = float(np.sum((y - y.mean()) ** 2))
+        r2 = 1 - float(np.sum((y - p) ** 2)) / max(ss, 1e-12)
+        status = ("HOLDS" if r2 >= 0.9 else
+                  "DEGRADED" if r2 >= 0.2 else "FAILS")
+        self.record_finding("validation", name, r2=round(r2, 4),
+                            status=status, n=len(y))
+        return dict(status=status, r2=r2)
 
     def confirm(self, name, X, y):
         """Resolve a tied law with NEW evidence — ideally sampled at the
@@ -1357,10 +1433,19 @@ class Isaac:
             return dict(status=f"OVERTURNED -> {r['rival']}", rivals_left=[])
         m["rivals"] = kept
         self.net.set_meta(node, "model", m)
-        status = "CONFIRMED" if not kept else f"STILL TIED ({len(kept)})"
+        # absolute-fit guard (2026-07-03): beating your rivals is not the
+        # same as fitting the data — a law with no live rivals must still
+        # actually hold on the new evidence to be CONFIRMED
+        ss_tot = float(np.sum((y - y.mean()) ** 2))
+        r2_abs = 1 - s0 / max(ss_tot, 1e-12)
+        if r2_abs < 0.2:
+            status = f"REFUTED (fit collapsed on new data: R2 {r2_abs:.2f})"
+        else:
+            status = "CONFIRMED" if not kept else f"STILL TIED ({len(kept)})"
         self.record_finding("confirmation", name, status=status,
+                            r2_new=round(r2_abs, 4),
                             rivals_left=[r["rival"] for r in kept])
-        return dict(status=status,
+        return dict(status=status, r2_new=r2_abs,
                     rivals_left=[r["rival"] for r in kept])
 
     def _capture(self, X, y, half):
@@ -1387,8 +1472,13 @@ class Isaac:
             nns.append(np.argsort(d1, 1)[:, :5])
         real, best_nn = max(((r2_of(y[:half], m), m) for m in nns),
                             key=lambda t: t[0])
-        null = max(r2_of(_wave_rng.permutation(y[:half]), best_nn)
-                   for _ in range(20))
+        # the null must attack EXACTLY the claimed structure: the real score
+        # won a max-over-candidate-neighbor-sets contest, so each permutation
+        # replays the same contest (permuting only under the winner is
+        # anti-conservative — found in the 2026-07-03 audit)
+        null = max(max(r2_of(yp, m) for m in nns)
+                   for yp in (_wave_rng.permutation(y[:half])
+                              for _ in range(20)))
         return real, null
 
     def wave_consolidate(self, min_count=5, n_perm=40, verbose=False):
@@ -3277,12 +3367,17 @@ def test_discovery():
     print(f"  {'✓' if ok else '✗'}  transcendental law: {resb['verdict']} "
           f"(R2 {resb['r2']:.3f})  {resb['equation']}")
 
-    # (c) pure noise -> he must SAY there is nothing
+    # (c) pure noise -> he must SAY there is nothing, and the accounting
+    # must put essentially everything in the noise column
     resc = isaac.discover(X, rng.normal(0, 1, n))
-    ok = resc["verdict"] == "NO RULE"
+    acc_c = resc["accounting"]
+    ok = (resc["verdict"] == "NO RULE" and acc_c["noise"] >= 90.0
+          and abs(acc_c["articulated"] + acc_c["captured"]
+                  + acc_c["noise"] - 100.0) < 0.2)
     correct += ok
     print(f"  {'✓' if ok else '✗'}  pure noise: {resc['verdict']} "
-          f"(no invented equation)")
+          f"(no invented equation; accounting {acc_c['articulated']}/"
+          f"{acc_c['captured']}/{acc_c['noise']} = law/caught/noise)")
 
     # (d) a rule his equation class cannot say (yet): caught, not said
     Xd = np.column_stack([rng.normal(0, 1, (n, 2)), rng.normal(0, 1, (n, 1))])
@@ -3318,8 +3413,26 @@ def test_discovery():
           f"off-grid decay): {resf['verdict']} (R2 {resf['r2']:.3f})")
     print(f"       equation: {resf['equation']}")
 
-    print(f"\n  {correct}/7")
-    return correct == 7
+    # (g) THE ACCOUNTING (audit 2.8): plant a law + a KNOWN noise fraction;
+    # articulated% + captured% + noise% must equal 100 and match the truth.
+    # y = x0*x1 (var ~1) + noise sd 0.6 (var 0.36) -> true law share ~73.5%
+    Xg = rng.normal(0, 1, (n, 4))
+    yg = Xg[:, 0] * Xg[:, 1] + rng.normal(0, 0.6, n)
+    resg = isaac.discover(Xg, yg, name="challenge_g")
+    acc = resg["accounting"]
+    true_share = 100.0 / 1.36
+    ok = (abs(acc["articulated"] + acc["captured"] + acc["noise"] - 100.0)
+          < 0.2 and abs(acc["articulated"] - true_share) < 10.0
+          and resg["dossier"] is not None)
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  accounting vs planted truth: articulated "
+          f"{acc['articulated']}% (true ~{true_share:.1f}%) + captured "
+          f"{acc['captured']}% + noise {acc['noise']}% = 100; residual "
+          f"dossier attached ({resg['dossier']['unknown']}, "
+          f"{resg['dossier']['share_pct']}% share)")
+
+    print(f"\n  {correct}/8")
+    return correct == 8
 
 
 def test_rivalry():
