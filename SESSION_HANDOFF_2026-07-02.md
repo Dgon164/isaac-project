@@ -67,6 +67,11 @@ autocorrelated targets** (the sunspot runaway) → block permutation = open
 item. Sister law, learned 3×: **replace thresholds with statistical tests.**
 
 ## Docs
+- **`ISAAC_MANUAL.md` (project root) — THE capability manual: every part,
+  every method, honest limits, and the same maintenance rule as
+  BUILD_STATE: capability changes update the manual IN THE SAME STEP.
+  If it isn't in the manual, it doesn't exist. (PAPERCLIP_MANUAL.md
+  remains the narrative/starter guide; BUILD_STATE the dated ledger.)**
 - `WRITEUP_2026-07-01_FOR_REVIEW.md` — methods/results/limits/§7 verify-all.
 - `3_the_theory/Understanding_as_Closure_2026-07-02...-01.md` — the theory:
   understanding = null-surviving Galois closures across four contexts +
