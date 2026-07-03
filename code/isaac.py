@@ -349,6 +349,8 @@ def _atom_specs(d):
             specs += [("sin", i, None, k), ("cos", i, None, k)]
         for k in (0.25, 0.5, 1.0, -0.25, -0.5, -1.0):   # decay AND growth
             specs.append(("exp", i, None, k))
+        for k in (-2.0, -1.0, -0.5, 0.5, 1.5):          # power laws (Kepler,
+            specs.append(("pow", i, None, k))           # inverse-square...)
     for i in range(d):
         for j in range(i + 1, d):
             for k in (0.5, 1.0, 2.0):
@@ -368,6 +370,8 @@ def _atom_col(X, spec):
         return np.cos(k * X[:, i])
     if kind == "exp":
         return np.exp(np.clip(-k * X[:, i], -30, 30))
+    if kind == "pow":
+        return np.power(np.maximum(np.abs(X[:, i]), 1e-9), k)
     diff = np.clip(X[:, i] - X[:, j], -20, 20)
     if kind == "cosd":
         return np.cos(k * diff)
@@ -386,6 +390,8 @@ def _atom_label(spec):
         return f"cos({k:g}*x{i})"
     if kind == "exp":
         return f"exp({-k:g}*x{i})"
+    if kind == "pow":
+        return f"x{i}^{k:g}"
     op = {"cosd": "cos", "sind": "sin", "coshd": "cosh"}[kind]
     return f"{op}({k:g}*(x{i}-x{j}))"
 
