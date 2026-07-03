@@ -31,6 +31,21 @@ bottom); this file is mostly the keep-it-safe / hand-it-off / tell-the-story wor
       work and softens the personal — his call, his pace.
 
 ## The work itself
-- Technical next target is in **`SESSION_HANDOFF_2026-06-24.md`**: test the
-  **unsupervised / "his" aligner** — can the crystallizer find the alignment LDA
-  found *with* labels, *without* them? (Don't re-diagnose the problem; run the candidate.)
+- **Technical next targets are in `SESSION_HANDOFF_2026-07-02.md`** — the
+  owner's four named priorities: thorough scale testing (sweeps → vectorize
+  → 3090), human interaction improvement (UI v2 + probe queue), information
+  validation (block-permutation null #1, log-track in discover, power
+  merging), accuracy validation (calibration audit = the one trust number;
+  finish the curriculum; repair the clock readout). Then: shrug→discover,
+  covtype migration rounds, uptake-into-engine, warm starts, forgetting.
+- ~~unsupervised aligner (2026-06-24 target)~~ → superseded: the null-gated
+  basis is in `fit_lens` (default) and validated; registration perception
+  carries the alignment thesis further (digits under transform 5%→85%).
+- Note: engine self-test expectation is now **10/10** (item 5 above says
+  6/6 — that was true at reorg time; authoritative engine = root `code/`).
+
+## Done since 2026-06-27 (for the record)
+- ✓ Git repos, private GitHub, both pushed and current (preservation item).
+- ✓ Audit standard + verdict sheet; six rebuilds; engine rewiring (10/10).
+- ✓ discover()/rivals/confirm/apply_law; waves/clock/statuses; ledger;
+  save/load/fork; UI. Kepler exact; Pluto predicted; cross-domain transfer.

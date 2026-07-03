@@ -113,6 +113,35 @@ one piece deliberately bracketed for later.
 
 ## Changelog (savepoints)
 
+### 2026-07-02 — the science-engine day: analogy, memory, persistence, a face
+
+- **Power atoms** (x^k, grid ±{0.5,1,2} + {1.5,-0.5} with refine) →
+  **Kepler exact: T = a^1.5, R² 1.0000** from 8 rows. **max_terms=16**
+  runaway brake after the sunspot lesson: iid permutation nulls are
+  INVALID on autocorrelated targets (20 CPU-hours of proof); block
+  permutation = open item #1.
+- **Cross-domain** (`rebuild/cross_domain.py`): laws matched by structure
+  (log-track exponents = roles) — gravity ≡ coulomb; cooling ≡ capacitor;
+  inverse-square role family; family abstraction nodes; **analogy-primed
+  transfer**: magnetism n=24, cold 0.82 → primed 0.995 (constant 3.26/3.2).
+- **Findings ledger**: record/recall/load (JSONL); negative knowledge kept;
+  laws inherited across sessions — dead Isaac's Kepler predicted
+  **Pluto 248.0 yr (true 247.9)**, outside training range.
+- **Whole-mind save/load/fork** (9KB snapshots; forks diverge safely).
+- **UI** (`ui/isaac_ui.py`, stdlib, :8674): converse / discover with
+  verdict cards (equation, scope, rivals+probes) / apply laws / findings
+  search / mind management. Verified end-to-end incl. Pluto via web form.
+- **The Gauntlet** (10 datasets, one pipeline, `rebuild/gauntlet.py`):
+  mnist 95.2, smallnorb 87.7, fsdd-audio 92 mixed, covtype arc → 94.4%
+  door-weighted exemplars (row-index leakage control: 79%); honest
+  refusals on kepler-without-power-atoms and noise; sunspots →
+  multi-cycle solar structure (Schwabe/Gleissberg bands + modulation),
+  periodogram-corroborated, honestly scoped range-valid.
+- Status: **suite 10/10**; both repos pushed; handoff =
+  `SESSION_HANDOFF_2026-07-02.md` (owner's four named priorities:
+  scale testing, human interaction, information validation, accuracy
+  validation/calibration audit).
+
 ### 2026-07-01c — DISCOVERY: the challenge loop (the thing that learns things)
 
 - **`discover(X, y, name)`** — given examples of something he cannot do, find
