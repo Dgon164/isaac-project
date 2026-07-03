@@ -1116,6 +1116,34 @@ class Isaac:
             self.fact_index[(subject, relation)].append(obj)
         self.net.add_door(str(subject), str(obj), tag=relation)
 
+    # ── whole-mind persistence ──────────────────────────────────
+
+    def save(self, path):
+        """Snapshot the WHOLE mind — net, doors, types, facts, laws,
+        compiled matrix, activation log, world state, findings — one file.
+        (The ledger persists his science; this persists HIM.)"""
+        import pickle
+        with open(path, "wb") as f:
+            pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
+        return path
+
+    @staticmethod
+    def load(path):
+        """Resurrect a saved mind, exactly as it was."""
+        import pickle
+        with open(path, "rb") as f:
+            mind = pickle.load(f)
+        if not isinstance(mind, Isaac):
+            raise ValueError("not an Isaac snapshot")
+        return mind
+
+    def fork(self):
+        """A living branch: deep-copy this mind for counterfactual work —
+        teach the fork something, see what follows, keep it or let it go.
+        The original is untouched."""
+        import copy
+        return copy.deepcopy(self)
+
     # ── the findings ledger ─────────────────────────────────────
 
     @staticmethod
