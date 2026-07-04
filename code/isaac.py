@@ -2224,6 +2224,206 @@ class Isaac:
         return dict(status="STILL CAPTURED", r2=res["r2"],
                     verdict=res["verdict"])
 
+    # ── interrogation: make the CAPTURED explicit (owner, 2026-07-04:
+    # "there is structure and meaning, there is something being found but
+    # we don't know what... enumerate that and make it explicit. define
+    # the heuristic connections... even if they aren't specifically
+    # correct, they can at least point in the direction — 'this is a
+    # pattern' as a deliverable.")
+
+    def interrogate(self, name, n=2500, grid=24):
+        """Enumerate what a captured net is responding to, as explicit,
+        gated heuristic claims stored on x:<name> and returned in English:
+          drivers      — share of the response each input carries
+                         (permutation importance on net queries)
+          interactions — joint vs additive, per driver pair (ANOVA share
+                         on a 2-D query grid)
+          composites   — does the dependence flow ONLY THROUGH xi*xj,
+                         xi+xj or xi−xj? (level-set invariance, judged
+                         against random-direction level sets — the claim
+                         must beat its matched null)
+          shape        — along the main axis: monotone / peaked /
+                         periodic, with a frequency estimate
+        None of this claims the LAW — it points at it."""
+        node = f"x:{name}"
+        net = self.net.get_meta(node, "capture_net")
+        ranges = self.net.get_meta(node, "ranges")
+        if net is None or ranges is None:
+            return None
+        lo = np.array([r[0] for r in ranges])
+        hi = np.array([r[1] for r in ranges])
+        d = len(lo)
+        X = _wave_rng.uniform(0, 1, (n, d)) * (hi - lo) + lo
+        f0 = self._net_predict(net, X)
+        var0 = max(float(f0.var()), 1e-12)
+
+        # drivers: permutation importance
+        drivers = []
+        for j in range(d):
+            Xp = X.copy()
+            Xp[:, j] = _wave_rng.permutation(Xp[:, j])
+            damage = float(np.mean((self._net_predict(net, Xp) - f0) ** 2))
+            drivers.append(damage)
+        tot = sum(drivers) + 1e-12
+        drivers = [round(v / tot, 3) for v in drivers]
+        main = [j for j in np.argsort(drivers)[::-1]
+                if drivers[j] >= 0.05]
+
+        # interactions on the top driver pairs (2-D ANOVA share)
+        mid = (lo + hi) / 2
+        interactions = {}
+        for a_i in range(len(main)):
+            for b_i in range(a_i + 1, len(main)):
+                i, j = main[a_i], main[b_i]
+                gi = np.linspace(lo[i], hi[i], grid)
+                gj = np.linspace(lo[j], hi[j], grid)
+                Q = np.tile(mid, (grid * grid, 1))
+                Q[:, i] = np.repeat(gi, grid)
+                Q[:, j] = np.tile(gj, grid)
+                F = self._net_predict(net, Q).reshape(grid, grid)
+                row = F.mean(1, keepdims=True)
+                col = F.mean(0, keepdims=True)
+                resid = F - row - col + F.mean()
+                share = float(resid.var() / max(F.var(), 1e-12))
+                interactions[(int(i), int(j))] = round(share, 3)
+
+        # composites: level-set invariance vs random-direction null
+        composites = []
+        for (i, j), share in interactions.items():
+            if share < 0.1:
+                continue
+            # each candidate composite = (z-function, level-set solver:
+            # given z0 and a sweep of xi values, the xj that keeps z=z0)
+            cands = {
+                "product": (lambda a, b: a * b,
+                            lambda z0, ai: np.where(np.abs(ai) > 1e-6,
+                                                    z0 / ai, np.nan)),
+                "sum": (lambda a, b: a + b, lambda z0, ai: z0 - ai),
+                "difference": (lambda a, b: a - b, lambda z0, ai: ai - z0)}
+
+            def invariance(zfun, solve_b):
+                keep = []
+                for _ in range(40):
+                    base = _wave_rng.uniform(0, 1, d) * (hi - lo) + lo
+                    z0 = zfun(base[i], base[j])
+                    ai = np.linspace(lo[i], hi[i], 24)
+                    with np.errstate(divide="ignore", invalid="ignore"):
+                        bj = solve_b(z0, ai)
+                    okm = np.isfinite(bj) & (bj >= lo[j]) & (bj <= hi[j])
+                    if okm.sum() < 8:
+                        continue
+                    Q = np.tile(base, (int(okm.sum()), 1))
+                    Q[:, i] = ai[okm]
+                    Q[:, j] = bj[okm]
+                    keep.append(float(self._net_predict(net, Q).var()))
+                if not keep:
+                    return 0.0
+                return 1.0 - float(np.mean(keep)) / var0
+
+            scores = {k: invariance(z, s) for k, (z, s) in cands.items()}
+            # matched null: the SAME level-set walk along random oblique
+            # directions w0*xi + w1*xj — the claim must beat directions
+            # nobody proposed
+            nulls = []
+            for _ in range(6):
+                w = _wave_rng.normal(0, 1, 2)
+                if abs(w[1]) < 0.1:
+                    w[1] = 0.1 * np.sign(w[1] or 1)
+                nulls.append(invariance(
+                    lambda a, b, w=w: w[0] * a + w[1] * b,
+                    lambda z0, ai, w=w: (z0 - w[0] * ai) / w[1]))
+            best = max(scores, key=scores.get)
+            if scores[best] > 0.8 and scores[best] > max(nulls):
+                # shape along the composite axis
+                z = cands[best][0](X[:, i], X[:, j])
+                order = np.argsort(z)
+                zs, fs = z[order], f0[order]
+                bins = np.array_split(np.arange(len(zs)), 60)
+                prof = np.array([fs[b].mean() for b in bins])
+                zc = np.array([zs[b].mean() for b in bins])
+                dsign = np.sign(np.diff(prof))
+                turns = int(np.sum(np.diff(dsign[dsign != 0]) != 0))
+                s_ = np.sign(prof - prof.mean())
+                crossings = int(np.sum(s_[:-1] * s_[1:] < 0))
+                span = float(zc[-1] - zc[0]) or 1.0
+                freq = round(np.pi * crossings / span, 2)
+                shape = ("periodic" if turns >= 3 else
+                         "single-peaked" if turns in (1, 2) else "monotone")
+                composites.append(dict(
+                    features=[int(i), int(j)], through=best,
+                    invariance=round(scores[best], 3),
+                    null_best=round(max(nulls), 3),
+                    shape=shape, turns=turns,
+                    freq_estimate=(freq if shape == "periodic" else None)))
+
+        # English: the deliverable, even when the law is out of reach
+        names_ = [f"x{k}" for k in range(d)]
+        lines = []
+        if main:
+            lines.append("the pattern lives in "
+                         + ", ".join(f"{names_[j]} ({drivers[j]*100:.0f}%)"
+                                     for j in main)
+                         + (" — the rest of the columns are bystanders"
+                            if len(main) < d else ""))
+        for (i, j), share in sorted(interactions.items(),
+                                    key=lambda kv: -kv[1]):
+            if share >= 0.1:
+                lines.append(f"{names_[i]} and {names_[j]} act JOINTLY "
+                             f"(interaction carries {share*100:.0f}% of "
+                             f"their effect) — not a sum of separate "
+                             f"influences")
+        for c in composites:
+            i, j = c["features"]
+            lines.append(
+                f"the dependence flows through the {c['through']} "
+                f"{names_[i]}{'*' if c['through']=='product' else ('+' if c['through']=='sum' else '-')}{names_[j]} "
+                f"ONLY (invariance {c['invariance']:.2f}, beats its null "
+                f"{c['null_best']:.2f}); along that axis the response is "
+                f"{c['shape']}"
+                + (f", roughly {c['freq_estimate']} rad/unit"
+                   if c["freq_estimate"] else ""))
+        if not lines:
+            lines.append("no gated heuristic survived — the capture is "
+                         "real but structureless to these probes")
+        heur = dict(drivers=drivers, interactions={
+            f"{i},{j}": v for (i, j), v in interactions.items()},
+            composites=composites, english=lines)
+        self.net.set_meta(node, "heuristics", heur)
+        self.record_finding("heuristics", name, english=lines)
+        return heur
+
+    def graduate_composite(self, name, X, y, verbose=False):
+        """The closing move: if interrogation found the dependence flows
+        through a composite, RE-DISCOVER IN THAT COORDINATE — a pattern
+        that was out of class in raw coordinates may be plainly sayable
+        in the right ones. Returns the law (with the composite named) or
+        an honest miss."""
+        node = f"x:{name}"
+        heur = self.net.get_meta(node, "heuristics")
+        if not heur or not heur["composites"]:
+            return None
+        X = np.asarray(X, float); y = np.asarray(y, float)
+        best = max(heur["composites"], key=lambda c: c["invariance"])
+        i, j = best["features"]
+        op = {"product": (lambda a, b: a * b, "*"),
+              "sum": (lambda a, b: a + b, "+"),
+              "difference": (lambda a, b: a - b, "-")}[best["through"]]
+        z = op[0](X[:, i], X[:, j]).reshape(-1, 1)
+        res = self.discover(z, y, name=f"{name}_via_composite")
+        if res["verdict"] == "UNDERSTOOD":
+            eq = res["equation"].replace("x0", f"(x{i}{op[1]}x{j})")
+            self.net.set_meta(f"law:{name}_via_composite", "equation", eq)
+            self.net.set_meta(node, "status",
+                              f"graduated via composite -> {eq[:60]}")
+            self.record_finding("graduation", name, equation=eq,
+                                r2=res["r2"], via=best["through"])
+            if verbose:
+                print(f"    graduate_composite[{name}]: {eq[:70]}")
+            return dict(status="GRADUATED (via composite)", equation=eq,
+                        r2=res["r2"])
+        return dict(status="STILL CAPTURED", verdict=res["verdict"],
+                    r2=res["r2"])
+
     def wave_consolidate(self, min_count=5, n_perm=40, verbose=False):
         """IDLE MODE, temporal: crystallize the activation STREAM.
 
