@@ -130,6 +130,35 @@ print(f"  penguin inside any fly-type (must be NO):            "
       f"{'NO' if not leak else 'YES — VIOLATION'}")
 c2b = fly_ok and together and not leak
 
+# ═══════════ C2c: the SELF-ASSEMBLED negative (never taught) ════════════
+line("=")
+print("C2c — the bitter-lesson negative: penguin earns not_fly by being")
+print("      WATCHED (nothing taught); a barely-seen chick earns NOTHING")
+line("=")
+isaac = Isaac()
+for _ in range(6):                                # repeated experience
+    for it in FLIERS:
+        profile(isaac, it, ["wings", "beak", "fly"])
+    profile(isaac, "penguin", ["wings", "beak", "swim"])
+profile(isaac, "chick", ["wings", "beak"])        # seen only twice:
+profile(isaac, "chick", ["wings", "beak"])        # insufficient evidence
+isaac.consolidate()
+minted = "fly" in isaac.fact_index.get(("penguin", "cannot"), [])
+chick_clear = "fly" not in isaac.fact_index.get(("chick", "cannot"), [])
+fly_types = [t for t, c in isaac.types.items() if "fly" in c["succs"]]
+fly_ok2 = any(set(FLIERS) <= isaac.types[t]["members"]
+              and "penguin" not in isaac.types[t]["members"]
+              for t in fly_types)
+together2 = any("penguin" in c["members"] and "robin" in c["members"]
+                for c in isaac.types.values())
+print(f"  penguin's not_fly MINTED from experience (never taught): "
+      f"{'YES' if minted else 'NO'}")
+print(f"  chick (2 sightings) got NO negative — ABSENT stays silent: "
+      f"{'YES' if chick_clear else 'NO — over-eager'}")
+print(f"  fly-type keeps fly, penguin excluded, shared group kept:  "
+      f"{'YES' if (fly_ok2 and together2) else 'NO'}")
+c2c = minted and chick_clear and fly_ok2 and together2
+
 # ═══════════════ C3: chance co-occurrence (measured, not fixed) ═════════
 line("=")
 print("C3 — chance co-occurrence: junk types, measured")
@@ -162,7 +191,8 @@ for n in (50, 200, 800):
 line("=")
 print(f"C1 clean categories : {'PASS' if c1 else 'FAIL'}")
 print(f"C2a abc/abd law     : {'PASS' if c2a else 'FAIL'}")
-print(f"C2b penguin law     : {'PASS' if c2b else 'FAIL'}")
+print(f"C2b penguin (taught): {'PASS' if c2b else 'FAIL'}")
+print(f"C2c penguin (earned): {'PASS' if c2c else 'FAIL'}")
 print("C3/C5               : measurements above (null + knee, open items)")
-print(f"VERDICT: {'WORKS to the owner spec' if (c1 and c2a and c2b) else 'SPEC NOT MET (see above)'}")
+print(f"VERDICT: {'WORKS to the owner spec' if (c1 and c2a and c2b and c2c) else 'SPEC NOT MET (see above)'}")
 line("=")

@@ -37,11 +37,18 @@ class Net:
         self.doors = defaultdict(set)            # node → {targets}
         self.door_tags = defaultdict(set)         # (src, tgt) → {tags}
         self.meta = defaultdict(dict)             # node → {key: value}
+        self.door_counts = defaultdict(int)       # (src, tgt) → observations
 
     def add_door(self, src, tgt, tag="seq"):
         is_new = tgt not in self.doors[src]
         self.doors[src].add(tgt)
         self.door_tags[(src, tgt)].add(tag)
+        # counts are the evidence base: "seen once" and "seen a hundred
+        # times" must be different facts (2026-07-03, the foundation fix —
+        # without counts no statistical divergence test is possible)
+        if not hasattr(self, "door_counts"):      # minds saved pre-counts
+            self.door_counts = defaultdict(int)
+        self.door_counts[(src, tgt)] += 1
         if tgt not in self.doors:
             self.doors[tgt] = set()
         return is_new
@@ -812,7 +819,7 @@ class Isaac:
         only unknown may)."""
         if prop not in self.fact_index[(subject, "cannot")]:
             self.fact_index[(subject, "cannot")].append(prop)
-        self.net.add_door(subject, f"not_{prop}", tag="seq")
+        self.net.add_door(subject, f"not_{prop}", tag="neg")
 
     # ── crystallization ─────────────────────────────────────────
 
@@ -857,6 +864,44 @@ class Isaac:
                     circles.append({"members": members,
                                     "preds": shared_p, "succs": shared_s})
 
+        # Phase 1.5 (the owner's foundation law, 2026-07-03): DIVERGENT
+        # doors SELF-ASSEMBLE. The atom's three verdicts finally all write:
+        #   SAME      -> membership (always did)
+        #   DIVERGENT -> a not_<door> minted from experience
+        #   ABSENT    -> nothing (insufficient evidence stays silent)
+        # A node that carries the REST of a circle's intent, observed
+        # repeatedly WITHOUT the one door its siblings show essentially
+        # always, has positively diverged — penguin earns not_fly by being
+        # WATCHED, not taught. The null is "this node is like its
+        # siblings"; the gate is a smoothed binomial on observation
+        # counts, not a constant. Runs BEFORE the merge so a fresh
+        # negative can veto a collapse in the same sleep.
+        counts = getattr(self.net, "door_counts", {})
+        for c in circles:
+            intent = {d for d in c["succs"]
+                      if not (isinstance(d, str) and d.startswith("not_"))}
+            if len(intent) < 2:
+                continue
+            for d in intent:
+                rest = intent - {d}
+                obs_sib = sum(max((counts.get((s, r), 0) for r in rest),
+                                  default=0) for s in c["members"])
+                with_d = sum(counts.get((s, d), 0) for s in c["members"])
+                p_hat = (with_d + 1) / (obs_sib + 2)     # Laplace-smoothed
+                for m in nodes:
+                    if m in c["members"]:
+                        continue
+                    ms = self.net.get_doors(m, tag=tag)
+                    if d in ms or not (rest <= ms):
+                        continue
+                    n_m = min(counts.get((m, r), 0) for r in rest)
+                    # repeatable evidence (>= 3 sightings) AND absence must
+                    # beat the like-your-siblings null at 1%
+                    if n_m >= 3 and (1 - p_hat) ** n_m < 0.01:
+                        self.net.add_door(m, f"not_{d}", tag="neg")
+                        if d not in self.fact_index[(m, "cannot")]:
+                            self.fact_index[(m, "cannot")].append(d)
+
         # Phase 2: merge overlapping circles (Rule 13; AMENDED 2026-07-03
         # to the owner's two laws). (1) Merge ONLY near-identical member
         # sets (overlap vs the LARGER set): a proper subgroup is a real
@@ -870,8 +915,9 @@ class Isaac:
             out = set()
             for m in members:
                 out |= set(self.fact_index.get((m, "cannot"), []))
-                out |= {d[4:] for d in self.net.get_doors(m, tag=tag)
-                        if isinstance(d, str) and d.startswith("not_")}
+                for t in (tag, "neg"):
+                    out |= {d[4:] for d in self.net.get_doors(m, tag=t)
+                            if isinstance(d, str) and d.startswith("not_")}
             return out
 
         def _pos_of(c):
