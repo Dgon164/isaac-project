@@ -960,6 +960,66 @@ class Isaac:
             for m in c["members"]:
                 self.net.add_door(m, name, tag="type")
 
+        # Phase 3.5 (owner's law, 2026-07-03): WRONG IS KEPT AND CLASSIFIED.
+        # "knowing what is right is intelligence. knowing what is wrong is
+        # wisdom." Every type is tested against its chance-null — the same
+        # context with door targets shuffled (degrees preserved), scored by
+        # the BEST structure chance produces (selection-corrected). Types
+        # that fail are NOT deleted and NOT prevented: they are filed in
+        # the wrong section with the WHY attached, so error itself becomes
+        # learnable material. Downstream behavior is deliberately unchanged
+        # (no pruning, no importance-weighting — the old trap).
+        def _best_chance_score(n_shuffles=8):
+            edges = []
+            for a in nodes:
+                for t in self.net.get_doors(a, tag=tag):
+                    edges.append((a, t))
+            if len(edges) < 4:
+                return 0.0
+            srcs = [e[0] for e in edges]
+            tgts = [e[1] for e in edges]
+            best = 0.0
+            srng = np.random.default_rng(len(edges))
+            for _ in range(n_shuffles):
+                perm = srng.permutation(len(tgts))
+                succs_s = defaultdict(set)
+                preds_s = defaultdict(set)
+                for k, s in enumerate(srcs):
+                    t = tgts[perm[k]]
+                    succs_s[s].add(t)
+                    preds_s[t].add(s)
+                ns = sorted(set(succs_s) | set(preds_s))
+                for i, a in enumerate(ns):
+                    for b in ns[i + 1:]:
+                        sh_s = succs_s[a] & succs_s[b]
+                        sh_p = preds_s[a] & preds_s[b]
+                        if len(sh_s) + len(sh_p) < min_shared:
+                            continue
+                        mem = sum(1 for m in ns
+                                  if sh_s <= succs_s[m] and sh_p <= preds_s[m])
+                        best = max(best,
+                                   (mem - 1) * (len(sh_s) + len(sh_p)))
+            return best
+
+        chance_best = _best_chance_score()
+        self.wrong_types = {}
+        for c in merged:
+            score = (len(c["members"]) - 1) * (len(c["preds"])
+                                               + len(c["succs"]))
+            c["score"] = score
+            if score <= chance_best:
+                why = (f"coherence {score} within chance for this context "
+                       f"(best shuffled structure scores {chance_best}) — "
+                       f"co-occurrence alone explains it")
+                c["verdict"] = "wrong"
+                c["why_wrong"] = why
+                self.wrong_types[c["name"]] = c
+                self.net.set_meta(c["name"], "verdict", "wrong")
+                self.net.set_meta(c["name"], "why_wrong", why)
+            else:
+                c["verdict"] = "sound"
+                self.net.set_meta(c["name"], "verdict", "sound")
+
         # Phase 4: hierarchy (subset = child)
         type_list = list(self.types.values())
         for child in type_list:
@@ -1504,6 +1564,18 @@ class Isaac:
                 winner = (s1, r)
         if winner is not None:
             r = winner[1]
+            # SUPERSESSION, not overwrite (owner's law, 2026-07-03): "if
+            # there is a and b, and b works better, use b" — and A is KEPT,
+            # wearing its defeat. The overturned form stays on the record
+            # with the WHY: what was believed, what beat it, by how much.
+            # Knowing what was wrong — and why — is the wisdom half.
+            old_eq = self.net.get_meta(node, "equation")
+            m.setdefault("superseded", []).append(dict(
+                equation=old_eq,
+                model=dict(terms=m["terms"], coefs=m["coefs"],
+                           intercept=m["intercept"], specs=m["specs"]),
+                why=(f"overturned by rival '{r['rival']}' on new evidence "
+                     f"(n={n}): rival SSE {winner[0]:.4g} vs {s0:.4g}")))
             m.update(terms=r["model"]["terms"], coefs=r["model"]["coefs"],
                      intercept=r["model"]["intercept"],
                      specs=r["model"]["specs"], rivals=[])
@@ -1511,7 +1583,8 @@ class Isaac:
             self.net.set_meta(node, "model", m)
             self.record_finding("confirmation", name,
                                 status=f"OVERTURNED -> {r['rival']}",
-                                equation=r["model"]["equation"])
+                                equation=r["model"]["equation"],
+                                superseded=old_eq)
             return dict(status=f"OVERTURNED -> {r['rival']}", rivals_left=[])
         m["rivals"] = kept
         self.net.set_meta(node, "model", m)

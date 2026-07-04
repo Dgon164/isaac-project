@@ -69,8 +69,13 @@ for g, items in GROUPS.items():
         set(types_of(isaac, other)) & ts
         for og, oi in GROUPS.items() if og != g for other in oi)
     pure += ok
-print(f"  pure categories recovered: {pure}/3")
-c1 = pure == 3
+cat_sound = all(
+    any(isaac.types[t]["verdict"] == "sound" for t in types_of(isaac, items[0]))
+    for items in GROUPS.values())
+print(f"  pure categories recovered: {pure}/3   "
+      f"all classified SOUND vs their chance-null: "
+      f"{'YES' if cat_sound else 'NO'}")
+c1 = pure == 3 and cat_sound
 
 # ═══════════════════════ C2a: abc and abd, under ab ═════════════════════
 line("=")
@@ -159,9 +164,12 @@ print(f"  fly-type keeps fly, penguin excluded, shared group kept:  "
       f"{'YES' if (fly_ok2 and together2) else 'NO'}")
 c2c = minted and chick_clear and fly_ok2 and together2
 
-# ═══════════════ C3: chance co-occurrence (measured, not fixed) ═════════
+# ═══ C3: chance co-occurrence -> WRONG IS KEPT AND CLASSIFIED, WITH WHY ═══
+# The owner's law: junk is not prevented and not deleted — it is a
+# different classification. "knowing what is right is intelligence.
+# knowing what is wrong is wisdom."
 line("=")
-print("C3 — chance co-occurrence: junk types, measured")
+print("C3 — chance co-occurrence: junk forms, and is FILED AS WRONG")
 line("=")
 isaac = Isaac()
 toks = [f"t{i}" for i in range(24)]
@@ -170,8 +178,47 @@ for _ in range(200):
     if i != j:
         isaac.observe([toks[i], toks[j]])
 isaac.consolidate()
-print(f"  types formed from pure chance: {len(isaac.types)} "
-      f"(honest answer would be ~0 — the admission null is still open)")
+total = len(isaac.types)
+wrong = len(isaac.wrong_types)
+print(f"  types formed from pure chance: {total}")
+print(f"  classified WRONG (chance-level coherence): {wrong} "
+      f"({100*wrong/max(total,1):.0f}%)")
+if isaac.wrong_types:
+    name, c = next(iter(isaac.wrong_types.items()))
+    print(f"  a wrong entry, with its why: {name}")
+    print(f"    -> {c['why_wrong']}")
+c3 = total > 0 and wrong / total >= 0.8
+print(f"  wrong section populated, reasons attached: "
+      f"{'YES' if c3 else 'NO — too much chance passed as sound'}")
+
+# ═══════════════ C6: supersession — the loser is kept, with why ═════════
+line("=")
+print("C6 — supersession: 'if there is a and b, and b works better, use b'")
+print("     — and a stays on the record, wearing its defeat")
+line("=")
+isaac = Isaac()
+n = 1200
+X = rng.normal(0, 1, (n, 2))
+X[:, 0] = rng.uniform(-1.2, 1.2, n)
+y = 5.0 * np.cos(0.5 * X[:, 0]) + rng.normal(0, 0.02, n)
+isaac.discover(X, y, name="pend")                 # narrow view: parabola wins
+X2 = np.column_stack([rng.uniform(-4.5, 4.5, 600), rng.normal(0, 1, 600)])
+y2 = 5.0 * np.cos(0.5 * X2[:, 0]) + rng.normal(0, 0.02, 600)
+res = isaac.confirm("pend", X2, y2)               # wide view: cosine overturns
+m = isaac.net.get_meta("law:pend", "model")
+sup = m.get("superseded", [])
+now_eq = isaac.net.get_meta("law:pend", "equation")
+ok_over = res and res["status"].startswith("OVERTURNED") and "cos" in now_eq
+ok_kept = bool(sup) and "x0*x0" in sup[0]["equation"] \
+    and "overturned by rival" in sup[0]["why"]
+print(f"  B in use (cosine law active):            "
+      f"{'YES' if ok_over else 'NO'}")
+print(f"  A kept with its why "
+      f"({'found' if sup else 'MISSING'}): "
+      f"{sup[0]['equation'][:40] if sup else '—'}")
+if sup:
+    print(f"    -> {sup[0]['why']}")
+c6 = ok_over and ok_kept
 
 # ═══════════════════════ C5: the scale curve ════════════════════════════
 line("=")
@@ -189,10 +236,13 @@ for n in (50, 200, 800):
           f"({len(isaac.types)} types)")
 
 line("=")
-print(f"C1 clean categories : {'PASS' if c1 else 'FAIL'}")
-print(f"C2a abc/abd law     : {'PASS' if c2a else 'FAIL'}")
-print(f"C2b penguin (taught): {'PASS' if c2b else 'FAIL'}")
-print(f"C2c penguin (earned): {'PASS' if c2c else 'FAIL'}")
-print("C3/C5               : measurements above (null + knee, open items)")
-print(f"VERDICT: {'WORKS to the owner spec' if (c1 and c2a and c2b and c2c) else 'SPEC NOT MET (see above)'}")
+print(f"C1 clean categories (and classified sound): {'PASS' if c1 else 'FAIL'}")
+print(f"C2a abc/abd law                            : {'PASS' if c2a else 'FAIL'}")
+print(f"C2b penguin (taught)                       : {'PASS' if c2b else 'FAIL'}")
+print(f"C2c penguin (earned)                       : {'PASS' if c2c else 'FAIL'}")
+print(f"C3  wrong is kept and classified, with why : {'PASS' if c3 else 'FAIL'}")
+print(f"C6  supersession keeps the loser + why     : {'PASS' if c6 else 'FAIL'}")
+print("C5  scale knee: measurement above (untouched — no optimizing before limits)")
+all_ok = c1 and c2a and c2b and c2c and c3 and c6
+print(f"VERDICT: {'WORKS to the owner spec' if all_ok else 'SPEC NOT MET (see above)'}")
 line("=")
