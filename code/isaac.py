@@ -802,6 +802,18 @@ class Isaac:
         self.observe(tokenize(f"{subject} {relation} {obj}"))
         self.fact_index[(subject, relation)].append(obj)
 
+    def teach_not(self, subject, prop):
+        """A POSITIVE NEGATIVE (owner's law, 2026-07-03): 'penguin does not
+        fly' is evidence, not absence. Indexed as a cannot-fact (the
+        reasoning layer already honors those) AND written as a first-class
+        not_<prop> door, so negative knowledge is present in door profiles
+        — where crystallization can both SEE it (penguins and ostriches
+        share not_fly) and be VETOED by it (known-different never merges;
+        only unknown may)."""
+        if prop not in self.fact_index[(subject, "cannot")]:
+            self.fact_index[(subject, "cannot")].append(prop)
+        self.net.add_door(subject, f"not_{prop}", tag="seq")
+
     # ── crystallization ─────────────────────────────────────────
 
     def _crystallize(self, tag="seq", min_shared=2, verbose=False, scope=None):
@@ -845,7 +857,27 @@ class Isaac:
                     circles.append({"members": members,
                                     "preds": shared_p, "succs": shared_s})
 
-        # Phase 2: merge overlapping circles (Rule 13)
+        # Phase 2: merge overlapping circles (Rule 13; AMENDED 2026-07-03
+        # to the owner's two laws). (1) Merge ONLY near-identical member
+        # sets (overlap vs the LARGER set): a proper subgroup is a real
+        # thing of its own — abc and abd are not the same thing; both may
+        # belong to ab via the hierarchy, never by dissolving into it.
+        # (2) A POSITIVE NEGATIVE VETOES any merge: penguin not_fly is
+        # evidence, not absence — a merge that would erase a distinction
+        # some member has positively disclaimed is forbidden. Unknown may
+        # collapse; known-different never does.
+        def _negs_of(members):
+            out = set()
+            for m in members:
+                out |= set(self.fact_index.get((m, "cannot"), []))
+                out |= {d[4:] for d in self.net.get_doors(m, tag=tag)
+                        if isinstance(d, str) and d.startswith("not_")}
+            return out
+
+        def _pos_of(c):
+            return {d for d in c["succs"]
+                    if not (isinstance(d, str) and d.startswith("not_"))}
+
         merged = []
         used = set()
         circles.sort(key=lambda c: len(c["members"]), reverse=True)
@@ -858,13 +890,17 @@ class Isaac:
                 if j in used:
                     continue
                 other = circles[j]
-                smaller = min(len(current["members"]), len(other["members"]))
+                larger = max(len(current["members"]), len(other["members"]))
                 overlap = len(current["members"] & other["members"])
-                if smaller > 0 and overlap / smaller >= 0.8:
-                    current["members"] |= other["members"]
-                    current["preds"] &= other["preds"]
-                    current["succs"] &= other["succs"]
-                    used.add(j)
+                if larger == 0 or overlap / larger < 0.8:
+                    continue          # subgroup/sibling: keep it its own thing
+                if (_pos_of(current) & _negs_of(other["members"])
+                        or _pos_of(other) & _negs_of(current["members"])):
+                    continue          # positively negative: never collapse
+                current["members"] |= other["members"]
+                current["preds"] &= other["preds"]
+                current["succs"] &= other["succs"]
+                used.add(j)
             merged.append(current)
 
         # Phase 3: name and write to net
