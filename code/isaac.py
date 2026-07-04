@@ -1395,6 +1395,9 @@ class Isaac:
         comps = self._applicable_composites(d_raw)
         if comps:
             X = self._augment_with(X, comps)
+            ok_rows = np.isfinite(X).all(1)       # log/ratio domains: rows
+            if not ok_rows.all():                 # outside a composite's
+                X, y = X[ok_rows], y[ok_rows]     # domain drop out honestly
         half = len(y) // 2
         enum = _Enumerator()
         enum.fit(X[:half], y[:half])
@@ -2331,7 +2334,11 @@ class Isaac:
                             lambda z0, ai: np.where(np.abs(ai) > 1e-6,
                                                     z0 / ai, np.nan)),
                 "sum": (lambda a, b: a + b, lambda z0, ai: z0 - ai),
-                "difference": (lambda a, b: a - b, lambda z0, ai: ai - z0)}
+                "difference": (lambda a, b: a - b, lambda z0, ai: ai - z0),
+                "ratio": (lambda a, b: np.where(np.abs(b) > 1e-9, a / b,
+                                                np.nan),
+                          lambda z0, ai: np.where(np.abs(z0) > 1e-9,
+                                                  ai / z0, np.nan))}
 
             def invariance(zfun, solve_b):
                 keep = []
@@ -2449,7 +2456,7 @@ class Isaac:
             i, j = c["features"]
             lines.append(
                 f"the dependence flows through the {c['through']} "
-                f"{names_[i]}{'*' if c['through']=='product' else ('+' if c['through']=='sum' else '-')}{names_[j]} "
+                f"{names_[i]}{ {'product': '*', 'sum': '+', 'difference': '-', 'ratio': '/'}[c['through']] }{names_[j]} "
                 f"ONLY (invariance {c['invariance']:.2f}, beats its null "
                 f"{c['null_best']:.2f}); along that axis the response is "
                 f"{c['shape']}"
@@ -2492,13 +2499,18 @@ class Isaac:
 
     _COMP_OPS = {"product": (lambda a, b: a * b, "*"),
                  "sum": (lambda a, b: a + b, "+"),
-                 "difference": (lambda a, b: a - b, "-")}
+                 "difference": (lambda a, b: a - b, "-"),
+                 "ratio": (lambda a, b: np.where(np.abs(b) > 1e-9,
+                                                 a / np.where(b == 0, 1, b),
+                                                 np.nan), "/")}
 
     def register_composite(self, op, features, provenance=""):
         """Mint a combination as a first-class node. Idempotent."""
         features = [int(f) for f in features]
         if op == "mean":                          # collective coordinate
             cname = "mean(" + ",".join(f"x{f}" for f in features) + ")"
+        elif op == "log":                         # arity-1 transform:
+            cname = f"log(x{features[0]})"        # domain-guarded (x > 0)
         else:
             sym = self._COMP_OPS[op][1]
             cname = "(" + sym.join(f"x{f}" for f in features) + ")"
@@ -2523,15 +2535,23 @@ class Isaac:
         for c in comps:
             if c["op"] == "mean":                 # a COLLECTIVE coordinate
                 cols.append(X[:, c["features"]].mean(1))
+            elif c["op"] == "log":                # domain-guarded transform
+                v = X[:, c["features"][0]]
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    cols.append(np.where(v > 1e-12, np.log(
+                        np.where(v > 1e-12, v, 1.0)), np.nan))
             else:
                 i, j = c["features"][0], c["features"][1]
-                cols.append(self._COMP_OPS[c["op"]][0](X[:, i], X[:, j]))
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    cols.append(
+                        self._COMP_OPS[c["op"]][0](X[:, i], X[:, j]))
         return np.column_stack([X] + cols) if cols else X
 
     def _applicable_composites(self, d):
         return [c for c in self.composites
                 if max(c["features"]) < d
-                and (len(c["features"]) == 2 or c["op"] == "mean")]
+                and (len(c["features"]) == 2
+                     or c["op"] in ("mean", "log"))]
 
     @staticmethod
     def _rename_composites(eq, d_raw, comps):
@@ -2555,7 +2575,10 @@ class Isaac:
         i, j = best["features"]
         op = {"product": (lambda a, b: a * b, "*"),
               "sum": (lambda a, b: a + b, "+"),
-              "difference": (lambda a, b: a - b, "-")}[best["through"]]
+              "difference": (lambda a, b: a - b, "-"),
+              "ratio": (lambda a, b: a / np.where(np.abs(b) > 1e-9, b,
+                                                  np.nan), "/")}[
+            best["through"]]
         z = op[0](X[:, i], X[:, j]).reshape(-1, 1)
         res = self.discover(z, y, name=f"{name}_via_composite")
         if res["verdict"] == "UNDERSTOOD":
