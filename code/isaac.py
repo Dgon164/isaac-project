@@ -1458,9 +1458,59 @@ class Isaac:
                 edge_rms=round(float(np.sqrt(np.mean(rs[edge] ** 2)))
                                if edge.sum() else 0.0, 4))
 
+        # DATA ADEQUACY (owner, 2026-07-03: "able to detect or define the
+        # data that is too weak to interpret?"). When little or nothing was
+        # interpretable, name the cause WITH evidence and what would fix
+        # it — weak data is a diagnosis, not a shrug.
+        adequacy = dict(verdict="interpretable", reasons=[])
+        if verdict in ("NO RULE", "CAPTURED") or r2 < 0.5:
+            reasons = []
+            if len(y) < 100:
+                reasons.append(
+                    f"sample too small: n={len(y)} is below the measured "
+                    f"recovery onset (~100 rows) — collect more")
+            if dossier and max((c for _, c in
+                                dossier["responsive_channels"]),
+                               default=0.0) < 2.0 / np.sqrt(max(len(y), 4)):
+                reasons.append(
+                    "no measured channel responds to the unexplained part "
+                    "— the driver may not be among these columns (a "
+                    "missing-variable shadow)")
+            if cap_r2 > max(cap_null + 0.1, 0.2) and r2 < 0.5:
+                reasons.append(
+                    "structure IS present (stored examples predict it "
+                    f"at {cap_r2:.2f}) but no equation in the library says "
+                    "it — an expressive-class limit, not weak data")
+            if accounting["noise"] >= 90 and \
+                    cap_r2 <= max(cap_null + 0.1, 0.2):
+                reasons.append(
+                    "nothing beats chance at this class: either noise, or "
+                    "the drivers were not measured")
+            if reasons or verdict == "NO RULE":
+                adequacy = dict(
+                    verdict=("too weak to interpret"
+                             if verdict == "NO RULE" else
+                             "partially interpretable"),
+                    reasons=reasons or
+                    ["weak fit without a single identified cause"])
+        if adequacy["verdict"] == "interpretable" and len(y) < 100:
+            # found something anyway — but small samples carry wrong-form
+            # risk (battery: provisional below n~400, onset ~100), so the
+            # caution attaches even to a success
+            adequacy = dict(
+                verdict="interpretable (provisional: small sample)",
+                reasons=[f"sample too small for a confident form: "
+                         f"n={len(y)} — the equation may be a look-alike; "
+                         f"collect more or confirm() at the probes"])
+
         rivals = []
         if has_law:
             rivals = enum.rival_check(y[:half])
+        if rivals and adequacy["verdict"] != "interpretable":
+            adequacy["reasons"].append(
+                f"observed range too narrow to pin the form: "
+                f"{len(rivals)} rival form(s) still tied — extend sampling "
+                f"toward the named probe(s)")
         if name and has_law:
             node = f"law:{name}"
             self.net.add_door("law", node, tag="law")
@@ -1495,10 +1545,13 @@ class Isaac:
                         intercept=enum.intercept, d=X.shape[1], r2=r2,
                         specs=list(enum.specs))
                    if has_law else None))
+        capture = None
+        if verdict == "CAPTURED" and name:
+            capture = self.capture_net(name, X, y)
         return dict(verdict=verdict, equation=enum.equation(),
                     r2=r2, r2_edge=r2_edge, scope=scope, captured_r2=cap_r2,
                     rivals=riv_summary, accounting=accounting,
-                    dossier=dossier)
+                    dossier=dossier, adequacy=adequacy, capture=capture)
 
     def apply_law(self, name, X):
         """Apply a discovered law: the challenge, now computable.
@@ -2031,6 +2084,145 @@ class Isaac:
                 and ta["n_hinges"] == tb["n_hinges"])
         return dict(verdict="SAME" if same else "DIFFERENT",
                     signature_gap=round(gap, 4))
+
+    # ── the capture net: a stopgap that exists to be destroyed ─────────
+    # Audit 2.8, built 2026-07-03 at the owner's prompt. THE NO-NETS LAW
+    # HOLDS: the net is never the deliverable — it is quarantined inside
+    # the residual dossier as the tracked unknown x:<name>, it counts ONLY
+    # if it beats its own permuted-output null, and its purpose is to be
+    # ATTACKED by graduate() (distillation) until caught becomes said.
+
+    @staticmethod
+    def _net_fit(X, y, hidden=16, steps=400, lr=0.05, seed=7):
+        """Tiny numpy MLP (1 tanh layer), full-batch momentum GD."""
+        r = np.random.default_rng(seed)
+        mu, sd = X.mean(0), X.std(0) + 1e-9
+        ym, ys = y.mean(), y.std() + 1e-9
+        Xs, yn = (X - mu) / sd, (y - ym) / ys
+        d = X.shape[1]
+        W1 = r.normal(0, 1 / np.sqrt(d), (d, hidden))
+        b1 = np.zeros(hidden)
+        W2 = r.normal(0, 1 / np.sqrt(hidden), hidden)
+        b2 = 0.0
+        vW1 = np.zeros_like(W1); vb1 = np.zeros_like(b1)
+        vW2 = np.zeros_like(W2); vb2 = 0.0
+        n = len(yn)
+        for _ in range(steps):
+            H = np.tanh(Xs @ W1 + b1)
+            p = H @ W2 + b2
+            g = 2 * (p - yn) / n
+            gW2 = H.T @ g; gb2 = g.sum()
+            gH = np.outer(g, W2) * (1 - H ** 2)
+            gW1 = Xs.T @ gH; gb1 = gH.sum(0)
+            vW1 = 0.9 * vW1 - lr * gW1; W1 += vW1
+            vb1 = 0.9 * vb1 - lr * gb1; b1 += vb1
+            vW2 = 0.9 * vW2 - lr * gW2; W2 += vW2
+            vb2 = 0.9 * vb2 - lr * gb2; b2 += vb2
+        return dict(W1=W1.tolist(), b1=b1.tolist(), W2=W2.tolist(),
+                    b2=float(b2), mu=mu.tolist(), sd=sd.tolist(),
+                    ym=float(ym), ys=float(ys))
+
+    @staticmethod
+    def _net_predict(net, X):
+        X = np.asarray(X, float)
+        Xs = (X - np.array(net["mu"])) / np.array(net["sd"])
+        H = np.tanh(Xs @ np.array(net["W1"]) + np.array(net["b1"]))
+        return (H @ np.array(net["W2"]) + net["b2"]) * net["ys"] + net["ym"]
+
+    def capture_net(self, name, X, y, n_perm=8):
+        """Train the stopgap on (X, y) with train/held halves. COUNTS ONLY
+        if held-out R2 beats the max over permuted-output re-trainings
+        (the null replays the whole training contest). On success the net
+        is stored on the unknown's dossier node x:<name>; on failure
+        NOTHING is stored — a big-enough net memorizing noise is exactly
+        the lie the null exists to kill (audit 2.8)."""
+        X = np.asarray(X, float); y = np.asarray(y, float)
+        half = len(y) // 2
+
+        def held_r2(yy):
+            net = self._net_fit(X[:half], yy[:half])
+            p = self._net_predict(net, X[half:])
+            ss = float(np.sum((y[half:] - y[half:].mean()) ** 2))
+            return 1 - float(np.sum((yy[half:] - p) ** 2)) / max(
+                float(np.sum((yy[half:] - yy[half:].mean()) ** 2)), 1e-12), net
+
+        real, net = held_r2(y)
+        null = max(held_r2(_wave_rng.permutation(y))[0]
+                   for _ in range(n_perm))
+        if real <= max(null + 0.1, 0.2):
+            return dict(status="FAILED NULL", r2=real, null=null)
+        node = f"x:{name}"
+        self.net.add_door("unknown", node, tag="unknown")
+        self.net.set_meta(node, "capture_net", net)
+        resid = y[half:] - self._net_predict(net, X[half:])
+        self.net.set_meta(node, "capture_resid_sd", float(resid.std()))
+        self.net.set_meta(node, "capture_r2", round(real, 4))
+        self.net.set_meta(node, "ranges",
+                          [[float(X[:, k].min()), float(X[:, k].max())]
+                           for k in range(X.shape[1])])
+        self.record_finding("capture", name, r2=round(real, 4),
+                            null=round(null, 4))
+        return dict(status="CAPTURED (net)", r2=real, null=null, node=node)
+
+    def graduate(self, name, X=None, y=None, n_queries=3000, verbose=False):
+        """THE DISTILLATION ATTACK (audit 2.8's closing loop): query the
+        captured net as a free oracle across the unknown's observed
+        ranges, run discover() on its answers, and accept the resulting
+        equation ONLY if it also explains the net's held behavior — then
+        the law supersedes the capture and x:<name> is retired (kept,
+        marked graduated — supersession, never deletion). If no equation
+        survives, the capture stands, honestly still unarticulated."""
+        node = f"x:{name}"
+        net = self.net.get_meta(node, "capture_net")
+        ranges = self.net.get_meta(node, "ranges")
+        if net is None or ranges is None:
+            return None
+        lo = np.array([r[0] for r in ranges])
+        hi = np.array([r[1] for r in ranges])
+        Xq = _wave_rng.uniform(0, 1, (n_queries, len(lo))) * (hi - lo) + lo
+        yq = self._net_predict(net, Xq)
+        # the net's held-out residual IS its uncertainty: answer queries
+        # with that noise attached, so the net's own wiggle-artifacts die
+        # at F-ties instead of graduating as tiny fake terms
+        resid_sd = self.net.get_meta(node, "capture_resid_sd", 0.0)
+        if resid_sd:
+            yq = yq + _wave_rng.normal(0, resid_sd, len(yq))
+        res = self.discover(Xq, yq, name=f"{name}_distilled")
+        ok = res["verdict"] == "UNDERSTOOD" and res["r2"] >= 0.95
+        if ok:
+            # the razor runs at graduation too: a distilled law should be
+            # the SIMPLE form, not a term-cloud imitating the net — and
+            # when the ORIGINAL data is available, prune against REALITY:
+            # terms that only serve the net's private warp F-tie on real
+            # data and die; terms that serve the truth survive
+            dnode = f"law:{name}_distilled"
+            dm = self.net.get_meta(dnode, "model")
+            if X is not None and y is not None:
+                Xp, yp_ = np.asarray(X, float), np.asarray(y, float)
+            else:
+                Xp, yp_ = Xq, yq
+            terms, coefs, intercept, dropped = self._prune_terms(dm, Xp, yp_)
+            if dropped:
+                dm.update(terms=terms, coefs=coefs, intercept=intercept)
+                self.net.set_meta(dnode, "model", dm)
+                e2 = _Enumerator()
+                e2.terms, e2.coefs, e2.intercept, e2.specs = \
+                    terms, coefs, intercept, dm["specs"]
+                self.net.set_meta(dnode, "equation", e2.equation())
+                res = dict(res, equation=e2.equation())
+            self.net.set_meta(node, "status",
+                              f"graduated -> law:{name}_distilled")
+            self.record_finding("graduation", name,
+                                equation=res["equation"], r2=res["r2"])
+            if verbose:
+                print(f"    graduate[{name}]: CAUGHT became SAID — "
+                      f"{res['equation'][:60]}")
+            return dict(status="GRADUATED", equation=res["equation"],
+                        r2=res["r2"])
+        self.net.set_meta(node, "status", "still captured (distillation "
+                                          "found no equation)")
+        return dict(status="STILL CAPTURED", r2=res["r2"],
+                    verdict=res["verdict"])
 
     def wave_consolidate(self, min_count=5, n_perm=40, verbose=False):
         """IDLE MODE, temporal: crystallize the activation STREAM.
