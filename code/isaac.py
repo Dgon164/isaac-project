@@ -1618,9 +1618,11 @@ class Isaac:
           2. EXPERIMENT exactly there (ask(X)->y — the oracle/instrument),
              spending a budget
           3. re-derive on everything now known
-          4. accept ONLY what is better — or equally good and SIMPLER
-             (Occam's razor via the same F-test that judges rivals)
-          5. the displaced law is SUPERSEDED, never erased, with the why
+          4. PREFER what is better — or equally good and simpler (Occam
+             as a preference, not a gate; same F-test that judges rivals)
+          5. the displaced law is SUPERSEDED with the why; a candidate
+             that is not preferred is RETAINED as an alternative —
+             nothing is rejected into nothing
 
         Ends with an Occam prune either way. Returns a report dict."""
         node = f"law:{name}"
@@ -1690,6 +1692,11 @@ class Isaac:
             better = F > 10.0 and sse_new < sse_old
             tie_simpler = abs(F) <= 10.0 and \
                 complexity(cand_m) < complexity(m)
+            # OCCAM IS A PREFERENCE, NOT A GATE (owner, 2026-07-03: "its
+            # not only. its just preferred."). Accuracy decides; at ties
+            # the simpler form is PREFERRED for use — and the
+            # non-preferred candidate is RETAINED as an alternative, not
+            # discarded. Nothing is rejected into nothing.
             if better or tie_simpler:
                 old_eq = self.net.get_meta(node, "equation")
                 why = (f"refined with {b} experiments in the weakest "
@@ -1717,8 +1724,22 @@ class Isaac:
                 if verbose:
                     print(f"    refine[{name}] r{rd+1}: ACCEPTED — {why}")
             else:
+                e = _Enumerator()
+                e.terms, e.coefs, e.intercept, e.specs = \
+                    (cand_m["terms"], cand_m["coefs"],
+                     cand_m["intercept"], cand_m["specs"])
+                m.setdefault("alternatives", []).append(dict(
+                    equation=e.equation(), model=cand_m,
+                    why=(f"round {rd+1}: not preferred — "
+                         f"F {F:.1f} vs incumbent"
+                         + ("" if abs(F) > 10.0 else
+                            f", tied but not simpler "
+                            f"({complexity(cand_m)[0]} vs "
+                            f"{complexity(m)[0]} terms)"))))
+                self.net.set_meta(node, "model", m)
                 report["rounds"].append(
-                    f"kept incumbent (F {F:.1f}, candidate not better)")
+                    f"incumbent preferred (F {F:.1f}); candidate retained "
+                    f"as alternative")
 
         # 5. Occam prune the final law on everything known
         m = self.net.get_meta(node, "model")
