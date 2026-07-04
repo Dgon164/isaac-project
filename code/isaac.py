@@ -689,6 +689,8 @@ class Isaac:
         self.observed_sequences = []      # raw record (Rule 5: store raw)
         self.fact_index = defaultdict(list)  # (subject, relation) → [objects]
         self.scratch = Scratch()          # working memory: his registers / RAM
+        self.composites = []              # learned combinations — first-class,
+                                          # reused by every future discover()
         self._compiled = None
 
         # ── pipeline state ──────────────────────────────────────
@@ -1342,6 +1344,11 @@ class Isaac:
             e = json.loads(line)
             e["id"] = len(self.findings) + 1
             self.findings.append(e)
+            if e.get("kind") == "composite":
+                if not any(c["name"] == e["name"] for c in self.composites):
+                    self.composites.append(dict(
+                        op=e["op"], features=[int(f) for f in e["features"]],
+                        name=e["name"], provenance=e.get("provenance", "")))
             if e.get("kind") == "law" and e.get("model"):
                 m = e["model"]
                 node = f"law:{e['name']}"
@@ -1352,7 +1359,9 @@ class Isaac:
                     intercept=float(m["intercept"]), d=int(m["d"]),
                     r2=float(m.get("r2", 0)),
                     specs=[tuple(s) for s in m["specs"]],
-                    rivals=m.get("rivals", [])))
+                    rivals=m.get("rivals", []),
+                    d_raw=int(m.get("d_raw", m["d"])),
+                    composites_used=m.get("composites_used", [])))
                 self.net.set_meta(node, "equation", e.get("equation", ""))
                 self._teach_fact(node, "explains", e["name"])
                 n_laws += 1
@@ -1378,6 +1387,14 @@ class Isaac:
         good = np.isfinite(X).all(1) & np.isfinite(y)     # red-team A8
         if not good.all():
             X, y = X[good], y[good]
+        # learned combinations join the basis: every registered composite
+        # that fits this data becomes a first-class column, so atoms
+        # (sin/cos/exp/pow) can act ON combinations — the vocabulary Isaac
+        # earned on past problems is offered to every new one
+        d_raw = X.shape[1]
+        comps = self._applicable_composites(d_raw)
+        if comps:
+            X = self._augment_with(X, comps)
         half = len(y) // 2
         enum = _Enumerator()
         enum.fit(X[:half], y[:half])
@@ -1399,7 +1416,7 @@ class Isaac:
             r2_edge = r2
         scope = "form-true (edges hold)" if r2_edge >= 0.85 else \
             "range-valid (usable inside observed range)"
-        cap_r2, cap_null = self._capture(X, y, half)
+        cap_r2, cap_null = self._capture(X[:, :d_raw], y, half)
         # a real partial equation is knowledge whatever the headline verdict
         # says — it must never be discarded because capture scored higher
         # (the CAPTURED-erases-law bug, 2026-07-03 audit)
@@ -1506,6 +1523,7 @@ class Isaac:
         rivals = []
         if has_law:
             rivals = enum.rival_check(y[:half])
+        eq_str = self._rename_composites(enum.equation(), d_raw, comps)
         if rivals and adequacy["verdict"] != "interpretable":
             adequacy["reasons"].append(
                 f"observed range too narrow to pin the form: "
@@ -1520,8 +1538,9 @@ class Isaac:
                 specs=list(enum.specs), rivals=rivals,
                 ranges=[[float(X[:, k].min()), float(X[:, k].max())]
                         for k in range(X.shape[1])],
-                r2_edge=r2_edge))
-            self.net.set_meta(node, "equation", enum.equation())
+                r2_edge=r2_edge, d_raw=d_raw,
+                composites_used=[dict(c) for c in comps]))
+            self.net.set_meta(node, "equation", eq_str)
             self.net.set_meta(node, "accounting", accounting)
             if dossier:
                 self.net.set_meta(node, "residual_dossier", dossier)
@@ -1529,7 +1548,7 @@ class Isaac:
         if verbose:
             print(f"    discover[{name}]: {verdict} [{scope}]  R2 {r2:.3f}  "
                   f"edge {r2_edge:.3f}  captured {cap_r2:.3f}  "
-                  f"eq: {enum.equation()}")
+                  f"eq: {eq_str}")
             print(f"      accounting: articulated {accounting['articulated']}"
                   f"% + captured {accounting['captured']}% + noise "
                   f"{accounting['noise']}% = 100")
@@ -1537,18 +1556,19 @@ class Isaac:
                        for r in rivals]
         self.record_finding(
             "law" if has_law else "verdict",
-            name or "challenge", verdict=verdict, equation=enum.equation(),
+            name or "challenge", verdict=verdict, equation=eq_str,
             r2=r2, r2_edge=r2_edge, scope=scope, captured_r2=cap_r2,
             n=len(y), d=X.shape[1], rivals=riv_summary,
             accounting=accounting, dossier=dossier,
             model=(dict(terms=list(enum.terms), coefs=enum.coefs,
                         intercept=enum.intercept, d=X.shape[1], r2=r2,
-                        specs=list(enum.specs))
+                        specs=list(enum.specs), d_raw=d_raw,
+                        composites_used=[dict(c) for c in comps])
                    if has_law else None))
         capture = None
         if verdict == "CAPTURED" and name:
-            capture = self.capture_net(name, X, y)
-        return dict(verdict=verdict, equation=enum.equation(),
+            capture = self.capture_net(name, X[:, :d_raw], y)
+        return dict(verdict=verdict, equation=eq_str,
                     r2=r2, r2_edge=r2_edge, scope=scope, captured_r2=cap_r2,
                     rivals=riv_summary, accounting=accounting,
                     dossier=dossier, adequacy=adequacy, capture=capture)
@@ -1557,9 +1577,11 @@ class Isaac:
         """Apply a discovered law: the challenge, now computable.
         (Distinct from solve(), the token-problem solver.)"""
         m = self.net.get_meta(f"law:{name}", "model")
-        if m is None or np.asarray(X).shape[1] != m["d"]:
+        d_raw = (m or {}).get("d_raw", (m or {}).get("d"))
+        if m is None or np.asarray(X).shape[1] != d_raw:
             return None
-        X = np.asarray(X, float)
+        X = self._augment_with(np.asarray(X, float),
+                               m.get("composites_used", []))
         used = sorted({a for t in m["terms"] for a in t})
         cols = {a: _atom_col(X, m["specs"][a]) for a in used}
         D = np.column_stack(
@@ -1592,7 +1614,8 @@ class Isaac:
         m = self.net.get_meta(f"law:{name}", "model")
         if m is None or "ranges" not in m:
             return None
-        X = np.asarray(X, float)
+        X = self._augment_with(np.asarray(X, float),
+                               m.get("composites_used", []))
         lo = np.array([r[0] for r in m["ranges"]])
         hi = np.array([r[1] for r in m["ranges"]])
         span = np.maximum(hi - lo, 1e-12)
@@ -1683,8 +1706,10 @@ class Isaac:
         if m is None:
             return None
         X = np.asarray(X, float); y = np.asarray(y, float)
-        pool_X, pool_y = X.copy(), y.copy()
-        spent = 0
+        comps_m = m.get("composites_used", [])
+        d_raw_m = int(m.get("d_raw", X.shape[1]))
+        pool_X, pool_y = X.copy(), y.copy()      # pool stays RAW; the
+        spent = 0                                 # instrument speaks raw
         report = dict(rounds=[], accepted=0, spent=0)
 
         def complexity(mm):
@@ -1704,8 +1729,8 @@ class Isaac:
             if ask is None or spent >= budget:
                 break
             m = self.net.get_meta(node, "model")
-            lo = np.array([r[0] for r in m["ranges"]])
-            hi = np.array([r[1] for r in m["ranges"]])
+            lo = np.array([r[0] for r in m["ranges"]])[:d_raw_m]
+            hi = np.array([r[1] for r in m["ranges"]])[:d_raw_m]
             span = np.maximum(hi - lo, 1e-12)
             # 1. weakest region: candidate probes fan out past the hull;
             #    the confidence signal picks where belief is thinnest
@@ -1728,18 +1753,20 @@ class Isaac:
             pool_y = np.concatenate([pool_y, y_new])
             sh = _wave_rng.permutation(len(pool_y))
             pool_X, pool_y = pool_X[sh], pool_y[sh]
-            # 3. re-derive on everything known
+            # 3. re-derive on everything known (fits see the augmented
+            # basis: learned combinations are columns here too)
+            poolA = self._augment_with(pool_X, comps_m)
             enum = _Enumerator()
             half = len(pool_y) // 2
-            enum.fit(pool_X[:half], pool_y[:half])
+            enum.fit(poolA[:half], pool_y[:half])
             cand_m = dict(terms=list(enum.terms), coefs=enum.coefs,
                           intercept=enum.intercept, specs=list(enum.specs))
             if not cand_m["terms"]:
                 report["rounds"].append("no candidate")
                 continue
             # 4. the Occam gate: judged on the held half of the pool
-            sse_old = held_sse_of(m, pool_X[half:], pool_y[half:])
-            sse_new = held_sse_of(cand_m, pool_X[half:], pool_y[half:])
+            sse_old = held_sse_of(m, poolA[half:], pool_y[half:])
+            sse_new = held_sse_of(cand_m, poolA[half:], pool_y[half:])
             n_h = len(pool_y) - half
             F = (sse_old - sse_new) / max(min(sse_old, sse_new) / n_h, 1e-30)
             better = F > 10.0 and sse_new < sse_old
@@ -1767,10 +1794,11 @@ class Isaac:
                 m.update(terms=cand_m["terms"], coefs=cand_m["coefs"],
                          intercept=cand_m["intercept"],
                          specs=cand_m["specs"],
-                         ranges=[[float(pool_X[:, k].min()),
-                                  float(pool_X[:, k].max())]
-                                 for k in range(pool_X.shape[1])])
-                self.net.set_meta(node, "equation", enum.equation())
+                         ranges=[[float(poolA[:, k].min()),
+                                  float(poolA[:, k].max())]
+                                 for k in range(poolA.shape[1])])
+                self.net.set_meta(node, "equation", self._rename_composites(
+                    enum.equation(), d_raw_m, comps_m))
                 self.net.set_meta(node, "model", m)
                 report["accepted"] += 1
                 report["rounds"].append(why)
@@ -1796,8 +1824,9 @@ class Isaac:
 
         # 5. Occam prune the final law on everything known
         m = self.net.get_meta(node, "model")
+        poolA = self._augment_with(pool_X, comps_m)
         terms, coefs, intercept, dropped = self._prune_terms(
-            m, pool_X, pool_y)
+            m, poolA, pool_y)
         if dropped:
             old_eq = self.net.get_meta(node, "equation")
             m.setdefault("superseded", []).append(dict(
@@ -1811,7 +1840,8 @@ class Isaac:
             e = _Enumerator()
             e.terms, e.coefs, e.intercept, e.specs = \
                 terms, coefs, intercept, m["specs"]
-            self.net.set_meta(node, "equation", e.equation())
+            self.net.set_meta(node, "equation", self._rename_composites(
+                e.equation(), d_raw_m, comps_m))
         report["spent"] = spent
         report["pruned"] = dropped
         report["equation"] = self.net.get_meta(node, "equation")
@@ -1845,7 +1875,9 @@ class Isaac:
         m = self.net.get_meta(node, "model")
         if m is None:
             return None
-        X = np.asarray(X, float); y = np.asarray(y, float)
+        X = self._augment_with(np.asarray(X, float),
+                               m.get("composites_used", []))
+        y = np.asarray(y, float)
 
         def sse_of(model):
             used = sorted({a for t in model["terms"] for a in t})
@@ -2385,12 +2417,69 @@ class Isaac:
         if not lines:
             lines.append("no gated heuristic survived — the capture is "
                          "real but structureless to these probes")
+        for c in composites:
+            self.register_composite(
+                c["through"], c["features"],
+                provenance=f"interrogation of x:{name}")
         heur = dict(drivers=drivers, interactions={
             f"{i},{j}": v for (i, j), v in interactions.items()},
             composites=composites, english=lines)
         self.net.set_meta(node, "heuristics", heur)
         self.record_finding("heuristics", name, english=lines)
         return heur
+
+    # ── combinations are THINGS (owner, 2026-07-04: "x0,x1 in this
+    # relationship... shouldn't be two separate things. it should have a
+    # node... enumerate and then use that... it's combinatorial. it should
+    # be able to memorize and reuse those combinations. a topological venn
+    # diagram... a dimensionless structure.") A certified combination is
+    # minted as a node comb:<name>, distinct from its parts and from every
+    # other combination (ab ≠ a,b ≠ abc ≠ abd), persisted through the
+    # ledger, and OFFERED TO EVERY FUTURE discover() as a first-class
+    # feature — the atom library grows with experience.
+
+    _COMP_OPS = {"product": (lambda a, b: a * b, "*"),
+                 "sum": (lambda a, b: a + b, "+"),
+                 "difference": (lambda a, b: a - b, "-")}
+
+    def register_composite(self, op, features, provenance=""):
+        """Mint a combination as a first-class node. Idempotent."""
+        features = [int(f) for f in features]
+        sym = self._COMP_OPS[op][1]
+        cname = "(" + sym.join(f"x{f}" for f in features) + ")"
+        if any(c["name"] == cname for c in self.composites):
+            return cname
+        comp = dict(op=op, features=features, name=cname,
+                    provenance=provenance)
+        self.composites.append(comp)
+        node = f"comb:{cname}"
+        self.net.add_door("combination", node, tag="comb")
+        for f in features:
+            self.net.add_door(node, f"feat:x{f}", tag="comb")
+        self.net.set_meta(node, "composite", comp)
+        self.record_finding("composite", cname, op=op, features=features,
+                            provenance=provenance)
+        return cname
+
+    def _augment_with(self, X, comps):
+        """Append the given combinations as columns. Order = comps order."""
+        X = np.asarray(X, float)
+        cols = []
+        for c in comps:
+            i, j = c["features"][0], c["features"][1]
+            cols.append(self._COMP_OPS[c["op"]][0](X[:, i], X[:, j]))
+        return np.column_stack([X] + cols) if cols else X
+
+    def _applicable_composites(self, d):
+        return [c for c in self.composites
+                if max(c["features"]) < d and len(c["features"]) == 2]
+
+    @staticmethod
+    def _rename_composites(eq, d_raw, comps):
+        """Equation legibility: augmented columns print by their names."""
+        for k in range(len(comps) - 1, -1, -1):
+            eq = re.sub(rf"\bx{d_raw + k}\b", comps[k]["name"], eq)
+        return eq
 
     def graduate_composite(self, name, X, y, verbose=False):
         """The closing move: if interrogation found the dependence flows
