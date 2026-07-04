@@ -356,8 +356,13 @@ def _atom_specs(d):
             specs += [("sin", i, None, k), ("cos", i, None, k)]
         for k in (0.25, 0.5, 1.0, -0.25, -0.5, -1.0):   # decay AND growth
             specs.append(("exp", i, None, k))
-        for k in (-2.0, -1.0, -0.5, 0.5, 1.5):          # power laws (Kepler,
-            specs.append(("pow", i, None, k))           # inverse-square...)
+        for k in (-2.0, -1.0, -0.5, 0.0, 0.5, 1.5):     # ONE DIAL: the
+            specs.append(("pow", i, None, k))           # power family with
+            # lambda=0 = log (the Box-Cox limit: (x^L-1)/L -> ln x as L->0;
+            # x^0 collapses to a constant, so log IS the missing grid point
+            # — owner, 2026-07-04: "isn't a log just a power? it's not
+            # special." Correct: a family member, reachable by the same
+            # grid-proposes/refine-sharpens machinery as every exponent.)
     for i in range(d):
         for j in range(i + 1, d):
             for k in (0.5, 1.0, 2.0):
@@ -378,7 +383,10 @@ def _atom_col(X, spec):
     if kind == "exp":
         return np.exp(np.clip(-k * X[:, i], -30, 30))
     if kind == "pow":
-        return np.power(np.maximum(np.abs(X[:, i]), 1e-9), k)
+        base = np.maximum(np.abs(X[:, i]), 1e-9)
+        if k == 0:                                # the lambda=0 limit: log
+            return np.log(base)
+        return np.power(base, k)
     diff = np.clip(X[:, i] - X[:, j], -20, 20)
     if kind == "cosd":
         return np.cos(k * diff)
@@ -398,7 +406,7 @@ def _atom_label(spec):
     if kind == "exp":
         return f"exp({-k:g}*x{i})"
     if kind == "pow":
-        return f"x{i}^{k:g}"
+        return f"log(x{i})" if k == 0 else f"x{i}^{k:g}"
     op = {"cosd": "cos", "sind": "sin", "coshd": "cosh"}[kind]
     return f"{op}({k:g}*(x{i}-x{j}))"
 
@@ -581,7 +589,9 @@ class _Enumerator:
                   ("cosine", [("cos", 1.0)]),
                   ("sine", [("sin", 1.0)]),
                   ("exp_decay", [("exp", 0.5)]),
-                  ("exp_growth", [("exp", -0.5)])]
+                  ("exp_growth", [("exp", -0.5)]),
+                  ("log", [("pow", 0.0)]),
+                  ("sqrt", [("pow", 0.5)])]
         out = []
         n = len(y)
         base_terms = [tuple(t) for t in self.terms]
