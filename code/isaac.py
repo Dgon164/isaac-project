@@ -2388,6 +2388,47 @@ class Isaac:
                     shape=shape, turns=turns,
                     freq_estimate=(freq if shape == "periodic" else None)))
 
+        # COLLECTIVE probe (owner, 2026-07-04: "a strong significant
+        # collective signal, but a weak individual signal" — and SIGNED:
+        # "5-7 is -2, but 5--7 is 12. darkening vs brightening"). Shift
+        # all drivers TOGETHER (coherently) vs one at a time vs the
+        # matched null: same-size shifts with SCRAMBLED signs (breaks
+        # coherence, keeps perturbation). Responses reported signed, both
+        # directions — darkening and brightening are different facts.
+        collective = None
+        if len(main) >= 3:
+            feats = sorted(int(j) for j in main)
+            pad = 0.25 * (hi - lo)
+            Xc = _wave_rng.uniform(0, 1, (600, d)) * (hi - lo - 2 * pad)                 + lo + pad
+            fc = self._net_predict(net, Xc)
+
+            def resp(signs, scale=1.0):
+                Xs = Xc.copy()
+                for k_, j in enumerate(feats):
+                    Xs[:, j] = Xs[:, j] + signs[k_] * scale * pad[j]
+                return float(np.mean(self._net_predict(net, Xs) - fc))
+
+            ones = np.ones(len(feats))
+            up, down = resp(ones), resp(-ones)
+            indiv = []
+            for k_, j in enumerate(feats):
+                e = np.zeros(len(feats)); e[k_] = 1.0
+                indiv.append(max(abs(resp(e)), abs(resp(-e))))
+            max_indiv = max(indiv)
+            scrambled = []
+            for _ in range(12):
+                sgn = _wave_rng.choice([-1.0, 1.0], len(feats))
+                scrambled.append(max(abs(resp(sgn)), abs(resp(-sgn))))
+            strength = max(abs(up), abs(down))
+            if strength > max(scrambled) and strength > 2 * max_indiv:
+                collective = dict(
+                    features=feats, up=round(up, 3), down=round(down, 3),
+                    ratio=round(strength / max(max_indiv, 1e-9), 1),
+                    null=round(max(scrambled), 3))
+                self.register_composite(
+                    "mean", feats,
+                    provenance=f"collective probe of x:{name}")
+
         # English: the deliverable, even when the law is out of reach
         names_ = [f"x{k}" for k in range(d)]
         lines = []
@@ -2414,6 +2455,17 @@ class Isaac:
                 f"{c['shape']}"
                 + (f", roughly {c['freq_estimate']} rad/unit"
                    if c["freq_estimate"] else ""))
+        if collective:
+            k_ = len(collective["features"])
+            dirword = ("rises" if collective["up"] > 0 else "falls")
+            lines.append(
+                f"the {k_} drivers move TOGETHER: a coherent shift up moves "
+                f"the response {collective['up']:+.2f} and a coherent shift "
+                f"down moves it {collective['down']:+.2f} (signed — "
+                f"brightening and darkening are different facts); the "
+                f"collective is {collective['ratio']}x any single feature "
+                f"and beats sign-scrambled shifts ({collective['null']:.2f})"
+                f" — the response {dirword} with the group's common mode")
         if not lines:
             lines.append("no gated heuristic survived — the capture is "
                          "real but structureless to these probes")
@@ -2421,7 +2473,7 @@ class Isaac:
             self.register_composite(
                 c["through"], c["features"],
                 provenance=f"interrogation of x:{name}")
-        heur = dict(drivers=drivers, interactions={
+        heur = dict(drivers=drivers, collective=collective, interactions={
             f"{i},{j}": v for (i, j), v in interactions.items()},
             composites=composites, english=lines)
         self.net.set_meta(node, "heuristics", heur)
@@ -2445,8 +2497,11 @@ class Isaac:
     def register_composite(self, op, features, provenance=""):
         """Mint a combination as a first-class node. Idempotent."""
         features = [int(f) for f in features]
-        sym = self._COMP_OPS[op][1]
-        cname = "(" + sym.join(f"x{f}" for f in features) + ")"
+        if op == "mean":                          # collective coordinate
+            cname = "mean(" + ",".join(f"x{f}" for f in features) + ")"
+        else:
+            sym = self._COMP_OPS[op][1]
+            cname = "(" + sym.join(f"x{f}" for f in features) + ")"
         if any(c["name"] == cname for c in self.composites):
             return cname
         comp = dict(op=op, features=features, name=cname,
@@ -2466,13 +2521,17 @@ class Isaac:
         X = np.asarray(X, float)
         cols = []
         for c in comps:
-            i, j = c["features"][0], c["features"][1]
-            cols.append(self._COMP_OPS[c["op"]][0](X[:, i], X[:, j]))
+            if c["op"] == "mean":                 # a COLLECTIVE coordinate
+                cols.append(X[:, c["features"]].mean(1))
+            else:
+                i, j = c["features"][0], c["features"][1]
+                cols.append(self._COMP_OPS[c["op"]][0](X[:, i], X[:, j]))
         return np.column_stack([X] + cols) if cols else X
 
     def _applicable_composites(self, d):
         return [c for c in self.composites
-                if max(c["features"]) < d and len(c["features"]) == 2]
+                if max(c["features"]) < d
+                and (len(c["features"]) == 2 or c["op"] == "mean")]
 
     @staticmethod
     def _rename_composites(eq, d_raw, comps):
