@@ -1556,6 +1556,193 @@ class Isaac:
         conf = np.where(delta <= 0, boundary, boundary * surv)
         return conf
 
+    def _fit_terms(self, specs, terms, X, y):
+        """Least-squares refit of a term set; returns (coefs, intercept,
+        predictions_fn ingredients). Shared by pruning and refinement."""
+        used = sorted({a for t in terms for a in t})
+        cols = {a: _atom_col(X, specs[a]) for a in used}
+        D = np.column_stack([np.prod([cols[a] for a in t], axis=0)
+                             for t in terms] + [np.ones(len(X))])
+        beta, *_ = np.linalg.lstsq(D, y, rcond=None)
+        pred = D @ beta
+        sse = float(np.sum((y - pred) ** 2))
+        return list(beta[:-1]), float(beta[-1]), sse
+
+    def _prune_terms(self, m, X, y, f_thr=10.0):
+        """OCCAM'S RAZOR as an operation (owner's law, 2026-07-03: 'simpler
+        with the same accuracy or better is better'). Greedily drop any
+        term whose removal survives an F-test tie on held-out data — a
+        genuine tie goes to the simpler form. Returns (terms, coefs,
+        intercept, n_dropped)."""
+        half = len(y) // 2
+        terms = list(m["terms"])
+        specs = list(m["specs"])
+        coefs, intercept, _ = self._fit_terms(specs, terms, X[:half],
+                                              y[:half])
+
+        def held_sse(ts):
+            c, b, _ = self._fit_terms(specs, ts, X[:half], y[:half])
+            used = sorted({a for t in ts for a in t})
+            cols = {a: _atom_col(X[half:], specs[a]) for a in used}
+            D = np.column_stack([np.prod([cols[a] for a in t], axis=0)
+                                 for t in ts] + [np.ones(len(y) - half)])
+            p = D @ np.concatenate([c, [b]])
+            return float(np.sum((y[half:] - p) ** 2)), c, b
+
+        sse_full, coefs, intercept = held_sse(terms)
+        dropped = 0
+        changed = True
+        while changed and len(terms) > 1:
+            changed = False
+            for k in range(len(terms)):
+                trial = terms[:k] + terms[k + 1:]
+                sse_t, c_t, b_t = held_sse(trial)
+                F = (max(sse_t - sse_full, 0.0)) \
+                    / max(sse_full / max(len(y) - half, 1), 1e-30)
+                if F < f_thr:                     # tie -> simpler wins
+                    terms, coefs, intercept = trial, c_t, b_t
+                    sse_full = sse_t
+                    dropped += 1
+                    changed = True
+                    break
+        return terms, coefs, intercept, dropped
+
+    def refine(self, name, X, y, ask=None, budget=60, rounds=3,
+               verbose=False):
+        """THE CORRECTION LOOP (owner's design, 2026-07-03: 'it has an
+        indicator it can use as a correction signal... recalculate and
+        experiment with different information to refine'). The confidence
+        curve stops being a dashboard and becomes a steering signal:
+
+          1. find the law's WEAKEST region (lowest extrapolated confidence)
+          2. EXPERIMENT exactly there (ask(X)->y — the oracle/instrument),
+             spending a budget
+          3. re-derive on everything now known
+          4. accept ONLY what is better — or equally good and SIMPLER
+             (Occam's razor via the same F-test that judges rivals)
+          5. the displaced law is SUPERSEDED, never erased, with the why
+
+        Ends with an Occam prune either way. Returns a report dict."""
+        node = f"law:{name}"
+        m = self.net.get_meta(node, "model")
+        if m is None:
+            return None
+        X = np.asarray(X, float); y = np.asarray(y, float)
+        pool_X, pool_y = X.copy(), y.copy()
+        spent = 0
+        report = dict(rounds=[], accepted=0, spent=0)
+
+        def complexity(mm):
+            return (len(mm["terms"]),
+                    sum(len(t) for t in mm["terms"]))
+
+        def held_sse_of(mm, Xh, yh):
+            used = sorted({a for t in mm["terms"] for a in t})
+            cols = {a: _atom_col(Xh, mm["specs"][a]) for a in used}
+            D = np.column_stack([np.prod([cols[a] for a in t], axis=0)
+                                 for t in mm["terms"]]
+                                + [np.ones(len(Xh))])
+            p = D @ np.concatenate([mm["coefs"], [mm["intercept"]]])
+            return float(np.sum((yh - p) ** 2))
+
+        for rd in range(rounds):
+            if ask is None or spent >= budget:
+                break
+            m = self.net.get_meta(node, "model")
+            lo = np.array([r[0] for r in m["ranges"]])
+            hi = np.array([r[1] for r in m["ranges"]])
+            span = np.maximum(hi - lo, 1e-12)
+            # 1. weakest region: candidate probes fan out past the hull;
+            #    the confidence signal picks where belief is thinnest
+            cand = np.vstack([
+                lo + _wave_rng.uniform(-1.0, 1.4, (300, len(lo))) * span])
+            conf = self.law_confidence(name, cand)
+            b = max(min(budget - spent, budget // rounds), 8)
+            weakest = cand[np.argsort(conf)[:b]]
+            # 2. experiment there (an instrument can fail — a probe outside
+            # a law's physical support returns nothing; keep only finite
+            # answers, red-team A8 discipline)
+            y_new = np.asarray(ask(weakest), float)
+            spent += b
+            fin = np.isfinite(y_new) & np.isfinite(weakest).all(1)
+            weakest, y_new = weakest[fin], y_new[fin]
+            if not len(y_new):
+                report["rounds"].append("all probes returned non-finite")
+                continue
+            pool_X = np.vstack([pool_X, weakest])
+            pool_y = np.concatenate([pool_y, y_new])
+            sh = _wave_rng.permutation(len(pool_y))
+            pool_X, pool_y = pool_X[sh], pool_y[sh]
+            # 3. re-derive on everything known
+            enum = _Enumerator()
+            half = len(pool_y) // 2
+            enum.fit(pool_X[:half], pool_y[:half])
+            cand_m = dict(terms=list(enum.terms), coefs=enum.coefs,
+                          intercept=enum.intercept, specs=list(enum.specs))
+            if not cand_m["terms"]:
+                report["rounds"].append("no candidate")
+                continue
+            # 4. the Occam gate: judged on the held half of the pool
+            sse_old = held_sse_of(m, pool_X[half:], pool_y[half:])
+            sse_new = held_sse_of(cand_m, pool_X[half:], pool_y[half:])
+            n_h = len(pool_y) - half
+            F = (sse_old - sse_new) / max(min(sse_old, sse_new) / n_h, 1e-30)
+            better = F > 10.0 and sse_new < sse_old
+            tie_simpler = abs(F) <= 10.0 and \
+                complexity(cand_m) < complexity(m)
+            if better or tie_simpler:
+                old_eq = self.net.get_meta(node, "equation")
+                why = (f"refined with {b} experiments in the weakest "
+                       f"region (round {rd+1}): "
+                       + (f"held-out SSE {sse_new:.4g} vs {sse_old:.4g} "
+                          f"(F {F:.1f})" if better else
+                          f"tie (F {F:.1f}) and simpler "
+                          f"({complexity(cand_m)[0]} vs "
+                          f"{complexity(m)[0]} terms)"))
+                m.setdefault("superseded", []).append(dict(
+                    equation=old_eq,
+                    model=dict(terms=m["terms"], coefs=m["coefs"],
+                               intercept=m["intercept"], specs=m["specs"]),
+                    why=why))
+                m.update(terms=cand_m["terms"], coefs=cand_m["coefs"],
+                         intercept=cand_m["intercept"],
+                         specs=cand_m["specs"],
+                         ranges=[[float(pool_X[:, k].min()),
+                                  float(pool_X[:, k].max())]
+                                 for k in range(pool_X.shape[1])])
+                self.net.set_meta(node, "equation", enum.equation())
+                self.net.set_meta(node, "model", m)
+                report["accepted"] += 1
+                report["rounds"].append(why)
+                if verbose:
+                    print(f"    refine[{name}] r{rd+1}: ACCEPTED — {why}")
+            else:
+                report["rounds"].append(
+                    f"kept incumbent (F {F:.1f}, candidate not better)")
+
+        # 5. Occam prune the final law on everything known
+        m = self.net.get_meta(node, "model")
+        terms, coefs, intercept, dropped = self._prune_terms(
+            m, pool_X, pool_y)
+        if dropped:
+            old_eq = self.net.get_meta(node, "equation")
+            m.setdefault("superseded", []).append(dict(
+                equation=old_eq, model=dict(
+                    terms=m["terms"], coefs=m["coefs"],
+                    intercept=m["intercept"], specs=m["specs"]),
+                why=f"Occam prune: {dropped} term(s) removed at F-tie — "
+                    f"simpler with the same accuracy"))
+            m.update(terms=terms, coefs=coefs, intercept=intercept)
+            self.net.set_meta(node, "model", m)
+            e = _Enumerator()
+            e.terms, e.coefs, e.intercept, e.specs = \
+                terms, coefs, intercept, m["specs"]
+            self.net.set_meta(node, "equation", e.equation())
+        report["spent"] = spent
+        report["pruned"] = dropped
+        report["equation"] = self.net.get_meta(node, "equation")
+        return report
+
     def validate_law(self, name, X, y):
         """Re-validate a (possibly inherited) law on NEW evidence before
         trusting it. load_ledger() restores laws as APPLICABLE; this is the

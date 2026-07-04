@@ -79,7 +79,7 @@ def make_world(kind):
     y = y0 + rng.normal(0, sd, n)
     true_share = 100 * y0.var() / max(y0.var() + sd ** 2, 1e-12)
     return dict(kind=kind, X=X, y=y, f=f, lo=lo, hi=hi, d=d, n=n,
-                true_share=true_share)
+                true_share=true_share, sd=sd)
 
 
 def grade(w, isaac, name):
