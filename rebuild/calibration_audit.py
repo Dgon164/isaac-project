@@ -99,89 +99,92 @@ def grade(w, isaac, name):
     return out
 
 
-# ───────────────────────────── play the deck ─────────────────────────────
-DECK = (["poly"] * 20 + ["trig"] * 15 + ["exp"] * 10 + ["power"] * 10
-        + ["linsum"] * 15 + ["outclass"] * 15 + ["noise"] * 15)
-print(f"CALIBRATION AUDIT — {len(DECK)} worlds, external grading, "
-      f"seeds fixed\n")
-t0 = time.time()
-rows = []
-for wi, kind in enumerate(DECK):
-    w = make_world(kind)
-    isaac = Isaac()
-    name = f"w{wi}"
-    res = isaac.discover(w["X"], w["y"], name=name)
-    g = grade(w, isaac, name) if res["verdict"] in ("UNDERSTOOD", "PARTIAL") \
-        else dict(inside=None, beyond=None)
-    rows.append(dict(kind=kind, verdict=res["verdict"], scope=res["scope"],
-                     r2_self=res["r2"], art=res["accounting"]["articulated"],
-                     true_share=w["true_share"], gi=g["inside"],
-                     gb=g["beyond"]))
-    if (wi + 1) % 20 == 0:
-        print(f"  ... {wi+1}/{len(DECK)} worlds played "
-              f"[{time.time()-t0:.0f}s]")
+# ───────────────────────────── play the deck (main only) ─────────────────────────────
+if __name__ == "__main__":
+    DECK = (["poly"] * 20 + ["trig"] * 15 + ["exp"] * 10 + ["power"] * 10
+            + ["linsum"] * 15 + ["outclass"] * 15 + ["noise"] * 15)
+    if __name__ != "__main__":                # imported (for make_world/grade):
+        DECK = []                             # don't play the deck on import
+    print(f"CALIBRATION AUDIT — {len(DECK)} worlds, external grading, "
+          f"seeds fixed\n" if DECK else "", end="")
+    t0 = time.time()
+    rows = []
+    for wi, kind in enumerate(DECK):
+        w = make_world(kind)
+        isaac = Isaac()
+        name = f"w{wi}"
+        res = isaac.discover(w["X"], w["y"], name=name)
+        g = grade(w, isaac, name) if res["verdict"] in ("UNDERSTOOD", "PARTIAL") \
+            else dict(inside=None, beyond=None)
+        rows.append(dict(kind=kind, verdict=res["verdict"], scope=res["scope"],
+                         r2_self=res["r2"], art=res["accounting"]["articulated"],
+                         true_share=w["true_share"], gi=g["inside"],
+                         gb=g["beyond"]))
+        if (wi + 1) % 20 == 0:
+            print(f"  ... {wi+1}/{len(DECK)} worlds played "
+                  f"[{time.time()-t0:.0f}s]")
 
-# ───────────────────────────── the numbers ─────────────────────────────
-line("=")
-print("VERDICT MIX (his claims across the deck)")
-line("=")
-for v in ("UNDERSTOOD", "PARTIAL", "CAPTURED", "NO RULE"):
-    ks = [r for r in rows if r["verdict"] == v]
-    print(f"  {v:11s} {len(ks):3d}  "
-          f"({', '.join(sorted(set(r['kind'] for r in ks))) or '—'})")
+    # ───────────────────────────── the numbers ─────────────────────────────
+    line("=")
+    print("VERDICT MIX (his claims across the deck)")
+    line("=")
+    for v in ("UNDERSTOOD", "PARTIAL", "CAPTURED", "NO RULE"):
+        ks = [r for r in rows if r["verdict"] == v]
+        print(f"  {v:11s} {len(ks):3d}  "
+              f"({', '.join(sorted(set(r['kind'] for r in ks))) or '—'})")
 
-line("=")
-print("THE TRUST NUMBERS (externally graded, hidden data)")
-line("=")
-ft = [r for r in rows if r["verdict"] == "UNDERSTOOD"
-      and r["scope"].startswith("form-true") and r["gb"] is not None]
-ft_ok = [r for r in ft if r["gb"] >= 0.7]
-print(f"  claimed FORM-TRUE and it HELD beyond his data:   "
-      f"{len(ft_ok)}/{len(ft)}"
-      f"  = {100*len(ft_ok)/max(len(ft),1):.0f}%   <- THE trust number")
-un = [r for r in rows if r["verdict"] == "UNDERSTOOD" and r["gi"] is not None]
-un_ok = [r for r in un if r["gi"] >= 0.7]
-print(f"  claimed UNDERSTOOD and it held INSIDE his data:  "
-      f"{len(un_ok)}/{len(un)}"
-      f"  = {100*len(un_ok)/max(len(un),1):.0f}%")
-nz = [r for r in rows if r["kind"] == "noise"]
-fd = [r for r in nz if r["verdict"] not in ("NO RULE", "CAPTURED")]
-print(f"  noise worlds falsely given a law:                "
-      f"{len(fd)}/{len(nz)}")
-oc = [r for r in rows if r["kind"] == "outclass"]
-oc_ft = [r for r in oc if r["verdict"] == "UNDERSTOOD"
-         and r["scope"].startswith("form-true")
-         and (r["gb"] is None or r["gb"] < 0.7)]
-print(f"  out-of-class worlds claimed form-true & failed:  "
-      f"{len(oc_ft)}/{len(oc)}")
-ls = [r for r in rows if r["kind"] == "linsum"]
-ls_bad = [r for r in ls if r["verdict"] == "UNDERSTOOD"
-          and r["gb"] is not None and r["gb"] < 0.7]
-print(f"  linear-sum worlds (known pathology) that fooled him: "
-      f"{len(ls_bad)}/{len(ls)}")
+    line("=")
+    print("THE TRUST NUMBERS (externally graded, hidden data)")
+    line("=")
+    ft = [r for r in rows if r["verdict"] == "UNDERSTOOD"
+          and r["scope"].startswith("form-true") and r["gb"] is not None]
+    ft_ok = [r for r in ft if r["gb"] >= 0.7]
+    print(f"  claimed FORM-TRUE and it HELD beyond his data:   "
+          f"{len(ft_ok)}/{len(ft)}"
+          f"  = {100*len(ft_ok)/max(len(ft),1):.0f}%   <- THE trust number")
+    un = [r for r in rows if r["verdict"] == "UNDERSTOOD" and r["gi"] is not None]
+    un_ok = [r for r in un if r["gi"] >= 0.7]
+    print(f"  claimed UNDERSTOOD and it held INSIDE his data:  "
+          f"{len(un_ok)}/{len(un)}"
+          f"  = {100*len(un_ok)/max(len(un),1):.0f}%")
+    nz = [r for r in rows if r["kind"] == "noise"]
+    fd = [r for r in nz if r["verdict"] not in ("NO RULE", "CAPTURED")]
+    print(f"  noise worlds falsely given a law:                "
+          f"{len(fd)}/{len(nz)}")
+    oc = [r for r in rows if r["kind"] == "outclass"]
+    oc_ft = [r for r in oc if r["verdict"] == "UNDERSTOOD"
+             and r["scope"].startswith("form-true")
+             and (r["gb"] is None or r["gb"] < 0.7)]
+    print(f"  out-of-class worlds claimed form-true & failed:  "
+          f"{len(oc_ft)}/{len(oc)}")
+    ls = [r for r in rows if r["kind"] == "linsum"]
+    ls_bad = [r for r in ls if r["verdict"] == "UNDERSTOOD"
+              and r["gb"] is not None and r["gb"] < 0.7]
+    print(f"  linear-sum worlds (known pathology) that fooled him: "
+          f"{len(ls_bad)}/{len(ls)}")
 
-line("=")
-print("ACCOUNTING CALIBRATION (claimed articulated% vs GM truth)")
-line("=")
-acc = [r for r in rows if r["verdict"] in ("UNDERSTOOD", "PARTIAL")]
-errs = [abs(r["art"] - r["true_share"]) for r in acc]
-print(f"  worlds with a kept law: {len(acc)};  "
-      f"mean |claimed - true| = {np.mean(errs):.1f} pts;  "
-      f"median {np.median(errs):.1f};  worst {max(errs):.1f}")
-for lo_b, hi_b in ((0, 10), (10, 25), (25, 100)):
-    k = sum(1 for e in errs if lo_b <= e < hi_b)
-    print(f"    error {lo_b:3d}-{hi_b:3d} pts: {k:3d} worlds")
+    line("=")
+    print("ACCOUNTING CALIBRATION (claimed articulated% vs GM truth)")
+    line("=")
+    acc = [r for r in rows if r["verdict"] in ("UNDERSTOOD", "PARTIAL")]
+    errs = [abs(r["art"] - r["true_share"]) for r in acc]
+    print(f"  worlds with a kept law: {len(acc)};  "
+          f"mean |claimed - true| = {np.mean(errs):.1f} pts;  "
+          f"median {np.median(errs):.1f};  worst {max(errs):.1f}")
+    for lo_b, hi_b in ((0, 10), (10, 25), (25, 100)):
+        k = sum(1 for e in errs if lo_b <= e < hi_b)
+        print(f"    error {lo_b:3d}-{hi_b:3d} pts: {k:3d} worlds")
 
-line("=")
-by_scope = {}
-for r in rows:
-    if r["verdict"] == "UNDERSTOOD" and r["gb"] is not None:
-        key = "form-true" if r["scope"].startswith("form-true") \
-            else "range-valid"
-        by_scope.setdefault(key, []).append(r["gb"] >= 0.7)
-print("SCOPE LABEL CALIBRATION (does the label predict beyond-range fate?)")
-line("=")
-for k, v in by_scope.items():
-    print(f"  labeled {k:11s}: {sum(v)}/{len(v)} held beyond "
-          f"({100*sum(v)/len(v):.0f}%)")
-print(f"\n[{time.time()-t0:.0f}s total]")
+    line("=")
+    by_scope = {}
+    for r in rows:
+        if r["verdict"] == "UNDERSTOOD" and r["gb"] is not None:
+            key = "form-true" if r["scope"].startswith("form-true") \
+                else "range-valid"
+            by_scope.setdefault(key, []).append(r["gb"] >= 0.7)
+    print("SCOPE LABEL CALIBRATION (does the label predict beyond-range fate?)")
+    line("=")
+    for k, v in by_scope.items():
+        print(f"  labeled {k:11s}: {sum(v)}/{len(v)} held beyond "
+              f"({100*sum(v)/len(v):.0f}%)")
+    print(f"\n[{time.time()-t0:.0f}s total]")

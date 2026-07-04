@@ -1467,7 +1467,10 @@ class Isaac:
             self.net.set_meta(node, "model", dict(
                 terms=list(enum.terms), coefs=enum.coefs,
                 intercept=enum.intercept, d=X.shape[1], r2=r2,
-                specs=list(enum.specs), rivals=rivals))
+                specs=list(enum.specs), rivals=rivals,
+                ranges=[[float(X[:, k].min()), float(X[:, k].max())]
+                        for k in range(X.shape[1])],
+                r2_edge=r2_edge))
             self.net.set_meta(node, "equation", enum.equation())
             self.net.set_meta(node, "accounting", accounting)
             if dossier:
@@ -1510,6 +1513,48 @@ class Isaac:
             [np.prod([cols[a] for a in t], axis=0) for t in m["terms"]]
             + [np.ones(len(X))])
         return D @ np.concatenate([m["coefs"], [m["intercept"]]])
+
+    # Extrapolation survival of form-true claims, MEASURED (2026-07-03,
+    # experiments/confidence_curve.py — 100-world externally graded audit;
+    # re-measure whenever the enumerator changes). Keys are hull-exceedance
+    # distances in units of the observed span; values are observed hold
+    # rates. This is a calibrated prior, not an opinion.
+    DECAY_MEASURED = {0.0: 0.765, 0.1: 0.588, 0.3: 0.451,
+                      0.6: 0.431, 1.0: 0.373}
+    # (measured 2026-07-03 on 51 externally-graded laws; validated on 52
+    # FRESH laws: ECE 0.070, Brier 0.249 vs flat-baseline 0.288)
+
+    def law_confidence(self, name, X, decay=None):
+        """GRADED BELIEF instead of a binary scope stamp (owner's design,
+        2026-07-03: 'maybe just a boundary confidence? what about
+        extrapolated confidence?'). Per query point:
+          - inside the observed hull -> the law's boundary confidence
+            (held-out edge R2, clamped to [0,1])
+          - beyond the hull -> boundary confidence x the MEASURED survival
+            curve of claims like this one, interpolated at the point's
+            hull-exceedance distance (in units of the observed span).
+        Returns an array of per-point confidences. Honest by construction:
+        the decay is what actually happened to extrapolating laws in the
+        externally-graded audit, not an assertion."""
+        m = self.net.get_meta(f"law:{name}", "model")
+        if m is None or "ranges" not in m:
+            return None
+        X = np.asarray(X, float)
+        lo = np.array([r[0] for r in m["ranges"]])
+        hi = np.array([r[1] for r in m["ranges"]])
+        span = np.maximum(hi - lo, 1e-12)
+        exceed = np.maximum(np.maximum(lo - X, X - hi), 0.0) / span
+        delta = exceed.max(axis=1)                    # hull distance / span
+        curve = decay if decay is not None else {
+            k: v for k, v in self.DECAY_MEASURED.items() if v is not None}
+        boundary = float(np.clip(m.get("r2_edge", m.get("r2", 0.0)), 0, 1))
+        if not curve:
+            return np.where(delta <= 0, boundary, np.nan)
+        ks = np.array(sorted(curve))
+        vs = np.array([curve[k] for k in ks])
+        surv = np.interp(delta, ks, vs, left=vs[0], right=vs[-1])
+        conf = np.where(delta <= 0, boundary, boundary * surv)
+        return conf
 
     def validate_law(self, name, X, y):
         """Re-validate a (possibly inherited) law on NEW evidence before
@@ -3729,8 +3774,22 @@ def test_discovery():
           f"dossier attached ({resg['dossier']['unknown']}, "
           f"{resg['dossier']['share_pct']}% share)")
 
-    print(f"\n  {correct}/8")
-    return correct == 8
+    # (h) graded belief: confidence must be high inside the data, decay
+    # with extrapolation distance, and never be a binary stamp
+    Xin = rng.normal(0, 1, (200, 4))
+    Xnear = Xg.max(0) * 1.1 + rng.uniform(0, 0.1, (200, 4))
+    Xfar = Xg.max(0) * 2.0 + rng.uniform(0, 0.1, (200, 4))
+    ci = isaac.law_confidence("challenge_g", Xin).mean()
+    cn = isaac.law_confidence("challenge_g", Xnear).mean()
+    cf = isaac.law_confidence("challenge_g", Xfar).mean()
+    ok = ci > 0.85 and ci > cn > cf and cf < 0.5
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  extrapolated confidence: inside "
+          f"{ci:.2f} > near-beyond {cn:.2f} > far-beyond {cf:.2f} "
+          f"(measured decay, not a stamp)")
+
+    print(f"\n  {correct}/9")
+    return correct == 9
 
 
 def test_rivalry():
