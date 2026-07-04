@@ -1481,6 +1481,149 @@ class Isaac:
                               for _ in range(20)))
         return real, null
 
+    # ── spatial perception: relations from motion (the bridge) ─────────
+    # Migrated from spatial/ (2026-07-03) after harness validation
+    # (spatial/test_isaac_bridge.py 4/4, test_null_battery.py clean).
+    # Coordinates are scratch, relations are storage: what enters the net
+    # is locked/bounded edges, parts, hinges, anchors, and a scale-free
+    # ratio signature. Every verdict is null-gated (variance-ratio vs the
+    # pair's own noise floor; increment-shuffle surrogate for bounded) —
+    # no hand-tuned thresholds. Assumes temporally continuous frames.
+
+    @staticmethod
+    def _extreme_visits(ds, nf):
+        """min(visits to own min, to own max), hysteresis-counted."""
+        lo, hi = float(ds.min()), float(ds.max())
+        rng_ = hi - lo
+        if rng_ <= 0:
+            return 0
+        band = max(0.02 * rng_, 3 * nf)
+        if band >= 0.2 * rng_:
+            return 0
+        away = 0.25 * rng_
+        counts = []
+        for target in (lo, hi):
+            v, armed = 0, True
+            for d in ds:
+                if armed and abs(d - target) < band:
+                    v += 1
+                    armed = False
+                elif not armed and abs(d - target) > away:
+                    armed = True
+            counts.append(v)
+        return min(counts)
+
+    def observe_spatial(self, frames, label="scene", machine_eps=1e-9):
+        """THE BRIDGE: watch trajectories, store only what refuses to vary.
+        Teaches facts (locked_to / bounded_with / contains / hinge_at /
+        anchored_at) via teach() — indexed AND observed, so doors form —
+        and a scale-free signature on a scene node. If nothing survives
+        the nulls, NOTHING is taught (perception that can refuse).
+        Returns the relation bundle."""
+        F = np.asarray(frames, float)               # (T, n_points, dims)
+        T, n, _ = F.shape
+        rng = np.random.default_rng(1234)
+        verdicts, scale = {}, 0.0
+        series = {}
+        for i in range(n):
+            for j in range(i + 1, n):
+                ds = np.linalg.norm(F[:, i] - F[:, j], axis=1)
+                series[(i, j)] = ds
+                scale = max(scale, float(ds.mean()))
+        for pair, ds in series.items():
+            std = float(ds.std())
+            diffs = np.diff(ds)
+            nf = float(np.sqrt(max(float(diffs.var()), 0.0) / 2.0))
+            gate = max(nf * (1 + 4 / np.sqrt(T)), machine_eps * scale)
+            if std <= gate:
+                kind = "locked"
+            else:
+                real_v = self._extreme_visits(ds, nf)
+                d0 = diffs.copy()
+                surr = []
+                for _ in range(20):
+                    rng.shuffle(d0)
+                    walk = np.concatenate([[ds[0]], ds[0] + np.cumsum(d0)])
+                    surr.append(self._extreme_visits(walk, nf))
+                rng_ = float(ds.max() - ds.min())
+                kind = ("bounded" if real_v >= 2 and real_v > max(surr)
+                        and rng_ > 10 * max(nf, machine_eps * scale)
+                        else "free")
+            verdicts[pair] = dict(kind=kind, mean=float(ds.mean()), std=std,
+                                  noise=nf)
+        locked = {p: v["mean"] for p, v in verdicts.items()
+                  if v["kind"] == "locked"}
+        bounded = sorted(p for p, v in verdicts.items()
+                         if v["kind"] == "bounded")
+        # parts = maximal pairwise-locked cliques, grown from EDGES
+        cliques = []
+        for (a, b) in locked:
+            c = {a, b}
+            for cand in range(n):
+                if cand not in c and all(
+                        (min(cand, m), max(cand, m)) in locked for m in c):
+                    c.add(cand)
+            if not any(c <= q for q in cliques):
+                cliques = [q for q in cliques if not q <= c] + [c]
+        hinges = sorted({min(a & b) for ai, a in enumerate(cliques)
+                         for b in cliques[ai + 1:] if len(a & b) == 1})
+        # anchors: coordinate variation explained by noise alone
+        anchors = []
+        for i in range(n):
+            still = True
+            for d in range(F.shape[2]):
+                cs = F[:, i, d]
+                nf = float(np.sqrt(max(float(np.diff(cs).var()), 0.0) / 2.0))
+                if float(cs.std()) > max(nf * (1 + 4 / np.sqrt(T)),
+                                         machine_eps * max(scale, 1e-12)):
+                    still = False
+                    break
+            if still:
+                anchors.append(i)
+        lens = sorted(locked.values())
+        sig = [round(x / lens[-1], 3) for x in lens] if lens else []
+        # ---- emit: relations cross, coordinates never do
+        for (i, j) in sorted(locked):
+            self.teach(f"{label}.p{i}", "locked_to", f"{label}.p{j}")
+        for (i, j) in bounded:
+            self.teach(f"{label}.p{i}", "bounded_with", f"{label}.p{j}")
+        for k, part in enumerate(sorted(map(sorted, cliques))):
+            for i in part:
+                self.teach(f"{label}.part{k}", "contains", f"{label}.p{i}")
+        for h in hinges:
+            self.teach(label, "hinge_at", f"{label}.p{h}")
+        for a in anchors:
+            self.teach(label, "anchored_at", f"{label}.p{a}")
+        if sig:
+            self.net.add_door("scene", f"scene:{label}", tag="scene")
+            self.net.set_meta(f"scene:{label}", "spatial_signature", sig)
+            self.net.set_meta(f"scene:{label}", "structure", dict(
+                n_parts=len(cliques),
+                part_sizes=sorted(len(p) for p in cliques),
+                n_hinges=len(hinges)))
+        return dict(locked=sorted(locked), bounded=bounded,
+                    parts=[sorted(c) for c in cliques], hinges=hinges,
+                    anchors=anchors, signature=sig)
+
+    def compare_scenes(self, label_a, label_b, tol=0.02):
+        """Are two perceived scenes the same STRUCTURE? Judged entirely from
+        stored relations: the scale-free signature (sorted locked-length
+        ratios) plus part-size multiset and hinge count. Pose, scale and
+        position cannot matter — they were never stored."""
+        sa = self.net.get_meta(f"scene:{label_a}", "spatial_signature")
+        sb = self.net.get_meta(f"scene:{label_b}", "spatial_signature")
+        ta = self.net.get_meta(f"scene:{label_a}", "structure")
+        tb = self.net.get_meta(f"scene:{label_b}", "structure")
+        if None in (sa, sb, ta, tb):
+            return dict(verdict="UNKNOWN", reason="scene(s) not perceived")
+        if len(sa) != len(sb):
+            return dict(verdict="DIFFERENT", reason="different bar counts")
+        gap = max(abs(x - y) for x, y in zip(sa, sb))
+        same = (gap < tol and ta["part_sizes"] == tb["part_sizes"]
+                and ta["n_hinges"] == tb["n_hinges"])
+        return dict(verdict="SAME" if same else "DIFFERENT",
+                    signature_gap=round(gap, 4))
+
     def wave_consolidate(self, min_count=5, n_perm=40, verbose=False):
         """IDLE MODE, temporal: crystallize the activation STREAM.
 
@@ -3485,6 +3628,83 @@ def test_rivalry():
     return correct == 4
 
 
+def test_spatial():
+    _div("SPATIAL — the bridge: relations from motion, coordinates stay out")
+    isaac = Isaac()
+    rng = np.random.default_rng(23)
+
+    def fourbar_frames(scale=1.0, rot=0.0, tx=0.0, ty=0.0, T=480,
+                       noise=0.003):
+        """Closed-form four-bar (crank 2, coupler 7, rocker 6, ground 8)
+        under 2 crank cycles, arbitrary pose, gaussian measurement noise."""
+        crank, coupler, rocker, ground = (x * scale for x in (2., 7., 6., 8.))
+        c, s = np.cos(rot), np.sin(rot)
+        p0 = np.array([tx, ty])
+        p3 = p0 + ground * np.array([c, s])
+        out = []
+        for k in range(T):
+            th = 4 * np.pi * k / T + rot
+            p1 = p0 + crank * np.array([np.cos(th), np.sin(th)])
+            d = np.linalg.norm(p3 - p1)
+            a = (coupler ** 2 - rocker ** 2 + d ** 2) / (2 * d)
+            h = np.sqrt(max(coupler ** 2 - a ** 2, 0.0))
+            u = (p3 - p1) / d
+            p2 = p1 + a * u + h * np.array([-u[1], u[0]])
+            out.append(np.stack([p0, p1, p2, p3])
+                       + rng.normal(0, noise * scale, (4, 2)))
+        return np.array(out)
+
+    # (a) perceive a four-bar; the facts must be queryable
+    rel = isaac.observe_spatial(fourbar_frames(), label="fbA")
+    q_locked = isaac.fact_index[("fbA.p0", "locked_to")]
+    q_anchor = isaac.fact_index[("fbA", "anchored_at")]
+    ok = (len(rel["parts"]) == 4 and len(rel["hinges"]) == 4
+          and "fbA.p1" in q_locked and "fbA.p3" in q_locked
+          and set(q_anchor) == {"fbA.p0", "fbA.p3"})
+    correct = int(ok)
+    print(f"  {'✓' if ok else '✗'}  four-bar perceived: 4 bars (incl. the "
+          f"undeclared ground), 4 hinges; facts answer: p0 locked_to "
+          f"{q_locked}, anchored {q_anchor}")
+
+    # (b) recognition across pose and scale — relations are invariant
+    isaac.observe_spatial(fourbar_frames(scale=2.4, rot=0.9, tx=6, ty=-2),
+                          label="fbB")
+    v = isaac.compare_scenes("fbA", "fbB")
+    ok = v["verdict"] == "SAME"
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  same mechanism, 2.4x bigger, rotated, "
+          f"moved: {v['verdict']} (signature gap {v.get('signature_gap')})")
+
+    # (c) discrimination: a rigid plate swinging on a pin is NOT a four-bar
+    sq = np.array([[0., 0.], [0., 3.], [2., 3.], [2., 0.]])
+    plate = []
+    for k in range(360):
+        th = 1.2 * np.sin(2 * np.pi * k / 180)
+        c, s = np.cos(th), np.sin(th)
+        R = np.array([[c, -s], [s, c]])
+        plate.append(sq @ R.T + rng.normal(0, 0.003, (4, 2)))
+    isaac.observe_spatial(np.array(plate), label="plate")
+    v = isaac.compare_scenes("fbA", "plate")
+    ok = v["verdict"] == "DIFFERENT"
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  rigid plate on a pin vs four-bar: "
+          f"{v['verdict']}")
+
+    # (d) the null gate at the bridge: walkers must teach NOTHING
+    walk = np.cumsum(rng.normal(0, 0.08, (500, 5, 2)), axis=0) \
+        + rng.normal(0, 0.003, (500, 5, 2))
+    before = sum(len(v_) for v_ in isaac.fact_index.values())
+    reln = isaac.observe_spatial(walk, label="nothing")
+    after = sum(len(v_) for v_ in isaac.fact_index.values())
+    ok = before == after and not reln["locked"] and not reln["parts"]
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  random walkers: 0 relations survive the "
+          f"nulls, 0 facts taught (index {before} -> {after})")
+
+    print(f"\n  {correct}/4")
+    return correct == 4
+
+
 # ═════════════════════════════════════════════════════════════════
 # MAIN
 # ═════════════════════════════════════════════════════════════════
@@ -3504,6 +3724,7 @@ if __name__ == "__main__":
     results["tracking"] = test_tracking()
     results["discovery"] = test_discovery()
     results["rivalry"] = test_rivalry()
+    results["spatial"] = test_spatial()
 
     _div("SUMMARY")
     for name, passed in results.items():
