@@ -317,7 +317,25 @@ Full design: `BOOT_LINE_DESIGN.md`.
   `rebuild/shape_viability_probe.py`) FAILED their courts — kept for
   the record; the sig-figs zoom idea remains open research on top of
   the FPTP base.
-- Courts in `test_boot` (13 checks): exactness (pipeline vs direct: same
+- THE TWO LANES (owner, 2026-07-22: "the interaction version must be
+  fast; background processing for larger full-depth work"). FAST
+  LANE: `q_next` pulls `config:priority-kinds` jobs (default `/in`)
+  ahead of bulk — a reply never waits behind a book. SLOW LANE:
+  `work_quantum(max_segments=)` advances the oldest unfinished job
+  one bounded stage-slice (crystallize/commit ≤ N segments, one
+  merge group, scoped sleep per commit slice — segment-wise sleeping
+  achieved); `crystallize_job`/`merge_job`/`commit_job` take
+  `limit=`; a job is done only when every segment came through.
+  Measured: 8ms median message latency WHILE a 9.6k-token book reads
+  full-depth in the background (~90s).
+- THE STANDING MIND + TELEMETRY (workspace): he is instantiated and
+  LIVE — `ui/isaac_workspace.py` resurrects `data/minds/isaac.isaac`
+  on start, autosaves every 2 min, saves after every finished
+  background read and at exit; a server restart is a nap, not a
+  death (verified: killed mid-life, restarted, same nodes, same
+  answers). Every event appends to `data/telemetry.jsonl` (ts,
+  event, ms, nodes, types, findings).
+- Courts in `test_boot` (15 checks): exactness (pipeline vs direct: same
   lookup, `np.array_equal` W), delta-vs-one-shot compile, three nulls
   that must refuse (scrambled flow, payload-less job, circular flow),
   the supersession court (repoint `boot:entry` mid-run, next beat obeys,

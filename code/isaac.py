@@ -1847,13 +1847,22 @@ class Isaac:
                     tokens=sum(len(s) for s in seqs))
 
     def q_next(self):
-        """Oldest open job, marked working. No job = an honest none."""
-        jobs = sorted(self.net.get_doors("queue:inbox", tag="job"),
-                      key=lambda j: int(j.split(":")[1]))
+        """Oldest open job, marked working — but the FAST LANE first:
+        jobs whose kind is in config:priority-kinds (the interactive
+        ones) jump the queue, so a bulk read never blocks a reply.
+        No job = an honest none."""
+        pri = self._config("priority-kinds", ["/in"])
+        jobs = [j for j in sorted(self.net.get_doors("queue:inbox",
+                                                     tag="job"),
+                                  key=lambda j: int(j.split(":")[1]))
+                if self.net.get_meta(j, "state") == "open"]
         for j in jobs:
-            if self.net.get_meta(j, "state") == "open":
+            if self.net.get_meta(j, "kind") in pri:
                 self.net.set_meta(j, "state", "working")
                 return dict(job=j)
+        for j in jobs:
+            self.net.set_meta(j, "state", "working")
+            return dict(job=j)
         return dict(job=None)
 
     def segment_job(self, job):
@@ -1897,16 +1906,19 @@ class Isaac:
         return [s for s in segs
                 if self.net.get_meta(s, "state") == state]
 
-    def crystallize_job(self, job):
+    def crystallize_job(self, job, limit=None):
         """Each segment goes to a disposable worker — a FRESH scratch
         mind that observes the piece and runs its own consolidation
         pass. The crystal lands on the segment node as a receipt.
         The mind net is untouched until commit. With config:workers
         > 1, segments crystallize in PARALLEL PROCESSES — workers are
         stateless and never touch this mind, so the spine is race-free
-        by construction (the main process is the single consumer)."""
+        by construction (the main process is the single consumer).
+        limit bounds the slice (the background lane's quantum)."""
         job = self._job_id(job)
         segs = self._job_segments(job, "segmented")
+        if limit:
+            segs = segs[:limit]
         nworkers = int(self._config("workers", 1))
         if nworkers > 1 and len(segs) > 1:
             from multiprocessing import Pool
@@ -1947,16 +1959,20 @@ class Isaac:
             n += 1
         return dict(assessed=n)
 
-    def merge_job(self, job):
+    def merge_job(self, job, limit=None):
         """Recrystallize assessed segments TOGETHER in bounded groups
         (config:merge-group): a scratch mind sees the group whole;
         its crystal is structure found BETWEEN segments that no
-        single piece could show."""
+        single piece could show. limit bounds groups per slice."""
         job = self._job_id(job)
         group = self._config("merge-group", 4)
         segs = self._job_segments(job, "assessed")
-        merges = 0
+        merges = len(self.net.get_doors(job or "", tag="merge"))
+        done_groups = 0
         for i in range(0, len(segs), group):
+            if limit and done_groups >= limit:
+                break
+            done_groups += 1
             batch = segs[i:i + group]
             worker = Isaac()
             worker.wave_logging = False
@@ -1976,23 +1992,30 @@ class Isaac:
             merges += 1
         return dict(merges=merges)
 
-    def commit_job(self, job):
+    def commit_job(self, job, limit=None):
         """THE SINGLE WRITER. Sequences enter the mind net through
         the same observe path as ever — the pipeline changes when
         and in what company content arrives, never what arrives.
-        Delta compile absorbs it without reparsing history."""
+        Delta compile absorbs it without reparsing history. limit
+        bounds segments per slice; the job is marked done only when
+        every segment has come through."""
         job = self._job_id(job)
         n_seq = 0
         segs = self._job_segments(job, "merged")
+        if limit:
+            segs = segs[:limit]
         for seg in segs:
             for seq in self.net.get_meta(seg, "sequences"):
                 self.observe(seq)
                 n_seq += 1
             self.net.set_meta(seg, "state", "committed")
-        if job:
+        remaining = [s for s in self._job_segments(job)
+                     if self.net.get_meta(s, "state") != "committed"]
+        if job and not remaining:
             self.net.set_meta(job, "state", "done")
-            self.record_finding("ingest", job, sequences=n_seq,
-                                segments=len(segs))
+            self.record_finding(
+                "ingest", job, sequences=n_seq,
+                segments=len(self._job_segments(job)))
         return dict(committed=n_seq)
 
     def sleep_pass(self):
@@ -2004,6 +2027,44 @@ class Isaac:
     def idle_pass(self):
         """Nothing waiting. An honest nothing."""
         return dict(receipt="idle — nothing waiting")
+
+    def work_quantum(self, max_segments=2):
+        """ONE BOUNDED SLICE of background full-depth work (owner,
+        2026-07-22: the interaction lane must stay fast; big reads
+        grind behind it). Advances the oldest unfinished job by one
+        stage-step — at most max_segments segments (or one merge
+        group) per slice, with a scoped sleep after each commit
+        slice — then returns, so interactive beats interleave
+        between slices. Returns what it did, or idle."""
+        jobs = sorted((j for j in self.net.get_doors("queue:inbox",
+                                                     tag="job")),
+                      key=lambda j: int(j.split(":")[1]))
+        for job in jobs:
+            st = self.net.get_meta(job, "state")
+            if st in (None, "done", "refused"):
+                continue
+            if st == "open":
+                self.net.set_meta(job, "state", "working")
+                return dict(job=job, did="pulled")
+            if st == "working":
+                r = self.segment_job(job)
+                return dict(job=job, did="segmented", **r)
+            if self._job_segments(job, "segmented"):
+                r = self.crystallize_job(job, limit=max_segments)
+                return dict(job=job, did="crystallized", **r)
+            if self._job_segments(job, "crystallized"):
+                r = self.assess_job(job)
+                return dict(job=job, did="assessed", **r)
+            if self._job_segments(job, "assessed"):
+                r = self.merge_job(job, limit=1)
+                return dict(job=job, did="merged", **r)
+            if self._job_segments(job, "merged"):
+                r = self.commit_job(job, limit=max_segments)
+                self.sleep_pass()          # bounded: only this slice's dirt
+                return dict(job=job, did="committed", **r)
+            self.net.set_meta(job, "state", "done")
+            return dict(job=job, did="closed")
+        return dict(did="idle")
 
     # ── the entry point (the only hard-coded thing) ─────────────
 
@@ -2021,6 +2082,8 @@ class Isaac:
         self.net.set_meta("config:workers", "value", 1)
         self.net.set_meta("config:crystal-pile", "value", 64)
         self.net.set_meta("config:entry-budget", "value", 300)
+        self.net.set_meta("config:priority-kinds", "value", ["/in"])
+        self.net.add_door("config", "config:priority-kinds", tag="config")
         self.net.add_door("config", "config:segment-size", tag="config")
         self.net.add_door("config", "config:merge-group", tag="config")
         self.net.add_door("config", "config:workers", tag="config")
@@ -5765,8 +5828,35 @@ def test_boot():
     print(f"  {'✓' if ok else '✗'}  recovery sector still pristine "
           f"after the rebuild")
 
-    print(f"\n  {correct}/13")
-    return correct == 13
+    # 12. the fast lane: an /in job jumps a queued bulk job
+    isaac2 = Isaac()
+    isaac2.wave_logging = False
+    isaac2.beat()
+    bulk = isaac2.ingest("x y z\n" * 40, kind="/file")["job"]
+    fast = isaac2.ingest(["hello", "there"], kind="/in")["job"]
+    pulled = isaac2.q_next()["job"]
+    ok = pulled == fast and isaac2.net.get_meta(bulk, "state") == "open"
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  fast lane: pulled {pulled} ahead of "
+          f"bulk {bulk}")
+
+    # 13. the background quantum: bounded slices finish the bulk job
+    isaac2.net.set_meta(fast, "state", "done")   # clear the fast job
+    slices = 0
+    while (isaac2.net.get_meta(bulk, "state") != "done"
+           and slices < 200):
+        isaac2.work_quantum()
+        slices += 1
+    ok = (isaac2.net.get_meta(bulk, "state") == "done"
+          and slices > 3
+          and isaac2.lookup(["x", "y"])[0] == "z")
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  bulk job done in {slices} bounded "
+          f"quanta; content answers -> "
+          f"{isaac2.lookup(['x', 'y'])[0]}")
+
+    print(f"\n  {correct}/15")
+    return correct == 15
 
 
 # ═════════════════════════════════════════════════════════════════

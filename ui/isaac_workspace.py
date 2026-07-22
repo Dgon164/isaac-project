@@ -15,6 +15,7 @@ Nothing in this file generates words attributed to Isaac. Console text
 (actions, telemetry) renders as instrument readout, visually distinct
 from his voice. Bad answers are his to give; silence is his shrug.
 """
+import atexit
 import json
 import sys
 import threading
@@ -32,12 +33,94 @@ MINDS = ROOT / "data" / "minds"
 MINDS.mkdir(parents=True, exist_ok=True)
 LEDGER = ROOT / "data" / "findings.jsonl"
 PROJECT = ROOT / "data" / "workspace_project.json"
+TELEM = ROOT / "data" / "telemetry.jsonl"
 
 MAX_ROWS = 20000              # discover cap — the engine is synchronous
+SYNC_TOKENS = 2000            # bigger ingests go to the background lane
+AUTOSAVE_S = 120              # the standing mind persists on its own
 
-STATE = {"isaac": Isaac(), "name": "unsaved mind"}
+# THE STANDING MIND (owner, 2026-07-22): he is already instantiated
+# and live — he does not get reset unless something catastrophic
+# happens. The workspace resurrects him on start and saves him on a
+# clock; a server restart is a nap, not a death.
+STANDING = MINDS / "isaac.isaac"
+if STANDING.exists():
+    STATE = {"isaac": Isaac.load(str(STANDING)), "name": "isaac"}
+else:
+    STATE = {"isaac": Isaac(), "name": "isaac"}
 STATE["isaac"].ledger_path = str(LEDGER)
 LOCK = threading.Lock()
+
+
+def telem(event, ms=None, **extra):
+    """One JSONL line per event — the pool-two instrumentation,
+    pointed at Isaac himself. Cheap fields only; never blocks."""
+    try:
+        isaac = STATE["isaac"]
+        row = dict(ts=time.strftime("%Y-%m-%d %H:%M:%S"), event=event,
+                   ms=None if ms is None else round(ms, 1),
+                   nodes=len(isaac.net.doors), types=len(isaac.types),
+                   findings=len(isaac.findings), mind=STATE["name"])
+        row.update(extra)
+        with open(TELEM, "a", encoding="utf-8") as f:
+            f.write(json.dumps(row) + "\n")
+    except Exception:
+        pass
+
+
+def _save_standing():
+    try:
+        with LOCK:
+            name = STATE["name"] if STATE["name"] != "unsaved mind" \
+                else "isaac"
+            t0 = time.perf_counter()
+            STATE["isaac"].save(str(MINDS / f"{name}.isaac"))
+            telem("autosave", (time.perf_counter() - t0) * 1000)
+    except Exception:
+        pass
+
+
+def _background_lane():
+    """The slow lane: bounded quanta of full-depth work between
+    interactive beats. The interaction lane stays fast; the big
+    reads grind here. Also the autosave clock."""
+    last_save = time.time()
+    while True:
+        try:
+            finished_read = False
+            with LOCK:
+                isaac = STATE["isaac"]
+                r = isaac.work_quantum()
+                if (r.get("did") == "committed"
+                        and isaac.net.get_meta(r.get("job"), "state")
+                        == "done"):
+                    for c in PROJ["content"]:
+                        if c.get("job") == r.get("job"):
+                            c["processed"] = time.strftime("%m-%d %H:%M")
+                            post_msg("inst",
+                                     f"finished reading “{c['name']}” "
+                                     f"({r.get('job')}) — full depth, "
+                                     "behind the conversation",
+                                     "background lane")
+                            save_project()
+                            telem("file-done", job=r.get("job"))
+                            finished_read = True
+            if finished_read:
+                _save_standing()      # a finished read is worth keeping
+                last_save = time.time()
+            if r.get("did") == "idle":
+                time.sleep(0.5)
+            else:
+                telem("quantum", job=r.get("job"), did=r.get("did"))
+                time.sleep(0.05)
+            if time.time() - last_save >= AUTOSAVE_S:
+                _save_standing()
+                last_save = time.time()
+        except Exception:
+            time.sleep(1.0)
+
+
+atexit.register(_save_standing)
 
 PROJ = {"content": [], "chat": [], "comments": {}, "seq": 0}
 if PROJECT.exists():
@@ -157,13 +240,16 @@ def api(path, body):
         post_msg("you", t, "/in")
         toks = tokenize(t)
         if toks:
+            t0 = time.perf_counter()
             r = isaac.ingest(toks, kind="/in")
-            out, trace = isaac.beat()      # the boot loop works the job
+            out, trace = isaac.beat()      # fast lane: /in jumps queue
             road = " → ".join(t2["step"].split(".")[-1]
                               for t2 in trace if "step" in t2)
             post_msg("inst", f"{r['job']}: {r['tokens']} tokens → "
                      f"{road} [{out}]", "boot beat")
             his_turn(isaac, toks)
+            telem("in", (time.perf_counter() - t0) * 1000,
+                  tokens=r["tokens"])
         save_project()
         return dict(ok=True)
 
@@ -221,7 +307,22 @@ def api(path, body):
                             if capped else ""), "discover")
                 save_project()
                 return res
+            t0 = time.perf_counter()
             r = isaac.ingest(c["text"], kind="/file")
+            if r["tokens"] > SYNC_TOKENS:
+                # the slow lane: full depth in the background —
+                # he stays responsive while he reads
+                c["processed"] = "reading…"
+                c["job"] = r["job"]
+                post_msg("inst", f"“{c['name']}” queued to the "
+                         f"background lane: {r['job']}, "
+                         f"{r['tokens']} tokens — full-depth "
+                         "processing behind the conversation",
+                         "background lane")
+                telem("file-queued", (time.perf_counter() - t0) * 1000,
+                      tokens=r["tokens"])
+                save_project()
+                return dict(ok=True, background=True)
             out, trace = isaac.boot(beats=12)
             segs = len(isaac._job_segments(r["job"]))
             c["processed"] = time.strftime("%m-%d %H:%M")
@@ -229,6 +330,8 @@ def api(path, body):
                      f"{r['job']}, {r['tokens']} tokens → {segs} "
                      f"segments → crystallized → assessed → merged → "
                      f"committed [{out}]", "boot pipeline")
+            telem("file-sync", (time.perf_counter() - t0) * 1000,
+                  tokens=r["tokens"])
             last = None
             for line in c["text"].splitlines():
                 tk = tokenize(line)
@@ -573,5 +676,10 @@ class H(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     port = 8675
+    threading.Thread(target=_background_lane, daemon=True).start()
+    telem("boot", mind_loaded=STANDING.exists())
     print(f"Isaac workspace — open http://127.0.0.1:{port}")
+    print(f"standing mind: {STATE['name']} "
+          f"({'resurrected' if STANDING.exists() else 'first life'}) — "
+          "autosaves every 5 min")
     ThreadingHTTPServer(("127.0.0.1", port), H).serve_forever()
