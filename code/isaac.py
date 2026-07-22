@@ -38,6 +38,16 @@ class Net:
         self.door_tags = defaultdict(set)         # (src, tgt) → {tags}
         self.meta = defaultdict(dict)             # node → {key: value}
         self.door_counts = defaultdict(int)       # (src, tgt) → observations
+        self.preds = defaultdict(set)             # node → {sources} (index)
+
+    def _ensure_preds(self):
+        # minds saved pre-index: rebuild once, lazily (same pattern
+        # as door_counts back-compat)
+        if not hasattr(self, "preds"):
+            self.preds = defaultdict(set)
+            for src, tgts in self.doors.items():
+                for t in tgts:
+                    self.preds[t].add(src)
 
     def add_door(self, src, tgt, tag="seq"):
         is_new = tgt not in self.doors[src]
@@ -49,6 +59,8 @@ class Net:
         if not hasattr(self, "door_counts"):      # minds saved pre-counts
             self.door_counts = defaultdict(int)
         self.door_counts[(src, tgt)] += 1
+        self._ensure_preds()
+        self.preds[tgt].add(src)
         if tgt not in self.doors:
             self.doors[tgt] = set()
         return is_new
@@ -63,12 +75,12 @@ class Net:
         return {t for t in all_t if tag in self.door_tags.get((node, t), set())}
 
     def get_predecessors(self, node, tag=None):
-        preds = set()
-        for src, tgts in self.doors.items():
-            if node in tgts:
-                if tag is None or tag in self.door_tags.get((src, node), set()):
-                    preds.add(src)
-        return preds
+        self._ensure_preds()
+        srcs = self.preds.get(node, set())
+        if tag is None:
+            return set(srcs)
+        return {s for s in srcs
+                if tag in self.door_tags.get((s, node), set())}
 
     def get_door_tags(self, src, tgt):
         return self.door_tags.get((src, tgt), set())
@@ -721,6 +733,11 @@ class Isaac:
         self.findings = []                # structured records of what he knows
         self.ledger_path = None           # set to a .jsonl path to persist
 
+        # ── delta-compile accumulator (2026-07-22) ──────────────
+        self._pair_counts = None          # (delta, frame) -> count
+        self._pair_max_context = None     # counts valid for this context only
+        self._counts_up_to = 0            # sequences already counted
+
     # ── observation ─────────────────────────────────────────────
 
     def observe(self, tokens):
@@ -837,44 +854,221 @@ class Isaac:
 
     def _crystallize(self, tag="seq", min_shared=2, verbose=False, scope=None):
         """Internal: discover types by comparing door profiles. FCA closure.
-        If scope is provided, only pairs involving at least one scope node
-        are compared — O(d×n) instead of O(n²)."""
-        nodes = sorted([n for n in self.net.all_nodes()
-                        if not n.startswith("type:")])
-        scope_set = set(scope) if scope else None
 
-        # Phase 1: raw circles via FCA
+        THE LOCAL SLEEP (owner, 2026-07-22): with a scope, this is not a
+        re-derivation of the world — new experience is already connected
+        in; recrystallize ONLY what it touched (the dirty nodes and their
+        door-neighbors), then RECONCILE with the standing registry:
+        absorb what matches, supersede what changed, add what's new,
+        leave the untouched net alone. Complete by construction: a
+        circle's evidence only moves when a member's doors moved, and
+        moved nodes ARE the scope. Without a scope: the canonical
+        from-scratch rebuild, same output as ever (the predecessor
+        index and holder-list closure are representation, not policy)."""
+        local = bool(scope)
+        scope_set = set(scope) if scope else None
+        net = self.net
+
+        prof = {}
+
+        def P(n):
+            if n not in prof:
+                prof[n] = (net.get_predecessors(n, tag=tag),
+                           net.get_doors(n, tag=tag))
+            return prof[n]
+
+        # Phase 1: raw circles via FCA — candidates from shared doors
+        # (the empty ocean of never-sharing pairs is never touched),
+        # closure via holder-list intersection (index math, not a
+        # world scan). Output-identical to the classic pair scan.
         circles = []
         seen = set()
-        seen_pairs = set()
-        for i, a in enumerate(nodes):
-            preds_a = self.net.get_predecessors(a, tag=tag)
-            succs_a = self.net.get_doors(a, tag=tag)
-            if not preds_a and not succs_a:
-                continue
-            for b in nodes[i + 1:]:
-                # Scoped: skip pairs where neither node is dirty
-                if scope_set and a not in scope_set and b not in scope_set:
+
+        def close_and_file(a, b):
+            pa, sa = P(a)
+            pb, sb = P(b)
+            shared_p = pa & pb
+            shared_s = sa & sb
+            if len(shared_p) + len(shared_s) < min_shared:
+                return
+            members = None
+            for p in shared_p:
+                h = net.get_doors(p, tag=tag)
+                members = set(h) if members is None else members & h
+            for s_ in shared_s:
+                h = net.get_predecessors(s_, tag=tag)
+                members = set(h) if members is None else members & h
+            members = {m for m in (members or set())
+                       if not m.startswith("type:")}
+            members |= {a, b}
+            key = frozenset(members)
+            if len(members) >= 2 and key not in seen:
+                seen.add(key)
+                circles.append({"members": members,
+                                "preds": shared_p, "succs": shared_s})
+
+        if local:
+            # THE ENTRY INTERPRETER (owner, 2026-07-22): don't recompute
+            # on every node — compare entries to CRYSTALS. Each dirty
+            # node is scored against the standing type signatures
+            # (dozens of ops), sorted into the pile it resembles, or
+            # the new pile when it resembles nothing. Full crystal
+            # matches ABSORB (one subset test, no pair work). Boundary
+            # cases become "possibly this type plus some factor" —
+            # their circle is closed against the pile's own members,
+            # never the world. Misfits crystallize among themselves in
+            # bounded chunks. Hundreds of thousands of pair ops become
+            # dozens of crystal ops — with minute, accepted fidelity
+            # loss: cross-pile pairs are found later at the
+            # crystal-vs-crystal altitude, or not at all this sleep.
+            pile_cap = int(self._config("crystal-pile", 64)) \
+                if hasattr(self, "_config") else 64
+            budget = int(self._config("entry-budget", 300)) \
+                if hasattr(self, "_config") else 300
+            # THE SIGNATURE INDEX: door -> crystals carrying it. An
+            # entry only ever meets crystals it shares a RARE door
+            # with — rarest doors first (most discriminative), hub
+            # doors ejected (held by too many crystals, they testify
+            # to nothing), candidates capped at the entry budget. No
+            # entry processes more than a few hundred crystals, ever.
+            sig_index = defaultdict(set)
+            for tn, t in self.types.items():
+                for d in (t["preds"] | t["succs"]):
+                    sig_index[d].add(tn)
+
+            def sig_candidates(doors_of):
+                cand = set()
+                for d in sorted(doors_of,
+                                key=lambda x: len(sig_index.get(x, ()))):
+                    ts_ = sig_index.get(d)
+                    if not ts_ or len(ts_) > 50:
+                        continue              # hub at crystal altitude
+                    cand |= ts_
+                    if len(cand) >= budget:
+                        break
+                return cand
+
+            # FIRST PAST THE POST (owner, 2026-07-22): don't rank the
+            # world — validate candidates as they arrive, rarest
+            # shared door first, and KEEP THE FIRST FUNCTIONAL FIT
+            # (proven in shape_fptp_probe: ~12 gate checks at 100k
+            # crystals, quality 1.00, junk refused 100/100). A
+            # candidate that fails the keep-gate but still shares
+            # min_shared doors piles as a boundary case ("possibly
+            # this type plus some factor"); nothing passing = the
+            # new pile, an honest refusal.
+            n_types = max(len(self.types), 1)
+
+            def _idf(d):
+                c = len(sig_index.get(d, ()))
+                return float(np.log(1 + n_types / c)) if c else 1.0
+
+            def _fptp(doors_of):
+                kept = None
+                weak, weak_sc = None, 0
+                seen_c = set()
+                for d in sorted(doors_of, key=lambda x: -_idf(x)):
+                    ts_ = sig_index.get(d)
+                    if not ts_ or len(ts_) > 50:
+                        continue          # hub door: ejected
+                    for tn in ts_:
+                        if tn in seen_c:
+                            continue
+                        seen_c.add(tn)
+                        t = self.types.get(tn)
+                        if not t:
+                            continue
+                        sig = t["preds"] | t["succs"]
+                        shared = doors_of & sig
+                        sw = sum(_idf(x) for x in shared)
+                        if sw >= 0.5 * sum(_idf(x) for x in sig):
+                            return tn, tn, len(shared)   # past the post
+                        if len(shared) > weak_sc:
+                            weak, weak_sc = tn, len(shared)
+                        if len(seen_c) >= 50:
+                            return None, weak, weak_sc
+                return kept, weak, weak_sc
+
+            piles = defaultdict(list)
+            misfits = []
+            for n in sorted(scope_set):
+                if n.startswith("type:"):
                     continue
-                preds_b = self.net.get_predecessors(b, tag=tag)
-                succs_b = self.net.get_doors(b, tag=tag)
-                shared_p = preds_a & preds_b
-                shared_s = succs_a & succs_b
-                if len(shared_p) + len(shared_s) < min_shared:
+                pn, sn = P(n)
+                if not pn and not sn:
                     continue
-                members = {a, b}
-                for n in nodes:
-                    if n in members:
+                kept, weak, weak_sc = _fptp(pn | sn)
+                if kept is not None:
+                    piles[kept].append(n)
+                elif weak is not None and weak_sc >= min_shared:
+                    piles[weak].append(n)     # boundary: pile anyway
+                else:
+                    misfits.append(n)
+            for tn, ns in piles.items():
+                t = self.types[tn]
+                absorbed = set()
+                for n in ns:
+                    pn, sn = P(n)
+                    if t["preds"] <= pn and t["succs"] <= sn:
+                        absorbed.add(n)         # carries the whole crystal
                         continue
-                    np_ = self.net.get_predecessors(n, tag=tag)
-                    ns_ = self.net.get_doors(n, tag=tag)
-                    if shared_p <= np_ and shared_s <= ns_:
-                        members.add(n)
-                key = frozenset(members)
-                if key not in seen and len(members) >= 2:
-                    seen.add(key)
-                    circles.append({"members": members,
-                                    "preds": shared_p, "succs": shared_s})
+                    shared_p = pn & t["preds"]  # boundary: partial carry
+                    shared_s = sn & t["succs"]
+                    if len(shared_p) + len(shared_s) < min_shared:
+                        misfits.append(n)
+                        continue
+                    members = {m for m in sorted(t["members"])[:budget]
+                               if shared_p <= P(m)[0]
+                               and shared_s <= P(m)[1]} | {n}
+                    key = frozenset(members)
+                    if len(members) >= 2 and key not in seen:
+                        seen.add(key)
+                        circles.append({"members": members,
+                                        "preds": shared_p,
+                                        "succs": shared_s})
+                if absorbed:
+                    key = frozenset(t["members"] | absorbed)
+                    if key not in seen:
+                        seen.add(key)
+                        circles.append({"members": t["members"] | absorbed,
+                                        "preds": set(t["preds"]),
+                                        "succs": set(t["succs"]),
+                                        "absorbed_from": tn})
+            # the new pile(s): misfits meet each other in bounded
+            # chunks; closure stays inside the chunk (fidelity loss
+            # accepted and bounded by the chunk)
+            misfits = sorted(set(misfits))
+            for c0 in range(0, len(misfits), pile_cap):
+                chunk = misfits[c0:c0 + pile_cap]
+                for i, a in enumerate(chunk):
+                    pa, sa = P(a)
+                    for b in chunk[i + 1:]:
+                        pb, sb = P(b)
+                        shared_p = pa & pb
+                        shared_s = sa & sb
+                        if len(shared_p) + len(shared_s) < min_shared:
+                            continue
+                        members = {m for m in chunk
+                                   if shared_p <= P(m)[0]
+                                   and shared_s <= P(m)[1]}
+                        members |= {a, b}
+                        key = frozenset(members)
+                        if len(members) >= 2 and key not in seen:
+                            seen.add(key)
+                            circles.append({"members": members,
+                                            "preds": shared_p,
+                                            "succs": shared_s})
+        else:
+            nodes_all = sorted(n for n in net.all_nodes()
+                               if not n.startswith("type:"))
+            for i, a in enumerate(nodes_all):
+                pa, sa = P(a)
+                if not pa and not sa:
+                    continue
+                for b in nodes_all[i + 1:]:
+                    close_and_file(a, b)
+        nodes = sorted(n for n in net.all_nodes()
+                       if not n.startswith("type:"))
 
         # Phase 1.5 (the owner's foundation law, 2026-07-03): DIVERGENT
         # doors SELF-ASSEMBLE. The atom's three verdicts finally all write:
@@ -889,6 +1083,7 @@ class Isaac:
         # counts, not a constant. Runs BEFORE the merge so a fresh
         # negative can veto a collapse in the same sleep.
         counts = getattr(self.net, "door_counts", {})
+        neg_added = set()
         for c in circles:
             intent = {d for d in c["succs"]
                       if not (isinstance(d, str) and d.startswith("not_"))}
@@ -900,17 +1095,34 @@ class Isaac:
                                   default=0) for s in c["members"])
                 with_d = sum(counts.get((s, d), 0) for s in c["members"])
                 p_hat = (with_d + 1) / (obs_sib + 2)     # Laplace-smoothed
-                for m in nodes:
-                    if m in c["members"]:
+                # candidates carrying the rest of the intent = the
+                # intersection of the rest-doors' holder lists (index
+                # math). Local: hub doors ejected (a holder list past
+                # the budget can't discriminate), candidates capped.
+                cand_m = None
+                hub_hit = False
+                for r in rest:
+                    h = self.net.get_predecessors(r, tag=tag)
+                    if local and len(h) > 300:
+                        hub_hit = True
+                        break
+                    cand_m = set(h) if cand_m is None else cand_m & h
+                if hub_hit:
+                    continue
+                cand_list = sorted(cand_m or set())
+                if local:
+                    cand_list = cand_list[:300]
+                for m in cand_list:
+                    if m in c["members"] or m.startswith("type:"):
                         continue
-                    ms = self.net.get_doors(m, tag=tag)
-                    if d in ms or not (rest <= ms):
+                    if d in self.net.get_doors(m, tag=tag):
                         continue
                     n_m = min(counts.get((m, r), 0) for r in rest)
                     # repeatable evidence (>= 3 sightings) AND absence must
                     # beat the like-your-siblings null at 1%
                     if n_m >= 3 and (1 - p_hat) ** n_m < 0.01:
                         self.net.add_door(m, f"not_{d}", tag="neg")
+                        neg_added.add(m)
                         if d not in self.fact_index[(m, "cannot")]:
                             self.fact_index[(m, "cannot")].append(d)
 
@@ -943,7 +1155,8 @@ class Isaac:
             if i in used:
                 continue
             current = {"members": set(c["members"]),
-                       "preds": set(c["preds"]), "succs": set(c["succs"])}
+                       "preds": set(c["preds"]), "succs": set(c["succs"]),
+                       "absorbed_from": c.get("absorbed_from")}
             for j in range(i + 1, len(circles)):
                 if j in used:
                     continue
@@ -958,19 +1171,73 @@ class Isaac:
                 current["members"] |= other["members"]
                 current["preds"] &= other["preds"]
                 current["succs"] &= other["succs"]
+                current["absorbed_from"] = None   # merged: new structure
                 used.add(j)
             merged.append(current)
 
-        # Phase 3: name and write to net
-        self.types = {}
-        for c in merged:
-            name = f"type:{'_'.join(sorted(c['members'])[:2])}[{len(c['members'])}]"
+        # Phase 3: name and write to net.
+        # Full: rebuild the registry from scratch (canonical view).
+        # Local: RECONCILE — each fresh circle is checked against the
+        # standing registry: near-identical and unvetoed -> absorbed
+        # (modify locally); member set changed -> the old name is
+        # superseded on the record, never erased; no match -> new.
+        # Types the region never touched are left alone.
+        def _install(c):
+            name = (f"type:{'_'.join(sorted(c['members'])[:2])}"
+                    f"[{len(c['members'])}]")
             c["name"] = name
             c["parent"] = None
             c["children"] = []
             self.types[name] = c
             for m in c["members"]:
                 self.net.add_door(m, name, tag="type")
+            return name
+
+        if not local:
+            self.types = {}
+            for c in merged:
+                _install(c)
+            outgoing = merged
+        else:
+            outgoing = []
+            for c in merged:
+                best, best_ov = None, 0.0
+                # crystal-vs-crystal, budget-bounded: a circle is only
+                # compared against crystals sharing a non-hub door
+                for tname in sig_candidates(c["preds"] | c["succs"]):
+                    t = self.types.get(tname)
+                    if not t:
+                        continue
+                    larger = max(len(c["members"]), len(t["members"]))
+                    ov = (len(c["members"] & t["members"]) / larger
+                          if larger else 0.0)
+                    if ov > best_ov:
+                        best, best_ov = tname, ov
+                if best and best_ov >= 0.8:
+                    t = self.types[best]
+                    if (_pos_of(c) & _negs_of(t["members"])
+                            or _pos_of(t) & _negs_of(c["members"])):
+                        best = None       # positively negative: stays its own
+                if best and best_ov >= 0.8:
+                    t = self.types.pop(best)
+                    c = {"members": t["members"] | c["members"],
+                         "preds": t["preds"] & c["preds"],
+                         "succs": t["succs"] & c["succs"],
+                         "absorbed_from": c.get("absorbed_from")}
+                    new_name = _install(c)
+                    if c.get("absorbed_from") and t.get("verdict"):
+                        # pure absorption: the standing verdict stands
+                        c["verdict"] = t["verdict"]
+                        c["score"] = t.get("score", 0)
+                        self.net.set_meta(new_name, "verdict", t["verdict"])
+                    if new_name != best:
+                        self.net.set_meta(best, "superseded_by", new_name)
+                else:
+                    c["absorbed_from"] = None     # no match: judge it fresh
+                    new_name = _install(c)
+                for d in (c["preds"] | c["succs"]):
+                    sig_index[d].add(c["name"])
+                outgoing.append(c)
 
         # Phase 3.5 (owner's law, 2026-07-03): WRONG IS KEPT AND CLASSIFIED.
         # "knowing what is right is intelligence. knowing what is wrong is
@@ -981,11 +1248,7 @@ class Isaac:
         # the wrong section with the WHY attached, so error itself becomes
         # learnable material. Downstream behavior is deliberately unchanged
         # (no pruning, no importance-weighting — the old trap).
-        def _best_chance_score(n_shuffles=8):
-            edges = []
-            for a in nodes:
-                for t in self.net.get_doors(a, tag=tag):
-                    edges.append((a, t))
+        def _best_chance_score(edges, n_shuffles=8):
             if len(edges) < 4:
                 return 0.0
             srcs = [e[0] for e in edges]
@@ -1013,9 +1276,34 @@ class Isaac:
                                    (mem - 1) * (len(sh_s) + len(sh_p)))
             return best
 
-        chance_best = _best_chance_score()
-        self.wrong_types = {}
-        for c in merged:
+        if not hasattr(self, "wrong_types") or self.wrong_types is None:
+            self.wrong_types = {}
+        if local:
+            # LIBERAL EJECTION (owner, 2026-07-22): a sleep that only
+            # ABSORBED into standing crystals made no new structure —
+            # the standing verdicts stand and the null has nothing to
+            # judge. When something fresh did appear, the null runs on
+            # a capped region and capped edge list with fewer shuffles
+            # (a receipt-honest sample — the accepted fidelity trade).
+            judge = [c for c in outgoing if not c.get("absorbed_from")]
+            if judge:
+                region = set(scope_set)
+                for c in judge:
+                    region |= c["members"]
+                edge_nodes = sorted(n for n in region
+                                    if not n.startswith("type:"))[:80]
+                edges_in = [(a, t) for a in edge_nodes
+                            for t in self.net.get_doors(a, tag=tag)][:200]
+                chance_best = _best_chance_score(edges_in, n_shuffles=4)
+            else:
+                chance_best = None
+        else:
+            self.wrong_types = {}
+            judge = outgoing
+            edges_in = [(a, t) for a in nodes
+                        for t in self.net.get_doors(a, tag=tag)]
+            chance_best = _best_chance_score(edges_in)
+        for c in judge:
             score = (len(c["members"]) - 1) * (len(c["preds"])
                                                + len(c["succs"]))
             c["score"] = score
@@ -1032,9 +1320,12 @@ class Isaac:
                 c["verdict"] = "sound"
                 self.net.set_meta(c["name"], "verdict", "sound")
 
-        # Phase 4: hierarchy (subset = child)
+        # Phase 4: hierarchy (subset = child). Local: only circles that
+        # moved this sleep get (re)linked; standing links stand.
         type_list = list(self.types.values())
-        for child in type_list:
+        link_from = ([c for c in outgoing if c.get("name") in self.types]
+                     if local else type_list)
+        for child in link_from:
             for parent in type_list:
                 if child is parent:
                     continue
@@ -1048,24 +1339,85 @@ class Isaac:
                                      tag="subtype_of")
                     break
 
-        # Phase 5: discover rules (co-occurring predecessors)
-        self.rules = []
-        pred_sets = defaultdict(set)
-        for n in nodes:
-            for p in self.net.get_predecessors(n, tag=tag):
-                pred_sets[p].add(n)
-        preds = [p for p, ns in pred_sets.items() if len(ns) >= 3]
-        for i, a in enumerate(preds):
-            for b in preds[i + 1:]:
-                overlap = len(pred_sets[a] & pred_sets[b])
-                ratio_a = overlap / len(pred_sets[a]) if pred_sets[a] else 0
-                ratio_b = overlap / len(pred_sets[b]) if pred_sets[b] else 0
-                if ratio_a >= 0.8 or ratio_b >= 0.8:
-                    self.rules.append((a, b, round(max(ratio_a, ratio_b), 2)))
-                    self.net.add_door(a, b, tag="cooccurs")
+        # Phase 5: discover rules (co-occurring predecessors).
+        # pred_sets[p] is exactly p's targets under the tag — the index
+        # identity that makes this cheap. Local: lazy profiles, hub
+        # targets ejected, budget-capped pair work — never a scan of
+        # the world.
+        if local:
+            psc = {}
 
-        # Phase 6: violations (seq vs neg contrast)
-        self._discover_violations()
+            def ps(p):
+                if p not in psc:
+                    psc[p] = self.net.get_doors(p, tag=tag)
+                return psc[p]
+
+            affected = set()
+            for n in scope_set:
+                if len(ps(n)) >= 3:
+                    affected.add(n)
+                for p in P(n)[0]:
+                    if 3 <= len(ps(p)) <= budget:
+                        affected.add(p)
+            self.rules = [r for r in (self.rules or [])
+                          if r[0] not in affected and r[1] not in affected]
+            have = {frozenset((a, b)) for a, b, _ in self.rules}
+            checked = 0
+            for a in sorted(affected):
+                if checked >= budget * 3:
+                    break                 # the sleep's rule budget
+                bc = set()
+                for t_ in sorted(ps(a), key=lambda x: len(
+                        self.net.get_predecessors(x, tag=tag))):
+                    hp = self.net.get_predecessors(t_, tag=tag)
+                    if len(hp) > 50:
+                        continue          # hub target: ejected
+                    bc |= hp
+                    if len(bc) >= budget:
+                        break
+                for b in sorted(bc):
+                    if b == a or len(ps(b)) < 3:
+                        continue
+                    key = frozenset((a, b))
+                    if key in have:
+                        continue
+                    have.add(key)
+                    checked += 1
+                    overlap = len(ps(a) & ps(b))
+                    ratio_a = overlap / len(ps(a)) if ps(a) else 0
+                    ratio_b = overlap / len(ps(b)) if ps(b) else 0
+                    if ratio_a >= 0.8 or ratio_b >= 0.8:
+                        self.rules.append(
+                            (a, b, round(max(ratio_a, ratio_b), 2)))
+                        self.net.add_door(a, b, tag="cooccurs")
+        else:
+            pred_sets = {p: self.net.get_doors(p, tag=tag) for p in nodes}
+            preds = [p for p in nodes if len(pred_sets[p]) >= 3]
+            self.rules = []
+            for i, a in enumerate(preds):
+                for b in preds[i + 1:]:
+                    overlap = len(pred_sets[a] & pred_sets[b])
+                    ratio_a = (overlap / len(pred_sets[a])
+                               if pred_sets[a] else 0)
+                    ratio_b = (overlap / len(pred_sets[b])
+                               if pred_sets[b] else 0)
+                    if ratio_a >= 0.8 or ratio_b >= 0.8:
+                        self.rules.append(
+                            (a, b, round(max(ratio_a, ratio_b), 2)))
+                        self.net.add_door(a, b, tag="cooccurs")
+
+        # Phase 6: violations (seq vs neg contrast). Local: only the
+        # touched nodes and any node that just earned a negative are
+        # contrasted — never the full edge list.
+        if local:
+            for src in sorted(set(scope_set) | neg_added):
+                for tgt in net.get_doors(src):
+                    tags_ = net.get_door_tags(src, tgt)
+                    if "neg" in tags_ and "seq" not in tags_:
+                        net.add_door(src, tgt, tag="lockout")
+                        self.lockouts.add((src, tgt))
+        else:
+            self._discover_violations()
 
         # Phase 7: initiator ranking
         for s in self.starts:
@@ -1102,32 +1454,47 @@ class Isaac:
         return self._compiled is not None
 
     def _compile(self, max_context=7):
-        """Internal: build the weight matrix from observed sequences."""
-        pairs = []
-        for seq in self.observed_sequences:
+        """Internal: build the weight matrix from observed sequences.
+        DELTA COMPILE (2026-07-22): pair counts accumulate in
+        _pair_counts; only sequences newer than _counts_up_to are
+        parsed, so the cost of absorbing new experience is the new
+        experience — not a reparse of his whole life. Same matrix,
+        exactly (the court is test_boot's delta-compile check).
+        A different max_context invalidates the counts."""
+        counts = getattr(self, "_pair_counts", None)
+        if (counts is None
+                or getattr(self, "_pair_max_context", None) != max_context
+                or getattr(self, "_counts_up_to", 0)
+                > len(self.observed_sequences)):
+            counts = defaultdict(float)
+            self._pair_counts = counts
+            self._pair_max_context = max_context
+            self._counts_up_to = 0
+        for seq in self.observed_sequences[self._counts_up_to:]:
             if len(seq) < 2:
                 continue
             frame = tuple(seq[:-1])
             delta = seq[-1]
-            pairs.append((frame, delta))
+            counts[(delta, frame)] += 1.0
             for width in range(2, min(len(frame) + 1, max_context)):
                 partial = frame[-width:]
                 if partial != frame:
-                    pairs.append((partial, delta))
+                    counts[(delta, partial)] += 1.0
+        self._counts_up_to = len(self.observed_sequences)
 
-        if not pairs:
+        if not counts:
             self._compiled = None
             self._compiled_up_to = len(self.observed_sequences)
             return None
 
-        frames = sorted(set(f for f, d in pairs))
-        deltas = sorted(set(d for f, d in pairs))
+        frames = sorted(set(f for d, f in counts))
+        deltas = sorted(set(d for d, f in counts))
         fidx = {f: i for i, f in enumerate(frames)}
         didx = {d: i for i, d in enumerate(deltas)}
 
         W = np.zeros((len(deltas), len(frames)), dtype=np.float32)
-        for frame, delta in pairs:
-            W[didx[delta], fidx[frame]] += 1.0
+        for (delta, frame), c in counts.items():
+            W[didx[delta], fidx[frame]] = c
         col_sums = W.sum(axis=0, keepdims=True)
         col_sums[col_sums == 0] = 1
         W_norm = W / col_sums
@@ -1297,6 +1664,519 @@ class Isaac:
         The original is untouched."""
         import copy
         return copy.deepcopy(self)
+
+    # ── the boot line: shapes run the mind, code only walks ─────
+    # The hard-drive principle (owner, 2026-07-22): the only thing
+    # hard-coded is the entry point. The boot loop, the ingestion
+    # pipeline, the queue — all shapes IN the net, readable from the
+    # net, supersedable by him, receipted every step. Capability
+    # belongs to code (the ops below); experience and POLICY belong
+    # to the net (the flows). Change the shape, the next beat obeys.
+
+    def define_flow(self, name, steps):
+        """Author a flowchart AS NET CONTENT: flow:<name> holds the
+        ordered step specs; each step:<flow>.<id> holds its own spec.
+        The walker reads specs from the net — no code changes needed
+        to change behavior."""
+        node = f"flow:{name}"
+        self.net.set_meta(node, "steps", [dict(s) for s in steps])
+        if steps:
+            self.net.add_door(node, f"step:{name}.{steps[0]['id']}",
+                              tag="flow-start")
+        for s in steps:
+            snode = f"step:{name}.{s['id']}"
+            self.net.set_meta(snode, "spec", dict(s))
+            for d in s.get("doors", []):
+                self.net.add_door(snode, f"step:{name}.{d['to']}",
+                                  tag="flow-next")
+        self.net.add_door("flows", node, tag="flow")
+        # the CHAPTER: authorship order as a fact in the net, so
+        # "the latest boot chapter" is readable, not guessed.
+        ch = 1 + max([self.net.get_meta(f, "chapter") or 0
+                      for f in self.net.get_doors("flows", tag="flow")]
+                     or [0])
+        self.net.set_meta(node, "chapter", ch)
+        return node
+
+    def branch_flow(self, src_name, new_name, replace_step=None):
+        """Piecewise supersession: deep-copy the source flow's steps,
+        swap in the replacement (matched by id), author the branch as
+        its own flow. The source stays whole on the record."""
+        import copy
+        src = (src_name if str(src_name).startswith("flow:")
+               else f"flow:{src_name}")
+        steps = self.net.get_meta(src, "steps")
+        if not steps:
+            return None
+        steps = copy.deepcopy(steps)
+        if replace_step:
+            for i, s in enumerate(steps):
+                if s["id"] == replace_step["id"]:
+                    steps[i] = dict(replace_step)
+                    break
+        node = self.define_flow(new_name, steps)
+        self.net.set_meta(node, "branched_from", src)
+        return node
+
+    def _eval_when(self, when, result, state):
+        """Declarative door predicate — small on purpose: equals /
+        truthy / cmp-than. An unknown shape refuses, never guesses."""
+        field = when.get("field")
+        if isinstance(result, dict) and field in result:
+            val = result.get(field)
+        else:
+            val = state.get(field)
+        if "equals" in when:
+            return val == when["equals"], f"{field}={val!r}"
+        if "truthy" in when:
+            ok = bool(val) == bool(when["truthy"])
+            return ok, f"{field} truthy={bool(val)}"
+        if "cmp" in when and "than" in when:
+            than = when["than"]
+            if isinstance(than, str):
+                than = state.get(than, than)
+            try:
+                ok = (val > than if when["cmp"] == "larger"
+                      else val < than)
+                return ok, f"{field}={val} {when['cmp']}? {than}"
+            except TypeError:
+                return False, f"{field} not comparable — refused"
+        return False, "unknown predicate — refused"
+
+    def walk_flow(self, name, state=None, hop_cap=12):
+        """Walk a flow shape from the net: run each step's op, take
+        the first door whose predicate fires, and receipt EVERY door
+        — the taken one AND each bypassed one with its reason (the
+        consideration law). A missing spec or unknown op is REFUSED:
+        an honest outcome with a receipt, never an exception."""
+        state = state if state is not None else {}
+        node = name if str(name).startswith("flow:") else f"flow:{name}"
+        short = node[5:]
+        trace = []
+        starts = sorted(self.net.get_doors(node, tag="flow-start"))
+        if not starts:
+            return "refused", [dict(step=node,
+                                    receipt="no flow-start — refused")]
+        step, hops, outcome = starts[0], 0, None
+        while step is not None and outcome is None:
+            hops += 1
+            if hops > hop_cap:
+                trace.append(dict(step=step,
+                                  receipt=f"HOP CAP {hop_cap} reached — "
+                                          "returning (no runaway walks)"))
+                outcome = "hop-cap"
+                break
+            spec = self.net.get_meta(step, "spec")
+            if not spec:
+                trace.append(dict(step=step, receipt="no spec — refused"))
+                outcome = "refused"
+                break
+            op = spec.get("op")
+            fn = getattr(self, op, None) if isinstance(op, str) else None
+            if not callable(fn):
+                trace.append(dict(step=step, op=op,
+                                  receipt=f"REFUSED: no organ named "
+                                          f"'{op}' — walk ends honestly"))
+                outcome = "refused"
+                break
+            kwargs = {k: state.get(v)
+                      for k, v in spec.get("args", {}).items()}
+            result = fn(**kwargs)
+            if not isinstance(result, dict):
+                result = {"value": result}
+            state[spec.get("out", f"_{spec['id']}")] = result
+            rec = dict(step=step, op=op,
+                       receipt=f"ran {op}; keys {sorted(result)[:6]}")
+            taken, door_receipts = None, []
+            for d in spec.get("doors", []):
+                if "when" not in d:
+                    if taken is None:
+                        taken = d["to"]
+                        door_receipts.append(f"-> {d['to']} (default door)")
+                    else:
+                        door_receipts.append(f"bypassed {d['to']}: an "
+                                             "earlier door already fired")
+                    continue
+                fired, why = self._eval_when(d["when"], result, state)
+                if fired and taken is None:
+                    taken = d["to"]
+                    door_receipts.append(f"-> {d['to']}: {why}")
+                else:
+                    door_receipts.append(f"bypassed {d['to']}: {why}")
+            rec["doors"] = door_receipts
+            trace.append(rec)
+            step = None if taken is None else f"step:{short}.{taken}"
+        if outcome is None:
+            outcome = state.get("_outcome", "done")
+        self.record_finding("flow-walk", node, outcome=outcome, hops=hops,
+                            road=[t["step"].split(".")[-1]
+                                  for t in trace if "step" in t])
+        return outcome, trace
+
+    # ── the spine: jobs and segments as net structure ───────────
+
+    def _config(self, name, default):
+        v = self.net.get_meta(f"config:{name}", "value")
+        return default if v is None else v
+
+    @staticmethod
+    def _job_id(job):
+        return job.get("job") if isinstance(job, dict) else job
+
+    def ingest(self, content, kind="ingest"):
+        """Take content in as a JOB on the spine — not straight into
+        the net. Accepts raw text, one token list, or a list of token
+        lists. What happens next is the pipeline's decision — and the
+        pipeline is a shape, not this code."""
+        if isinstance(content, str):
+            seqs = [tokenize(line) for line in content.splitlines()]
+            seqs = [s for s in seqs if s]
+        elif content and isinstance(content[0], str):
+            seqs = [list(content)]
+        else:
+            seqs = [list(s) for s in (content or []) if s]
+        n = 1
+        while self.net.get_meta(f"job:{n}", "state") is not None:
+            n += 1
+        job = f"job:{n}"
+        self.net.add_door("queue:inbox", job, tag="job")
+        self.net.set_meta(job, "payload", seqs)
+        self.net.set_meta(job, "state", "open")
+        self.net.set_meta(job, "kind", kind)
+        return dict(job=job, sequences=len(seqs),
+                    tokens=sum(len(s) for s in seqs))
+
+    def q_next(self):
+        """Oldest open job, marked working. No job = an honest none."""
+        jobs = sorted(self.net.get_doors("queue:inbox", tag="job"),
+                      key=lambda j: int(j.split(":")[1]))
+        for j in jobs:
+            if self.net.get_meta(j, "state") == "open":
+                self.net.set_meta(j, "state", "working")
+                return dict(job=j)
+        return dict(job=None)
+
+    def segment_job(self, job):
+        """Break a job's payload into pieces no larger than
+        config:segment-size tokens — whole sequences, never split
+        mid-sequence. Pieces become seg: nodes hung on the job."""
+        job = self._job_id(job)
+        if not job:
+            return dict(segments=0, receipt="no job — nothing to do")
+        payload = self.net.get_meta(job, "payload")
+        if not payload:
+            self.net.set_meta(job, "state", "refused")
+            self.net.set_meta(job, "why", "no payload — refused, "
+                                          "kept on the record")
+            return dict(segments=0,
+                        receipt=f"{job}: no payload — refused")
+        size = self._config("segment-size", 128)
+        pieces, cur, cur_n = [], [], 0
+        for seq in payload:
+            if cur and cur_n + len(seq) > size:
+                pieces.append(cur)
+                cur, cur_n = [], 0
+            cur.append(seq)
+            cur_n += len(seq)
+        if cur:
+            pieces.append(cur)
+        for i, piece in enumerate(pieces):
+            seg = f"seg:{job.split(':')[1]}.{i}"
+            self.net.add_door(job, seg, tag="segment")
+            self.net.set_meta(seg, "sequences", piece)
+            self.net.set_meta(seg, "state", "segmented")
+        self.net.set_meta(job, "state", "segmented")
+        return dict(segments=len(pieces),
+                    receipt=f"{job} -> {len(pieces)} pieces")
+
+    def _job_segments(self, job, state=None):
+        segs = sorted(self.net.get_doors(job or "", tag="segment"),
+                      key=lambda s: int(s.split(".")[-1]))
+        if state is None:
+            return segs
+        return [s for s in segs
+                if self.net.get_meta(s, "state") == state]
+
+    def crystallize_job(self, job):
+        """Each segment goes to a disposable worker — a FRESH scratch
+        mind that observes the piece and runs its own consolidation
+        pass. The crystal lands on the segment node as a receipt.
+        The mind net is untouched until commit. With config:workers
+        > 1, segments crystallize in PARALLEL PROCESSES — workers are
+        stateless and never touch this mind, so the spine is race-free
+        by construction (the main process is the single consumer)."""
+        job = self._job_id(job)
+        segs = self._job_segments(job, "segmented")
+        nworkers = int(self._config("workers", 1))
+        if nworkers > 1 and len(segs) > 1:
+            from multiprocessing import Pool
+            payloads = [self.net.get_meta(s, "sequences") for s in segs]
+            with Pool(min(nworkers, len(segs))) as pool:
+                crystals = pool.map(_crystallize_piece, payloads)
+            for seg, cr in zip(segs, crystals):
+                self.net.set_meta(seg, "crystal", cr)
+                self.net.set_meta(seg, "state", "crystallized")
+            return dict(crystallized=len(segs), workers=nworkers)
+        for seg in segs:
+            self.net.set_meta(seg, "crystal", _crystallize_piece(
+                self.net.get_meta(seg, "sequences")))
+            self.net.set_meta(seg, "state", "crystallized")
+        return dict(crystallized=len(segs))
+
+    def assess_job(self, job):
+        """Mechanical comparison, no judgment: per segment, which
+        tokens the mind net already holds vs which are new, and
+        which sibling segments share material (kin)."""
+        job = self._job_id(job)
+        known = self.net.all_nodes()
+        segs = self._job_segments(job)
+        toks = {}
+        for seg in segs:
+            t = set()
+            for seq in self.net.get_meta(seg, "sequences") or []:
+                t |= set(seq)
+            toks[seg] = t
+        n = 0
+        for seg in self._job_segments(job, "crystallized"):
+            t = toks[seg]
+            self.net.set_meta(seg, "assessment", dict(
+                known=sorted(t & known)[:50],
+                new=sorted(t - known)[:50],
+                kin=[o for o in segs if o != seg and toks[o] & t]))
+            self.net.set_meta(seg, "state", "assessed")
+            n += 1
+        return dict(assessed=n)
+
+    def merge_job(self, job):
+        """Recrystallize assessed segments TOGETHER in bounded groups
+        (config:merge-group): a scratch mind sees the group whole;
+        its crystal is structure found BETWEEN segments that no
+        single piece could show."""
+        job = self._job_id(job)
+        group = self._config("merge-group", 4)
+        segs = self._job_segments(job, "assessed")
+        merges = 0
+        for i in range(0, len(segs), group):
+            batch = segs[i:i + group]
+            worker = Isaac()
+            worker.wave_logging = False
+            for seg in batch:
+                for seq in self.net.get_meta(seg, "sequences"):
+                    worker.observe(seq)
+            worker.consolidate(full=True)
+            merge = f"merge:{job.split(':')[1]}.{merges}"
+            self.net.add_door(job, merge, tag="merge")
+            self.net.set_meta(merge, "segments", batch)
+            self.net.set_meta(merge, "crystal", dict(
+                nodes=worker.status()["nodes"],
+                types={t: sorted(d["members"])
+                       for t, d in worker.types.items()}))
+            for seg in batch:
+                self.net.set_meta(seg, "state", "merged")
+            merges += 1
+        return dict(merges=merges)
+
+    def commit_job(self, job):
+        """THE SINGLE WRITER. Sequences enter the mind net through
+        the same observe path as ever — the pipeline changes when
+        and in what company content arrives, never what arrives.
+        Delta compile absorbs it without reparsing history."""
+        job = self._job_id(job)
+        n_seq = 0
+        segs = self._job_segments(job, "merged")
+        for seg in segs:
+            for seq in self.net.get_meta(seg, "sequences"):
+                self.observe(seq)
+                n_seq += 1
+            self.net.set_meta(seg, "state", "committed")
+        if job:
+            self.net.set_meta(job, "state", "done")
+            self.record_finding("ingest", job, sequences=n_seq,
+                                segments=len(segs))
+        return dict(committed=n_seq)
+
+    def sleep_pass(self):
+        """The deep pass: scoped consolidation over what commit
+        dirtied. This is sleep."""
+        self.consolidate()
+        return dict(receipt="slept")
+
+    def idle_pass(self):
+        """Nothing waiting. An honest nothing."""
+        return dict(receipt="idle — nothing waiting")
+
+    # ── the entry point (the only hard-coded thing) ─────────────
+
+    def _seed_boot(self):
+        """FIRST BOOT ONLY — the install. Authors the default boot
+        loop and pipeline as net shapes, stamped told-structure, and
+        writes THE RECOVERY SECTOR: a pristine copy of the original
+        at boot:recovery, so a broken or missing redirect can always
+        rebuild the first normal instance. From this moment the
+        shapes are content: supersede freely."""
+        import copy
+        prov = "seeded 2026-07-22 (told-structure — supersede freely)"
+        self.net.set_meta("config:segment-size", "value", 128)
+        self.net.set_meta("config:merge-group", "value", 4)
+        self.net.set_meta("config:workers", "value", 1)
+        self.net.set_meta("config:crystal-pile", "value", 64)
+        self.net.set_meta("config:entry-budget", "value", 300)
+        self.net.add_door("config", "config:segment-size", tag="config")
+        self.net.add_door("config", "config:merge-group", tag="config")
+        self.net.add_door("config", "config:workers", tag="config")
+        self.net.add_door("config", "config:crystal-pile", tag="config")
+        self.net.add_door("config", "config:entry-budget", tag="config")
+        steps = [
+            dict(id="pull", op="q_next", args={}, out="pulled",
+                 doors=[dict(to="segment",
+                             when=dict(field="job", truthy=True)),
+                        dict(to="idle")]),
+            dict(id="segment", op="segment_job", args=dict(job="pulled"),
+                 out="segmented",
+                 doors=[dict(to="crystallize",
+                             when=dict(field="segments", cmp="larger",
+                                       than=0)),
+                        dict(to="idle")]),
+            dict(id="crystallize", op="crystallize_job",
+                 args=dict(job="pulled"), out="crystals",
+                 doors=[dict(to="assess")]),
+            dict(id="assess", op="assess_job", args=dict(job="pulled"),
+                 out="assessed", doors=[dict(to="merge")]),
+            dict(id="merge", op="merge_job", args=dict(job="pulled"),
+                 out="merged", doors=[dict(to="commit")]),
+            dict(id="commit", op="commit_job", args=dict(job="pulled"),
+                 out="committed", success=True,
+                 doors=[dict(to="sleep")]),
+            dict(id="sleep", op="sleep_pass", args={}, out="slept",
+                 doors=[]),
+            dict(id="idle", op="idle_pass", args={}, out="idled",
+                 doors=[]),
+        ]
+        flow = self.define_flow("boot-loop", steps)
+        self.net.add_door("boot:entry", flow, tag="boot")
+        self.net.set_meta("boot:entry", "current", flow)
+        # THE RECOVERY SECTOR: the original, kept pristine. If every
+        # redirect dangles and every boot flow breaks, this is what
+        # the mind rebuilds from.
+        self.net.add_door("boot:entry", "boot:recovery", tag="recovery")
+        self.net.set_meta("boot:recovery", "flow", "boot-loop")
+        self.net.set_meta("boot:recovery", "sector", copy.deepcopy(steps))
+        for n in (flow, "boot:entry", "boot:recovery",
+                  "config:segment-size", "config:merge-group"):
+            self.net.set_meta(n, "provenance", prov)
+        return flow
+
+    def _flow_ok(self, node):
+        """Structural health check on a flow shape: steps meta
+        present, a flow-start door, and every step carrying its
+        spec. (Behavioral refusals — unknown ops — are outcomes,
+        not damage; this checks structure only.)"""
+        if not node or not str(node).startswith("flow:"):
+            return False
+        steps = self.net.get_meta(node, "steps")
+        if not steps or not self.net.get_doors(node, tag="flow-start"):
+            return False
+        short = str(node)[5:]
+        return all(self.net.get_meta(f"step:{short}.{s.get('id')}",
+                                     "spec") for s in steps)
+
+    def _recover_boot(self):
+        """THE RECOVERY SECTOR fires: every boot flow is missing or
+        structurally broken. Rebuild the original from the pristine
+        copy at boot:recovery; whatever broken steps existed are
+        superseded onto the record, never erased. If even the sector
+        is gone, factory-reseed — the last resort."""
+        import copy
+        sector = self.net.get_meta("boot:recovery", "sector")
+        if not sector:
+            flow = self._seed_boot()
+            self.record_finding("boot-recovery", "boot:entry",
+                                action="no recovery sector — "
+                                       "factory reseed")
+            return flow
+        name = self.net.get_meta("boot:recovery", "flow") or "boot-loop"
+        node = f"flow:{name}"
+        broken = self.net.get_meta(node, "steps")
+        if broken is not None:
+            hist = self.net.get_meta(node, "superseded") or []
+            hist.append(dict(steps=broken,
+                             why="structurally broken at boot — "
+                                 "rebuilt from the recovery sector"))
+            self.net.set_meta(node, "superseded", hist)
+        flow = self.define_flow(name, copy.deepcopy(sector))
+        self.net.add_door("boot:entry", flow, tag="boot")
+        self.net.set_meta("boot:entry", "current", flow)
+        self.record_finding("boot-recovery", flow,
+                            action="rebuilt from boot:recovery")
+        return flow
+
+    def beat(self, state=None):
+        """ONE beat of the boot loop — THE ENTRY POINT. Reads
+        boot:entry from the net and walks whatever flow it points at,
+        re-read every beat, so supersession takes effect live. If the
+        redirect is missing or names a broken shape, default to the
+        FIRST normal instance; if none stands, rebuild from the
+        recovery sector. This doorway is the only hard-coded thing;
+        everything it runs is net content."""
+        if not self.net.get_doors("boot:entry", tag="boot"):
+            self._seed_boot()
+        current = self.net.get_meta("boot:entry", "current")
+        if not self._flow_ok(current):
+            chapter = lambda f: (self.net.get_meta(f, "chapter") or 0,
+                                 str(f))
+            cands = [f for f in self.net.get_doors("boot:entry",
+                                                   tag="boot")
+                     if self._flow_ok(f)]
+            if cands:
+                fallback = max(cands, key=chapter)
+                self.net.set_meta("boot:entry", "current", fallback)
+                self.record_finding(
+                    "boot-recovery", fallback,
+                    action=f"redirect {current!r} missing or broken — "
+                           "defaulted to the latest sound boot chapter")
+                current = fallback
+            else:
+                # unconnected chapters: sound boot-lineage flows that
+                # lost their door to boot:entry — found and reconnected
+                orphans = [f for f in self.net.get_doors("flows",
+                                                         tag="flow")
+                           if self._flow_ok(f) and self._boot_lineage(f)]
+                if orphans:
+                    fallback = max(orphans, key=chapter)
+                    self.net.add_door("boot:entry", fallback, tag="boot")
+                    self.net.set_meta("boot:entry", "current", fallback)
+                    self.record_finding(
+                        "boot-recovery", fallback,
+                        action="no connected chapter stood — found an "
+                               "unconnected one and reconnected it")
+                    current = fallback
+                else:
+                    current = self._recover_boot()
+        return self.walk_flow(current, state=state)
+
+    def _boot_lineage(self, node, limit=10):
+        """Does this flow descend from the boot flow? Name match or a
+        branched_from chain that reaches it within `limit` hops."""
+        name = self.net.get_meta("boot:recovery", "flow") or "boot-loop"
+        hops = 0
+        while node and hops < limit:
+            if str(node).startswith(f"flow:{name}"):
+                return True
+            node = self.net.get_meta(node, "branched_from")
+            hops += 1
+        return False
+
+    def boot(self, beats=12):
+        """The boot loop: beat until idle (or the beat budget runs
+        out). Returns the last beat's outcome and receipts."""
+        out, trace = None, []
+        for _ in range(max(1, beats)):
+            out, trace = self.beat()
+            road = [t["step"].split(".")[-1] for t in trace
+                    if "step" in t]
+            if "idle" in road or out in ("refused", "hop-cap"):
+                break
+        return out, trace
 
     # ── the findings ledger ─────────────────────────────────────
 
@@ -2864,12 +3744,16 @@ class Isaac:
             predecessors = self.net.get_predecessors(token, tag="seq")
             # Tokens with rich profiles are well-known.
             # Tokens with empty profiles are novel/unknown.
+            # a type's members ARE its type-tagged predecessors — the
+            # index answers in O(members), not O(world × types). Huge
+            # types are capped at the entry budget (liberal ejection:
+            # substitution over hundreds of siblings isn't recall).
             type_members = set()
             for t in types:
-                for n in self.net.all_nodes():
-                    if t in self.net.get_doors(n, tag="type"):
-                        type_members.add(n)
-                type_members.discard(token)
+                type_members |= self.net.get_predecessors(t, tag="type")
+            type_members.discard(token)
+            if len(type_members) > 300:
+                type_members = set(sorted(type_members)[:300])
             knowledge[token] = {
                 "types": types,
                 "successors": successors,
@@ -4041,6 +4925,23 @@ class World:
         return None
 
 
+def _crystallize_piece(sequences):
+    """The disposable worker, module-level so it can run in a separate
+    PROCESS (Windows spawn imports by name): a fresh scratch mind
+    observes one segment, consolidates, returns the crystal as a plain
+    dict. Stateless — it never sees the real mind."""
+    w = Isaac()
+    w.wave_logging = False
+    for seq in sequences:
+        w.observe(seq)
+    w.consolidate(full=True)
+    st = w.status()
+    return dict(nodes=st["nodes"], doors=st["doors"],
+                types={t: sorted(d["members"])
+                       for t, d in w.types.items()},
+                rules=len(w.rules))
+
+
 # ═════════════════════════════════════════════════════════════════
 # TEST SUITE
 # ═════════════════════════════════════════════════════════════════
@@ -4700,6 +5601,174 @@ def test_spatial():
     return correct == 4
 
 
+def test_boot():
+    """The boot line: shapes run the mind, code only walks. Only the
+    entry point is hard-coded — loop, pipeline, queue are net content."""
+    _div("BOOT — the boot line: shapes run the mind, code only walks")
+    correct = 0
+
+    # 1. first boot seeds the shapes, readable from the net
+    isaac = Isaac()
+    isaac.wave_logging = False
+    out, _ = isaac.beat()
+    steps = isaac.net.get_meta("flow:boot-loop", "steps")
+    ok = steps is not None and out == "done"
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  first boot seeds flow:boot-loop "
+          f"({len(steps or [])} steps in net meta), idle beat -> {out}")
+
+    # 2. the exactness court: pipeline vs direct observe
+    lines = ["the cat sat on the mat", "the cat sat on the mat",
+             "the dog ran to the gate", "3 + 4 = 7"]
+    isaac.ingest("\n".join(lines), kind="battery")
+    isaac.boot(beats=6)
+    control = Isaac()
+    control.wave_logging = False
+    for ln in lines:
+        control.observe(tokenize(ln))
+    a1, c1 = isaac.lookup(tokenize("the cat sat on the"))
+    a2, c2 = control.lookup(tokenize("the cat sat on the"))
+    ok = a1 == a2 == "mat" and abs(c1 - c2) < 1e-9
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  pipeline lookup == direct lookup "
+          f"-> {a1} (conf {c1:.1f} vs {c2:.1f})")
+    ok = (isaac._compiled is not None and control._compiled is not None
+          and np.array_equal(isaac._compiled["W"], control._compiled["W"])
+          and isaac._compiled["frames"] == control._compiled["frames"]
+          and isaac._compiled["deltas"] == control._compiled["deltas"])
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  W matrices machine-identical "
+          f"(shape {isaac._compiled['W'].shape})")
+    ok = (isaac.net.get_meta("job:1", "state") == "done"
+          and isaac.net.get_meta("seg:1.0", "crystal") is not None
+          and isaac.net.get_meta("seg:1.0", "assessment") is not None)
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  job done with crystal + assessment "
+          f"receipts on the record")
+
+    # 3. the delta-compile court: interleaved vs one-shot
+    rng = np.random.default_rng(7)
+    A, B = Isaac(), Isaac()
+    A.wave_logging = B.wave_logging = False
+    vocab = [f"w{i}" for i in range(12)]
+    seqs = [[vocab[int(rng.integers(0, 12))]
+             for _ in range(int(rng.integers(2, 9)))] for _ in range(40)]
+    for s in seqs:
+        A.observe(s)
+        if rng.random() < 0.5:
+            A.lookup(s[:-1])          # forces a delta compile mid-stream
+    for s in seqs:
+        B.observe(s)
+    A._ensure_compiled()
+    B._ensure_compiled()
+    ok = (np.array_equal(A._compiled["W"], B._compiled["W"])
+          and A._compiled["frames"] == B._compiled["frames"]
+          and A._compiled["deltas"] == B._compiled["deltas"])
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  delta compile == one-shot compile "
+          f"({len(A._compiled['frames'])} frames, machine-identical)")
+
+    # 4. null: a scrambled flow (unknown op) must refuse, not crash
+    isaac.define_flow("scrambled",
+                      [dict(id="x", op="no_such_organ", args={},
+                            doors=[])])
+    out, tr = isaac.walk_flow("scrambled")
+    ok = out == "refused" and "REFUSED" in tr[-1]["receipt"]
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  scrambled flow -> {out} with receipt "
+          f"(no exception)")
+
+    # 5. null: a payload-less job files refused and stays on the record
+    isaac.net.add_door("queue:inbox", "job:999", tag="job")
+    isaac.net.set_meta("job:999", "state", "open")
+    out, _ = isaac.beat()
+    ok = (isaac.net.get_meta("job:999", "state") == "refused"
+          and isaac.net.get_meta("job:999", "why") is not None
+          and out == "done")
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  empty job -> refused, reason kept, "
+          f"loop unharmed")
+
+    # 6. the supersession court: repoint boot:entry, next beat obeys
+    isaac.branch_flow("boot-loop", "boot-loop-v2",
+                      replace_step=dict(id="sleep", op="idle_pass",
+                                        args={}, out="slept", doors=[]))
+    isaac.net.add_door("boot:entry", "flow:boot-loop-v2", tag="boot")
+    isaac.net.set_meta("boot:entry", "current", "flow:boot-loop-v2")
+    isaac.ingest("a b c", kind="battery2")
+    out, tr = isaac.beat()
+    road = [t["step"] for t in tr if "step" in t]
+    ok = (road and road[0].startswith("step:boot-loop-v2.")
+          and isaac.net.get_meta("flow:boot-loop", "steps") is not None)
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  superseded mid-run: next beat walks "
+          f"boot-loop-v2; the old flow stays whole")
+
+    # 7. hop cap: a circular flow ends, never hangs
+    isaac.define_flow("circle", [
+        dict(id="a", op="idle_pass", args={}, doors=[dict(to="b")]),
+        dict(id="b", op="idle_pass", args={}, doors=[dict(to="a")])])
+    out, _ = isaac.walk_flow("circle")
+    ok = out == "hop-cap"
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  circular flow -> {out}")
+
+    # 8. recovery: a dangling redirect defaults to the LATEST sound
+    #    boot chapter, with a receipt
+    isaac.net.set_meta("boot:entry", "current", "flow:does-not-exist")
+    out, _ = isaac.beat()
+    cur = isaac.net.get_meta("boot:entry", "current")
+    ok = (out == "done" and cur == "flow:boot-loop-v2"
+          and any(f.get("kind") == "boot-recovery"
+                  for f in isaac.findings))
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  dangling redirect -> latest sound "
+          f"chapter {cur} [{out}], receipt on the record")
+
+    # 9. recovery: connected chapters all broken, but a sound
+    #    UNCONNECTED chapter exists -> found and reconnected
+    isaac.branch_flow("boot-loop-v2", "boot-loop-v3")   # no boot door
+    isaac.net.set_meta("flow:boot-loop", "steps",
+                       [dict(id="x", op="gone")])       # broken shape
+    isaac.net.set_meta("flow:boot-loop-v2", "steps", None)  # missing
+    isaac.net.set_meta("boot:entry", "current", None)
+    out, _ = isaac.beat()
+    cur = isaac.net.get_meta("boot:entry", "current")
+    ok = (out == "done" and cur == "flow:boot-loop-v3"
+          and "flow:boot-loop-v3" in isaac.net.get_doors("boot:entry",
+                                                         tag="boot"))
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  unconnected chapter found and "
+          f"reconnected -> {cur} [{out}]")
+
+    # 10. every chapter everywhere broken -> rebuilt from the
+    #     recovery sector; the wreckage superseded, never erased
+    isaac.net.set_meta("flow:boot-loop-v3", "steps", None)
+    isaac.net.set_meta("boot:entry", "current", None)
+    out, _ = isaac.beat()
+    steps2 = isaac.net.get_meta("flow:boot-loop", "steps")
+    hist = isaac.net.get_meta("flow:boot-loop", "superseded") or []
+    ok = (out == "done" and steps2 and len(steps2) == 8
+          and steps2[0]["id"] == "pull"
+          and hist and hist[-1]["steps"][0]["id"] == "x")
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  all chapters broken -> rebuilt from "
+          f"boot:recovery ({len(steps2 or [])} steps), wreckage "
+          f"superseded ({len(hist)} kept)")
+
+    # 11. the pristine sector survives its own use
+    sector = isaac.net.get_meta("boot:recovery", "sector")
+    ok = (sector and len(sector) == 8 and sector[0]["id"] == "pull"
+          and isaac.net.get_meta("boot:recovery", "provenance")
+          is not None)
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  recovery sector still pristine "
+          f"after the rebuild")
+
+    print(f"\n  {correct}/13")
+    return correct == 13
+
+
 # ═════════════════════════════════════════════════════════════════
 # MAIN
 # ═════════════════════════════════════════════════════════════════
@@ -4720,6 +5789,7 @@ if __name__ == "__main__":
     results["discovery"] = test_discovery()
     results["rivalry"] = test_rivalry()
     results["spatial"] = test_spatial()
+    results["boot"] = test_boot()
 
     _div("SUMMARY")
     for name, passed in results.items():

@@ -1,8 +1,8 @@
 # THE ISAAC MANUAL
 ### The complete, current capability reference — every part, every method, honestly scoped
 **Engine:** `code/isaac.py` (one file, one class, numpy only, no neural nets in any decision path)
-**Self-test:** `PYTHONIOENCODING=utf-8 python isaac.py` → expect **10/10**
-**UI:** `python ui/isaac_ui.py` → http://127.0.0.1:8674
+**Self-test:** `PYTHONIOENCODING=utf-8 python isaac.py` → expect **12/12**
+**UI:** `python ui/isaac_workspace.py` → http://127.0.0.1:8675 (three-channel workspace; legacy console: `python ui/isaac_ui.py` → :8674)
 
 > **MAINTENANCE RULE (same as ISAAC_BUILD_STATE.md):** when a capability is
 > added, changed, or broken, update THIS manual in the same step. If a
@@ -200,8 +200,8 @@ Server binds 127.0.0.1:8674; minds stored in `data/minds/`.
 
 ## 10. Test map (what proves what)
 
-- Engine self-test (10 areas): language, math, logic, reasoning, decompose,
-  persistence, waves, tracking, discovery, rivalry.
+- Engine self-test (12 areas): language, math, logic, reasoning, decompose,
+  persistence, waves, tracking, discovery, rivalry, spatial, boot.
 - Harness (`rebuild/`): six rebuild proofs (doors, composition, enumerator,
   waves, interference, entity-status); batteries with per-run CSVs
   (`wave_battery`, `discovery_battery`); adversarial `redteam_discovery`;
@@ -230,3 +230,102 @@ challenges in discover(); no CAPTURED→law graduation loop; no
 learned-invariant perception (phase 4); no curiosity — challenges arrive
 from outside, and the probe queue is proposals only. The clock-reading
 harness readout is broken (22.9% — harness bug, engine unimplicated).
+
+## 13. The boot line (2026-07-22) — shapes run the mind, code only walks
+
+The hard-drive principle: the only hard-coded thing is the entry point.
+Full design: `BOOT_LINE_DESIGN.md`.
+
+- `beat()` — THE ENTRY POINT: reads `boot:entry` from the net, walks the
+  current boot flow once (re-read every beat — supersession takes effect
+  live). `boot(beats=)` repeats until idle. First call on a bare net runs
+  the one-time seed (`_seed_boot`): the default boot loop + pipeline are
+  authored as net shapes, meta-stamped as told-structure, supersedable.
+- THE RECOVERY SECTOR: the install also writes a pristine copy of the
+  original at `boot:recovery` (meta `sector`). Every flow carries a
+  `chapter` number (authorship order, a fact in the net). Resolution
+  chain at every beat: the `current` redirect if structurally sound
+  (`_flow_ok`: steps meta + flow-start + every step spec) → else the
+  LATEST sound boot chapter among boot-tagged doors → else a sound
+  UNCONNECTED chapter (boot lineage by name or `branched_from` chain)
+  found and reconnected → else `_recover_boot()` rebuilds the original
+  from the sector (broken steps superseded onto the record, never
+  erased) → else factory reseed. Every recovery records a
+  `boot-recovery` finding.
+- Parallel workers: `config:workers` (seeded 1) — when > 1,
+  `crystallize_job` runs segments in separate PROCESSES
+  (`_crystallize_piece` is stateless, never touches the mind; the main
+  process stays the single consumer, race-free by construction).
+- Flows as net content: `define_flow(name, steps)` / `branch_flow(src,
+  new, replace_step=)` — specs in `flow:`/`step:` node meta; `walk_flow`
+  runs ops (`getattr` on the mind), takes the first firing door, receipts
+  EVERY door taken or bypassed; unknown op / missing spec → `refused`
+  (an outcome, not an exception); `hop_cap` stops runaway walks. Every
+  walk records a `flow-walk` finding.
+- The spine: `ingest(content)` → `job:` node on `queue:inbox` (state
+  open/working/done/refused — refusals keep their why). Default pipeline:
+  `segment_job` (pieces ≤ `config:segment-size` tokens, whole sequences)
+  → `crystallize_job` (per-segment disposable scratch mind, crystal
+  receipt on the `seg:` node) → `assess_job` (known/new/kin vs the net,
+  mechanical) → `merge_job` (recrystallize in `config:merge-group`
+  batches) → `commit_job` (THE SINGLE WRITER — same observe path as
+  ever) → `sleep_pass` (scoped consolidation).
+- Delta compile: `_compile` now parses only sequences newer than
+  `_counts_up_to` (counts accumulate in `_pair_counts`); the matrix is
+  machine-identical to a full reparse — proven in-battery.
+- THE LOCAL SLEEP + ENTRY INTERPRETER (2026-07-22, owner's design):
+  scoped `_crystallize` compares CRYSTALS TO CRYSTALS, never node to
+  node. Each dirty entry is scored against the standing type
+  signatures and sorted into the pile it resembles (or the new pile).
+  Full crystal matches ABSORB in one subset test; boundary cases
+  ("possibly this type plus some factor") close their circle against
+  the pile's own members, never the world; misfits crystallize among
+  themselves in chunks of `config:crystal-pile` (64). Results
+  RECONCILE with the standing registry — absorb matches, supersede
+  changed names on the record, add the new, leave the untouched net
+  alone (this also fixed the old scoped mode's lossy registry
+  rebuild). The chance-null runs on a capped region (80 nodes,
+  deterministic slice). Accepted, documented fidelity trade:
+  cross-pile pairs surface at the crystal-vs-crystal altitude or a
+  later sleep, not this one. `Net` gained a predecessor index
+  (`preds`, lazy rebuild for old pickles); closure runs by holder-list
+  intersection. Full `crystallize()` keeps from-scratch semantics.
+- SPEED DOCTRINE (owner, 2026-07-22): "no more than a few hundred
+  nodes or crystals per entry." `config:entry-budget` (300) caps every
+  per-entry scan; hub doors are ejected at every altitude (candidate
+  gen, negatives, rules, the null); an absorb-only sleep skips the
+  chance-null entirely (no new structure — the standing verdicts
+  stand); violations contrast only touched nodes. `_recall` reads type
+  members from the predecessor index (was a world-scan per token — the
+  single biggest fix: lookup 24s → <10ms on a 2.5k-node net).
+- FIRST PAST THE POST (owner, 2026-07-22): the interpreter does not
+  rank the world — candidates arrive rarest-shared-door-first from
+  the signature index and the FIRST one passing the functional gate
+  (shared idf-weight ≥ half the crystal's signature weight) is KEPT;
+  a gate-failing candidate sharing ≥ min_shared doors piles as a
+  boundary case; nothing passing = the new pile, an honest refusal.
+  Viability proven in `rebuild/shape_fptp_probe.py` before build:
+  ~12 gate checks per entry at 100k crystals (cost FALLS with
+  scale), kept-quality median 1.00 vs exhaustive best, pure junk
+  refused 100/100. Element modification on later conflict is the
+  standing repair (boundary circles + supersession + later sleeps).
+  Measured in-engine (battery green throughout): per-message
+  interactive 19.1s → 40ms at an 874-node net; 101ms at 2,583;
+  281ms at 5,342 (was 1.2s pre-FPTP). Batch sleep for a 24k-token
+  single gulp: 55s (one-time; segment-wise sleeping is the named
+  next amortization). Earlier shape-tower prototypes (v1/v2,
+  `rebuild/shape_viability_probe.py`) FAILED their courts — kept for
+  the record; the sig-figs zoom idea remains open research on top of
+  the FPTP base.
+- Courts in `test_boot` (13 checks): exactness (pipeline vs direct: same
+  lookup, `np.array_equal` W), delta-vs-one-shot compile, three nulls
+  that must refuse (scrambled flow, payload-less job, circular flow),
+  the supersession court (repoint `boot:entry` mid-run, next beat obeys,
+  old flow stays whole), and four recovery checks (dangling redirect →
+  latest sound chapter; connected chapters broken → unconnected chapter
+  found and reconnected; everything broken → rebuilt from the sector
+  with wreckage superseded; the sector pristine after its own use).
+- v1 honest limits: single-process, workers inline; W dense at
+  materialization (sparse is the named next step); the crystallizer's
+  scoped-vs-full trade-offs unchanged (the ~800-node knee is its own
+  future build).

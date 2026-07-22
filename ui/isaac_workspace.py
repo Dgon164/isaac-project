@@ -134,7 +134,8 @@ def api(path, body):
                           preview="\n".join(c["text"].splitlines()[:4]))
                      for c in PROJ["content"]],
             chat=PROJ["chat"][-200:],
-            findings=isaac.recall_findings(limit=30),
+            findings=[f for f in isaac.recall_findings(limit=80)
+                      if f.get("kind") != "flow-walk"][:30],
             comments=PROJ["comments"])
 
     # ------------------------------------------------------- /in (+ /say)
@@ -156,12 +157,12 @@ def api(path, body):
         post_msg("you", t, "/in")
         toks = tokenize(t)
         if toks:
-            before = len(isaac.net.all_nodes())
-            isaac.observe(toks)
-            grew = len(isaac.net.all_nodes()) - before
-            post_msg("inst", f"ingested {len(toks)} tokens"
-                     + (f" · {grew} new nodes" if grew else ""),
-                     "observe")
+            r = isaac.ingest(toks, kind="/in")
+            out, trace = isaac.beat()      # the boot loop works the job
+            road = " → ".join(t2["step"].split(".")[-1]
+                              for t2 in trace if "step" in t2)
+            post_msg("inst", f"{r['job']}: {r['tokens']} tokens → "
+                     f"{road} [{out}]", "boot beat")
             his_turn(isaac, toks)
         save_project()
         return dict(ok=True)
@@ -220,17 +221,19 @@ def api(path, body):
                             if capped else ""), "discover")
                 save_project()
                 return res
-            n = 0
+            r = isaac.ingest(c["text"], kind="/file")
+            out, trace = isaac.boot(beats=12)
+            segs = len(isaac._job_segments(r["job"]))
+            c["processed"] = time.strftime("%m-%d %H:%M")
+            post_msg("inst", f"processed “{c['name']}” as one unit: "
+                     f"{r['job']}, {r['tokens']} tokens → {segs} "
+                     f"segments → crystallized → assessed → merged → "
+                     f"committed [{out}]", "boot pipeline")
             last = None
             for line in c["text"].splitlines():
                 tk = tokenize(line)
                 if tk:
-                    isaac.observe(tk)
-                    n += len(tk)
                     last = tk
-            c["processed"] = time.strftime("%m-%d %H:%M")
-            post_msg("inst", f"processed “{c['name']}” as a unit: "
-                     f"{n} tokens ingested", "observe")
             if last:
                 his_turn(isaac, last)
             save_project()
