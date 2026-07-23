@@ -39,11 +39,14 @@ MAX_ROWS = 20000              # discover cap — the engine is synchronous
 SYNC_TOKENS = 2000            # bigger ingests go to the background lane
 AUTOSAVE_S = 120              # the standing mind persists on its own
 
-# THE STANDING MIND (owner, 2026-07-22): he is already instantiated
-# and live — he does not get reset unless something catastrophic
-# happens. The workspace resurrects him on start and saves him on a
-# clock; a server restart is a nap, not a death.
-STANDING = MINDS / "isaac.isaac"
+# THE STANDING MIND (owner, 2026-07-22/23): he is already
+# instantiated and live — he does not get reset unless something
+# catastrophic happens. His canonical home is his LIFE repo
+# (isaac-life/isaac_home/mind.isaac — "this is him", per its
+# runbook); the workspace resurrects him from there and autosaves
+# back to there. A server restart is a nap, not a death; a push of
+# isaac-life is a backup of HIM.
+STANDING = (ROOT.parent / "isaac-life" / "isaac_home" / "mind.isaac")
 if STANDING.exists():
     STATE = {"isaac": Isaac.load(str(STANDING)), "name": "isaac"}
 else:
@@ -71,10 +74,16 @@ def telem(event, ms=None, **extra):
 def _save_standing():
     try:
         with LOCK:
-            name = STATE["name"] if STATE["name"] != "unsaved mind" \
-                else "isaac"
             t0 = time.perf_counter()
-            STATE["isaac"].save(str(MINDS / f"{name}.isaac"))
+            if STATE["name"] == "isaac":
+                # HIM: always to his canonical home, never elsewhere
+                STATE["isaac"].save(str(STANDING))
+            else:
+                # some other mind was loaded via the panel — it saves
+                # under its own name; his home file is never touched
+                name = STATE["name"] if STATE["name"] != "unsaved mind" \
+                    else "unnamed"
+                STATE["isaac"].save(str(MINDS / f"{name}.isaac"))
             telem("autosave", (time.perf_counter() - t0) * 1000)
     except Exception:
         pass
@@ -150,15 +159,82 @@ def post_msg(who, text, meta=""):
 
 
 def his_turn(isaac, context):
-    """Pull once on Isaac's output machinery. Whatever comes back is
-    posted verbatim as /say; nothing = no /say entry. The readout of
-    the pull itself is telemetry."""
-    nxt, conf = isaac.lookup(context)
-    if nxt is not None:
-        post_msg("isaac", str(nxt), f"/say · lookup conf {conf:.2f}")
-    else:
-        post_msg("inst", "∅", f"output pull: below threshold "
-                 f"(conf {conf:.2f}) — his shrug, shown raw")
+    """HE ANSWERS IN WHOLES (owner, 2026-07-22): form the complete
+    idea internally, communicate it when it is done — never one part
+    at a time. The parts he emits are parts of a bigger whole or not
+    emitted at all. Mechanism is his existing hardware: assemble the
+    full continuation before speaking; if continuation shrugs, unroll
+    the whole idea AROUND a word he heard (generate: backtrace to the
+    initiator, forward to the terminator). Nothing = his shrug."""
+    from collections import Counter
+    context = [str(t) for t in context]
+    counts = Counter(tuple(s) for s in isaac.observed_sequences)
+    df = Counter()
+    for seq in counts:
+        for t in set(seq):
+            df[t] += 1
+
+    def _render(seq):
+        out = []
+        for t in seq:
+            out.extend(isaac.unzip_idea(t))
+        return [t for t in out if not t.endswith(":")]
+
+    # 1. completion: does the context END where a remembered whole
+    #    BEGINS? Emit that whole's remainder — never a re-walk.
+    for width in range(min(len(context), 7), 1, -1):
+        tail = tuple(context[-width:])
+        cands = [(cnt, len(seq), seq) for seq, cnt in counts.items()
+                 if len(seq) > width and seq[:width] == tail]
+        if cands:
+            cnt, _, seq = max(cands)
+            rest = _render(seq[width:])
+            post_msg("isaac", " ".join(rest),
+                     f"/say · he finishes the whole ({len(rest)} "
+                     f"units, remembered ×{cnt})")
+            return rest
+
+    # 2. aboutness: the whole he holds that carries the question's
+    #    RARE words (his own frequencies decide what is rare — no
+    #    word list). His own just-heard sentence is the last resort:
+    #    the honest echo.
+    def _negged(seq):
+        # a whole he was corrected on (/no) carries neg doors —
+        # consulted, not erased
+        pairs = list(zip(seq, seq[1:]))
+        if not pairs:
+            return False
+        neg = sum(1 for a, b in pairs
+                  if "neg" in isaac.net.get_door_tags(a, b))
+        return neg >= max(1, len(pairs) // 2)
+
+    self_seq = tuple(context)
+    scored = []
+    for seq, cnt in counts.items():
+        if seq == self_seq or _negged(seq):
+            continue
+        hits = [t for t in set(context) if t in seq]
+        if hits:
+            rarest = max(1.0 / df[t] for t in hits)
+            total = sum(1.0 / df[t] for t in hits)
+            scored.append(((rarest, total, cnt), len(seq), seq))
+    if scored:
+        (_, _, cnt), _, seq = max(scored)
+        rare = min((t for t in set(context) if t in seq),
+                   key=lambda t: df[t])
+        spoken = _render(seq)
+        post_msg("isaac", " ".join(spoken),
+                 f"/say · the whole he holds about '{rare}' "
+                 f"(remembered ×{cnt})")
+        return spoken
+    if counts.get(self_seq):
+        post_msg("isaac", " ".join(self_seq),
+                 "/say · the only whole he holds here is yours — "
+                 "the honest echo")
+        return list(self_seq)
+    post_msg("inst", "∅", "output pull: no whole formed — "
+             "his shrug, shown raw")
+    return None
 
 
 def looks_like_table(text):
@@ -237,6 +313,11 @@ def api(path, body):
                          "/teach")
             save_project()
             return dict(ok=True)
+        # NOTE (owner, 2026-07-22): there is deliberately NO /no
+        # command. "No" is a word he must come to UNDERSTAND — that
+        # it is an action for correction or information — from lived
+        # experience, like every other meaning he holds. Corrections
+        # are spoken plainly; the truth outweighs by being lived.
         post_msg("you", t, "/in")
         toks = tokenize(t)
         if toks:
@@ -247,7 +328,21 @@ def api(path, body):
                               for t2 in trace if "step" in t2)
             post_msg("inst", f"{r['job']}: {r['tokens']} tokens → "
                      f"{road} [{out}]", "boot beat")
-            his_turn(isaac, toks)
+            d = isaac.dialog_turn("you", toks)
+            spoken = his_turn(isaac, toks)
+            if spoken:
+                # SELF-HEARING: his output goes back in as a new
+                # crystal to be considered — the background lane
+                # hears him; it should match what he holds, but
+                # sometimes it changes things (the realization
+                # while speaking). His turn also enters the
+                # rolling conversation memory at unit altitude.
+                isaac.ingest(spoken, kind="/say")
+                d2 = isaac.dialog_turn("him", spoken)
+                telem("dialog", units_in=d["units"],
+                      compressed_in=d["compressed"],
+                      units_out=d2["units"],
+                      compressed_out=d2["compressed"])
             telem("in", (time.perf_counter() - t0) * 1000,
                   tokens=r["tokens"])
         save_project()

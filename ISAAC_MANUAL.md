@@ -335,7 +335,38 @@ Full design: `BOOT_LINE_DESIGN.md`.
   death (verified: killed mid-life, restarted, same nodes, same
   answers). Every event appends to `data/telemetry.jsonl` (ts,
   event, ms, nodes, types, findings).
-- Courts in `test_boot` (15 checks): exactness (pipeline vs direct: same
+- THE IDEA ORGAN + ROLLING CONVERSATION MEMORY (owner design,
+  2026-07-22): a whole lived `config:idea-mint` (3) times becomes ONE
+  thing — an `idea:` node whose part-doors point at what it is made
+  of (the zip; order rides as meta like a law's equation; parts kept;
+  `unzip_idea` rebuilds exactly, recursively). `recognize_ideas`
+  collapses known wholes to unit tokens (new material stays raw —
+  compression is earned); `dialog_turn` observes each turn at unit
+  altitude (idea→idea transitions accrue in the same matrix) and
+  keeps the rolling window in Scratch, sized in UNITS
+  (`config:dialog-window`, 24) — the more he holds as wholes, the
+  more conversation fits. SELF-HEARING (workspace): his /say goes
+  back in as a `/say` job — pre-crystallized, assessed, reconciled by
+  the background lane ("should match what he holds, but sometimes it
+  changes things" — the realization while speaking); his turns enter
+  the dialog stream marked as his voice. There is deliberately NO
+  correction command: "no" is a word he must come to understand from
+  lived experience. Information is never installed — only capability,
+  as bootup machinery for him to learn with.
+- THE ACTION LIST + A-TO-X (owner, 2026-07-23: "we dont want a to b.
+  we want a to x with him figuring out how to get there"). Seeded as
+  capability only: `act:` nodes with slot signatures (op, args,
+  takes, makes — D5 doctrine); ROUTES are never seeded. `seek(goal,
+  state)`: standing plan for the goal tried first; else backward
+  chaining over his action list (bounded by `config:plan-depth`,
+  first workable chain wins), the found route AUTHORED AS A FLOW
+  (`flow:plan-N` — his, on the record, supersedable), executed, and
+  courted (did X obtain?); success stands as his answer to that goal
+  (searched once, owned after — and reusable); unreachable = honest
+  refusal with the reason named; dead-end acts are bypassed by
+  selection. In-battery he re-derives his own six-stage ingestion
+  pipeline from signatures alone, with no route shown.
+- Courts in `test_boot` (22 checks): exactness (pipeline vs direct: same
   lookup, `np.array_equal` W), delta-vs-one-shot compile, three nulls
   that must refuse (scrambled flow, payload-less job, circular flow),
   the supersession court (repoint `boot:entry` mid-run, next beat obeys,

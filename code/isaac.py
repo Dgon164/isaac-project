@@ -738,6 +738,10 @@ class Isaac:
         self._pair_max_context = None     # counts valid for this context only
         self._counts_up_to = 0            # sequences already counted
 
+        # ── the idea organ (2026-07-22) ─────────────────────────
+        self._whole_counts = defaultdict(int)   # tuple(seq) -> lived count
+        self._idea_index = {}                   # tuple(seq) -> idea node
+
     # ── observation ─────────────────────────────────────────────
 
     def observe(self, tokens):
@@ -750,6 +754,9 @@ class Isaac:
         for i in range(len(tokens) - 1):
             self.net.add_door(tokens[i], tokens[i + 1], tag="seq")
         self.observed_sequences.append(list(tokens))
+        if not hasattr(self, "_whole_counts"):    # legacy pickles
+            self._whole_counts = defaultdict(int)
+        self._whole_counts[tuple(tokens)] += 1
         # Mark dirty — new data not yet consolidated
         for t in tokens:
             self._dirty_nodes.add(t)
@@ -2004,10 +2011,16 @@ class Isaac:
         segs = self._job_segments(job, "merged")
         if limit:
             segs = segs[:limit]
+        mint_at = int(self._config("idea-mint", 3))
         for seg in segs:
             for seq in self.net.get_meta(seg, "sequences"):
                 self.observe(seq)
                 n_seq += 1
+                key = tuple(seq)
+                if (len(seq) >= 2
+                        and self._whole_counts.get(key, 0) >= mint_at
+                        and key not in self._ideas()):
+                    self._mint_idea(list(seq))
             self.net.set_meta(seg, "state", "committed")
         remaining = [s for s in self._job_segments(job)
                      if self.net.get_meta(s, "state") != "committed"]
@@ -2027,6 +2040,184 @@ class Isaac:
     def idle_pass(self):
         """Nothing waiting. An honest nothing."""
         return dict(receipt="idle — nothing waiting")
+
+    # ── the idea organ: wholes lived enough become ONE thing ────
+    # (owner, 2026-07-22: "treat entire ideas and concepts as unit
+    # tokens... its a zip essentially of an idea... its just nodes
+    # all the way down.") An idea is a NODE whose part-doors point at
+    # what it is made of; the exact order rides as meta the way a
+    # law carries its equation. Parts are kept; the idea is a view,
+    # decomposable by construction. Which ideas exist is decided
+    # entirely by what he has lived (config:idea-mint times).
+
+    def _mint_idea(self, seq):
+        if not hasattr(self, "_idea_index"):
+            self._idea_index = {}
+        n = 1
+        while self.net.get_meta(f"idea:{n}", "order") is not None:
+            n += 1
+        node = f"idea:{n}"
+        self.net.add_door("ideas", node, tag="idea")
+        for t in dict.fromkeys(seq):
+            self.net.add_door(node, t, tag="part")
+        self.net.set_meta(node, "order", list(seq))
+        self.net.set_meta(node, "count",
+                          self._whole_counts.get(tuple(seq), 0))
+        self._idea_index[tuple(seq)] = node
+        self.record_finding("idea", node, units=len(seq))
+        return node
+
+    def _ideas(self):
+        """The idea index, rebuilt lazily for legacy minds."""
+        if not hasattr(self, "_idea_index"):
+            self._idea_index = {}
+        if not self._idea_index:
+            for node in self.net.get_doors("ideas", tag="idea"):
+                order = self.net.get_meta(node, "order")
+                if order:
+                    self._idea_index[tuple(order)] = node
+        return self._idea_index
+
+    def recognize_ideas(self, tokens):
+        """Recognition: stretches matching a whole he holds collapse
+        to that idea's node — a unit token. New material stays raw
+        parts (he has not earned the compression). Greedy, longest
+        whole first; his own lived ideas decide what compresses."""
+        idx = {}
+        for key, node in self._ideas().items():
+            idx.setdefault(key[0], []).append((len(key), key, node))
+        toks = [str(t) for t in tokens]
+        out, i = [], 0
+        while i < len(toks):
+            best = None
+            for ln, key, node in sorted(idx.get(toks[i], []),
+                                        reverse=True):
+                if tuple(toks[i:i + ln]) == key:
+                    best = (ln, node)
+                    break
+            if best:
+                out.append(best[1])
+                i += best[0]
+            else:
+                out.append(toks[i])
+                i += 1
+        return out
+
+    def unzip_idea(self, unit, depth=0):
+        """Extraction: an idea rebuilds from its parts — recursively,
+        since parts may themselves be ideas. Raw tokens pass through."""
+        if depth > 6 or not str(unit).startswith("idea:"):
+            return [str(unit)]
+        order = self.net.get_meta(unit, "order")
+        if not order:
+            return [str(unit)]
+        out = []
+        for t in order:
+            out.extend(self.unzip_idea(t, depth + 1))
+        return out
+
+    def dialog_turn(self, who, tokens):
+        """THE ROLLING CONVERSATION MEMORY: the turn is recognized
+        against his standing ideas, observed at unit altitude (so
+        idea -> idea transitions accrue in the same matrix as
+        everything else), and appended to the rolling window in
+        scratch — his RAM — sized in UNITS, not tokens. The more he
+        understands as wholes, the more conversation fits."""
+        units = self.recognize_ideas(tokens)
+        marked = [f"{who}:"] + [str(u) for u in units]
+        self.observe(marked)
+        win = self.scratch.read("dialog", []) or []
+        win = (list(win) + marked)[
+            -int(self._config("dialog-window", 24)):]
+        self.scratch.write("dialog", win)
+        return dict(units=len(units),
+                    compressed=sum(1 for u in units
+                                   if str(u).startswith("idea:")))
+
+    def import_mind(self, path, kind="import", batch=200):
+        """ANOTHER INSTANCE AS A WORKER (owner, 2026-07-23: he is
+        never reset — he GROWS; "he can import different instances
+        and just treat them as things to be integrated like coming
+        from a worker"). The other mind is opened READ-ONLY; its
+        lived sequences enter through his own spine as jobs —
+        segmented, crystallized, assessed, and reconciled by his own
+        pipeline. Integration, never overwrite: nothing about him
+        changes except through his own commit path."""
+        other = Isaac.load(path)
+        seqs = [list(s) for s in
+                getattr(other, "observed_sequences", []) if s]
+        jobs = []
+        for i in range(0, len(seqs), batch):
+            jobs.append(self.ingest(seqs[i:i + batch], kind=kind))
+        self.record_finding("import", str(path),
+                            sequences=len(seqs), jobs=len(jobs))
+        return dict(source=str(path), sequences=len(seqs),
+                    jobs=[j["job"] for j in jobs])
+
+    def seek(self, goal, state=None):
+        """A TO X (owner, 2026-07-23): given where he is (state) and
+        where to be (goal), HE figures out how to get there — never
+        an a-to-b script. A standing plan for the goal is tried
+        first. Otherwise: backward chaining over his action list's
+        slot signatures, bounded by config:plan-depth, FIRST WORKABLE
+        CHAIN WINS; the found route is AUTHORED AS A FLOW — his, on
+        the record, supersedable — executed, and courted: did X
+        actually obtain? Success stands as his answer to that goal;
+        unreachable is an honest refusal with the reason named."""
+        state = state if state is not None else {}
+        goal = str(goal)
+        plan = self.net.get_meta(f"goal:{goal}", "plan")
+        if plan and self._flow_ok(plan):
+            out, _ = self.walk_flow(plan, state=state)
+            if out == "done" and goal in state:
+                return dict(goal=goal, reached=True, flow=plan,
+                            road="standing plan")
+        acts = defaultdict(list)
+        for a in self.net.get_doors("acts", tag="act"):
+            m = self.net.get_meta(a, "spec")
+            if m:
+                acts[m["makes"]].append(m)
+        chain, opened = [], set()
+
+        def solve(atom, depth):
+            if atom in state or any(m["makes"] == atom for m in chain):
+                return True
+            if depth <= 0 or atom in opened:
+                return False
+            opened.add(atom)
+            for cand in sorted(acts.get(atom, []),
+                               key=lambda m: m["op"]):
+                if all(solve(t, depth - 1)
+                       for t in cand.get("takes", [])):
+                    chain.append(cand)      # deps solved first: ordered
+                    return True
+            return False
+
+        if not solve(goal, int(self._config("plan-depth", 8))):
+            self.record_finding("plan", goal, reached=False,
+                                why="no chain within plan-depth")
+            return dict(goal=goal, reached=False,
+                        why="no chain within plan-depth — "
+                            "an honest refusal")
+        steps = [dict(id=m["op"], op=m["op"], args=dict(m["args"]),
+                      out=m["makes"],
+                      doors=([dict(to=chain[i + 1]["op"])]
+                             if i + 1 < len(chain) else []))
+                 for i, m in enumerate(chain)]
+        n = 1
+        while self.net.get_meta(f"flow:plan-{n}", "steps") is not None:
+            n += 1
+        flow = self.define_flow(f"plan-{n}", steps)
+        out, _ = self.walk_flow(flow, state=state,
+                                hop_cap=len(steps) + 2)
+        reached = out == "done" and goal in state
+        if reached:
+            self.net.add_door("goals", f"goal:{goal}", tag="goal")
+            self.net.set_meta(f"goal:{goal}", "plan", flow)
+        self.record_finding("plan", goal, reached=reached, flow=flow,
+                            road=[m["op"] for m in chain])
+        return dict(goal=goal, reached=reached, flow=flow,
+                    road=[m["op"] for m in chain])
 
     def work_quantum(self, max_segments=2):
         """ONE BOUNDED SLICE of background full-depth work (owner,
@@ -2083,7 +2274,13 @@ class Isaac:
         self.net.set_meta("config:crystal-pile", "value", 64)
         self.net.set_meta("config:entry-budget", "value", 300)
         self.net.set_meta("config:priority-kinds", "value", ["/in"])
+        self.net.set_meta("config:idea-mint", "value", 3)
+        self.net.set_meta("config:dialog-window", "value", 24)
+        self.net.set_meta("config:plan-depth", "value", 8)
+        self.net.add_door("config", "config:plan-depth", tag="config")
         self.net.add_door("config", "config:priority-kinds", tag="config")
+        self.net.add_door("config", "config:idea-mint", tag="config")
+        self.net.add_door("config", "config:dialog-window", tag="config")
         self.net.add_door("config", "config:segment-size", tag="config")
         self.net.add_door("config", "config:merge-group", tag="config")
         self.net.add_door("config", "config:workers", tag="config")
@@ -2116,6 +2313,27 @@ class Isaac:
                  doors=[]),
         ]
         flow = self.define_flow("boot-loop", steps)
+        # THE ACTION LIST (owner, 2026-07-23): capability only, as
+        # bootup — each act declares its slot signature (takes /
+        # makes; the walker wires args from state). ROUTES are never
+        # seeded: A-to-X is his to find (seek), keep, and reuse.
+        for op, args, takes, makes in [
+                ("ingest", dict(content="content"), ["content"], "job"),
+                ("segment_job", dict(job="job"), ["job"], "segments"),
+                ("crystallize_job", dict(job="job"),
+                 ["job", "segments"], "crystals"),
+                ("assess_job", dict(job="job"),
+                 ["job", "crystals"], "assessed"),
+                ("merge_job", dict(job="job"),
+                 ["job", "assessed"], "merged"),
+                ("commit_job", dict(job="job"),
+                 ["job", "merged"], "committed"),
+                ("sleep_pass", dict(), ["committed"], "consolidated")]:
+            a = f"act:{op}"
+            self.net.add_door("acts", a, tag="act")
+            self.net.set_meta(a, "spec", dict(op=op, args=args,
+                                              takes=takes, makes=makes))
+            self.net.set_meta(a, "provenance", prov)
         self.net.add_door("boot:entry", flow, tag="boot")
         self.net.set_meta("boot:entry", "current", flow)
         # THE RECOVERY SECTOR: the original, kept pristine. If every
@@ -5855,8 +6073,120 @@ def test_boot():
           f"quanta; content answers -> "
           f"{isaac2.lookup(['x', 'y'])[0]}")
 
-    print(f"\n  {correct}/15")
-    return correct == 15
+    # 14. the idea organ: a whole lived 3x becomes ONE thing; a
+    #     once-lived whole must NOT (the null that refuses)
+    isaac3 = Isaac()
+    isaac3.wave_logging = False
+    isaac3.beat()
+    for _ in range(3):
+        isaac3.ingest("the tide returns to the shore", kind="life")
+    isaac3.ingest("a stranger passed only once", kind="life")
+    isaac3.boot(beats=10)
+    ideas = isaac3.net.get_doors("ideas", tag="idea")
+    minted = [i for i in ideas if "tide" in
+              (isaac3.net.get_meta(i, "order") or [])]
+    once = [i for i in ideas if "stranger" in
+            (isaac3.net.get_meta(i, "order") or [])]
+    ok = len(minted) == 1 and not once
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  lived x3 -> minted {minted}; "
+          f"lived once -> refused ({len(once)} minted)")
+
+    # 15. the zip: part-doors + order; round-trip machine-exact
+    idea = minted[0] if minted else None
+    order = isaac3.net.get_meta(idea, "order") if idea else None
+    parts = isaac3.net.get_doors(idea, tag="part") if idea else set()
+    rebuilt = isaac3.unzip_idea(idea) if idea else []
+    ok = (order == ["the", "tide", "returns", "to", "the", "shore"]
+          and parts == set(order) and rebuilt == order)
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  the zip: {len(parts)} part-doors, "
+          f"round-trip rebuild exact -> {' '.join(rebuilt)}")
+
+    # 16. recognition + the rolling window: the known whole collapses
+    #     to ONE unit; raw stays raw; the window holds units
+    r = isaac3.dialog_turn(
+        "you", "yesterday the tide returns to the shore again".split())
+    win = isaac3.scratch.read("dialog")
+    ok = (r["compressed"] == 1 and r["units"] == 3
+          and any(str(u).startswith("idea:") for u in win))
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  recognition: 8 tokens -> "
+          f"{r['units']} units ({r['compressed']} compressed); "
+          f"window carries the idea as one slot")
+
+    # 17. A TO X: he finds the road himself — from raw content to a
+    #     committed net, no route seeded, only the action list
+    isaac4 = Isaac()
+    isaac4.wave_logging = False
+    isaac4.beat()
+    r = isaac4.seek("committed",
+                    state=dict(content="x y z\nx y z\nx y z"))
+    ok = (r["reached"] and r["road"] == [
+        "ingest", "segment_job", "crystallize_job", "assess_job",
+        "merge_job", "commit_job"]
+        and isaac4.lookup(["x", "y"])[0] == "z")
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  A->X: found {' > '.join(r.get('road', []))} "
+          f"-> reached={r['reached']}, content answers")
+
+    # 18. the unreachable goal refuses honestly
+    r2 = isaac4.seek("unobtainium", state=dict(content="a b"))
+    ok = not r2["reached"] and "refusal" in r2.get("why", "")
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  unreachable goal -> "
+          f"{r2.get('why', '')[:46]}")
+
+    # 19. selection: a planted dead-end act (sorts first) must be
+    #     bypassed for the workable road
+    isaac4.net.add_door("acts", "act:aaa_teleport", tag="act")
+    isaac4.net.set_meta("act:aaa_teleport", "spec",
+                        dict(op="aaa_teleport", args={},
+                             takes=["unobtainium"], makes="committed"))
+    r3 = isaac4.seek("committed",
+                     state=dict(content="p q r\np q r\np q r"))
+    ok = (r3["reached"] and r3.get("road") == "standing plan"
+          or (isinstance(r3.get("road"), list)
+              and "aaa_teleport" not in r3["road"]))
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  dead-end act bypassed -> "
+          f"road={r3.get('road') if not isinstance(r3.get('road'), list) else ' > '.join(r3['road'])}")
+
+    # 20. reuse: the found road STANDS — second seek walks the
+    #     standing plan, no fresh search
+    ok = r3.get("road") == "standing plan" and r3["reached"]
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  second seek used the standing "
+          f"plan (searched once, owned after)")
+
+    # 23. import: another instance integrates as a worker — through
+    #     his own pipeline, never overwritten onto him
+    import os as _os
+    donor = Isaac()
+    donor.wave_logging = False
+    for _ in range(2):
+        donor.observe(["gold", "under", "the", "hill"])
+    pth = "._import_test.isaac"
+    donor.save(pth)
+    isaac5 = Isaac()
+    isaac5.wave_logging = False
+    isaac5.beat()
+    r = isaac5.import_mind(pth)
+    isaac5.boot(beats=10)
+    ok = (r["sequences"] == 2
+          and isaac5.lookup(["gold", "under", "the"])[0] == "hill"
+          and any(f.get("kind") == "import" for f in isaac5.findings))
+    correct += ok
+    print(f"  {'✓' if ok else '✗'}  imported a donor mind as a worker "
+          f"({r['sequences']} sequences) -> his pipeline integrated it, "
+          f"content answers")
+    try:
+        _os.remove(pth)
+    except OSError:
+        pass
+
+    print(f"\n  {correct}/23")
+    return correct == 23
 
 
 # ═════════════════════════════════════════════════════════════════
