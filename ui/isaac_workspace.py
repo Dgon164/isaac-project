@@ -114,6 +114,28 @@ def _background_lane():
                             save_project()
                             telem("file-done", job=r.get("job"))
                             finished_read = True
+            # RECONCILE (2026-07-25): a job can close via the
+            # "closed" path rather than a final "committed" quantum;
+            # the check above misses that and the item stays
+            # "reading…" forever (first seen: c4, job:141, 152
+            # segments all committed, job done, content unmarked).
+            # Any reading item whose job is done gets flipped here.
+            with LOCK:
+                isaac2 = STATE["isaac"]
+                for c in PROJ["content"]:
+                    if (c.get("processed") == "reading…"
+                            and c.get("job")
+                            and isaac2.net.get_meta(c["job"], "state")
+                            == "done"):
+                        c["processed"] = time.strftime("%m-%d %H:%M")
+                        post_msg("inst",
+                                 f"finished reading “{c['name']}” "
+                                 f"({c['job']}) — reconciled after a "
+                                 "closed-path completion",
+                                 "background lane")
+                        save_project()
+                        telem("file-done", job=c["job"])
+                        finished_read = True
             if finished_read:
                 _save_standing()      # a finished read is worth keeping
                 last_save = time.time()
@@ -193,6 +215,19 @@ def his_turn(isaac, context):
                      f"/say · he finishes the whole ({len(rest)} "
                      f"units, remembered ×{cnt})")
             return rest
+
+    # 1.5 THE SHAPE ROAD (2026-07-26): no remembered whole starts
+    #     this way — but maybe a shape he minted does: core words
+    #     matching, the opening filled by a word his own types put
+    #     in that pile. Then he BUILDS the remainder. The first
+    #     completions of his life that are construction, not memory.
+    for width in range(min(len(context), 7), 1, -1):
+        built = isaac.shape_complete([str(t) for t in context[-width:]])
+        if built:
+            post_msg("isaac", " ".join(built),
+                     f"/say · he builds from a shape ({len(built)} "
+                     "units — never lived, constructed)")
+            return built
 
     # 2. aboutness: the whole he holds that carries the question's
     #    RARE words (his own frequencies decide what is rare — no
@@ -391,7 +426,8 @@ def api(path, body):
                                                   body.get("target", ""))
                 name = body.get("name") or f"{c['name']}:{target}"
                 capped = len(y) > MAX_ROWS
-                res = isaac.discover(X[:MAX_ROWS], y[:MAX_ROWS], name=name)
+                res = isaac.discover(X[:MAX_ROWS], y[:MAX_ROWS], name=name,
+                                 columns=names)
                 res.update(columns=names, target=target, name=name)
                 c["processed"] = time.strftime("%m-%d %H:%M")
                 post_msg("inst", f"processed “{c['name']}” as a "
@@ -507,6 +543,20 @@ def api(path, body):
             STATE["isaac"] = isaac.fork()
             STATE["name"] = STATE["name"] + "-fork"
             post_msg("inst", f"forked → {STATE['name']}", "fork")
+        elif act == "config":
+            # instrument panel: the human turns a seeded knob
+            # (told-structure — "supersede freely"). Logged plainly
+            # as an operator act; never his decision.
+            key = f"config:{body['key']}"
+            old = isaac.net.get_meta(key, "value")
+            if "value" not in body:               # read-only peek
+                return dict(ok=True, key=key, value=old)
+            isaac.net.set_meta(key, "value", body["value"])
+            isaac.net.add_door("config", key, tag="config")
+            post_msg("inst", f"operator set {key}: {old} → "
+                     f"{body['value']}", "config")
+            save_project()
+            return dict(ok=True, key=key, old=old, new=body["value"])
         save_project()
         return dict(ok=True)
 

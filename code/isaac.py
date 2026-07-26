@@ -65,6 +65,19 @@ class Net:
             self.doors[tgt] = set()
         return is_new
 
+    def remove_door(self, src, tgt):
+        """The inverse of add_door — full index cleanup (doors, tags,
+        counts, preds). Added 2026-07-25: without it, superseded types
+        leave stale member->type doors that keep inflating recall
+        (dead types were still enumerated by type_members after the
+        first lumping pass — found and fixed)."""
+        self.doors.get(src, set()).discard(tgt)
+        self.door_tags.pop((src, tgt), None)
+        if hasattr(self, "door_counts"):
+            self.door_counts.pop((src, tgt), None)
+        self._ensure_preds()
+        self.preds.get(tgt, set()).discard(src)
+
     def has_door(self, src, tgt):
         return tgt in self.doors.get(src, set())
 
@@ -381,7 +394,15 @@ def _atom_specs(d):
                 specs += [("cosd", i, j, k), ("sind", i, j, k)]
             for k in (0.5, 1.0, 1.5):
                 specs.append(("coshd", i, j, k))
-    return specs
+    # dedupe (2026-07-25): duplicate atoms inflate the max-over-
+    # candidates null — every honest term then has to beat a taller
+    # gate for no informational reason
+    seen_s, out = set(), []
+    for s in specs:
+        if s not in seen_s:
+            seen_s.add(s)
+            out.append(s)
+    return out
 
 
 def _atom_col(X, spec):
@@ -462,6 +483,27 @@ class _Enumerator:
             for k in range(self.n_perm):
                 null_max[k] = np.max(np.abs(Ms.T @ _wave_rng.permutation(rs))) / len(y)
             gate = np.percentile(null_max, self.pct)
+            if getattr(self, "trace_on", False):
+                # the admission ledger: what stood at the gate, what
+                # the gate demanded, and how the raw variables scored
+                # (diagnosing where an honest half-answer dies)
+                if not hasattr(self, "trace"):
+                    self.trace = []
+                order = np.argsort(-real)
+                self.trace.append(dict(
+                    round=len(self.terms), n_cand=len(cand),
+                    gate=float(gate),
+                    top=[(str(tuple(self.specs[a] for a in cand[int(ci)])),
+                          float(real[int(ci)]))
+                         for ci in order[:5]],
+                    raw_vars={str(cand[int(ci)]): float(real[int(ci)])
+                              for ci in range(len(cand))
+                              if all(isinstance(a, (int, np.integer))
+                                     and a < len(self.specs)
+                                     and self.specs[a][0] == "var"
+                                     for a in cand[int(ci)])
+                              and len(cand[int(ci)]) == 1},
+                    terms_so_far=[str(t) for t in self.terms]))
             if real.max() <= gate:
                 break                               # nothing beats its null
             # raw residual correlation is myopic: a degenerate surrogate (a
@@ -505,6 +547,31 @@ class _Enumerator:
                     done=r2t >= 0.995, r2=r2t,
                     sse=float(np.sum((y - pred) ** 2)), comp=comp,
                     tlen=len(self.terms[-1]), terms=list(self.terms)))
+                self.terms = base
+            # THE SUM-OF-PARTS TRIAL (2026-07-25, the additive cure —
+            # receipts in the instrumented diagnostic): greedy single-
+            # term admission prefers one flexible mimic (x0*x1 plus
+            # cosh patches) over two humble terms it can only ever see
+            # separately. Parts first: when several raw variables each
+            # beat the gate, trial admitting them JOINTLY and let the
+            # F-test and parsimony judge sum against product. At small
+            # n where no variable beats the gate, NO RULE stays honest.
+            raw_beat = sorted(
+                (ci for ci, t0 in enumerate(cand)
+                 if len(t0) == 1 and t0[0] < n_vars
+                 and real[ci] > gate),
+                key=lambda ci: -real[ci])
+            if len(raw_beat) >= 2:
+                joint = base + [cand[ci] for ci in raw_beat[:3]]
+                self.terms = joint
+                self._refit(y)
+                r2t = self._train_r2(y)
+                pred = self._fit_predict(y)
+                trials.append(dict(
+                    done=r2t >= 0.995, r2=r2t,
+                    sse=float(np.sum((y - pred) ** 2)), comp=0,
+                    tlen=sum(len(t0) for t0 in joint[len(base):]),
+                    terms=list(joint)))
                 self.terms = base
             if not trials:
                 break
@@ -751,8 +818,37 @@ class Isaac:
             return
         self.starts.add(tokens[0])
         self.net.set_meta(tokens[0], "start", True)
-        for i in range(len(tokens) - 1):
-            self.net.add_door(tokens[i], tokens[i + 1], tag="seq")
+        # ── SURPRISE (owner, 2026-07-25: "surprise is a better
+        # structural indicator than just sameness") — expectation is
+        # read BEFORE experience is wired. Graded from his own door
+        # counts: an arrival his evidence predicted is no news; an
+        # arrival his evidence never saw is a unit of surprise.
+        if not hasattr(self, "_seq_out_totals"):    # legacy pickles
+            self._seq_out_totals = defaultdict(int)
+        if not hasattr(self, "_surprise_recent"):
+            self._surprise_recent = []
+        dc = getattr(self.net, "door_counts", {})
+        s_sum, novel = 0.0, 0
+        n_tr = len(tokens) - 1
+        for i in range(n_tr):
+            a, b = tokens[i], tokens[i + 1]
+            tot = self._seq_out_totals.get(a)
+            if tot is None:
+                # first sight of this source since the surprise sense
+                # was built: seed expectation from his LIFETIME door
+                # evidence, so history counts and novelty is honest
+                tot = sum(dc.get((a, t), 0)
+                          for t in self.net.get_doors(a, tag="seq"))
+                self._seq_out_totals[a] = tot
+            c = dc.get((a, b), 0)
+            s = 1.0 if tot == 0 else 1.0 - min(1.0, c / tot)
+            s_sum += s
+            novel += (c == 0)
+            self._seq_out_totals[a] += 1
+            self.net.add_door(a, b, tag="seq")
+        self._surprise_recent.append(
+            (round(s_sum / n_tr, 4) if n_tr else 0.0, novel, n_tr))
+        del self._surprise_recent[:-500]
         self.observed_sequences.append(list(tokens))
         if not hasattr(self, "_whole_counts"):    # legacy pickles
             self._whole_counts = defaultdict(int)
@@ -1649,10 +1745,17 @@ class Isaac:
     def save(self, path):
         """Snapshot the WHOLE mind — net, doors, types, facts, laws,
         compiled matrix, activation log, world state, findings — one file.
-        (The ledger persists his science; this persists HIM.)"""
+        (The ledger persists his science; this persists HIM.)
+        WRITE-THEN-SWAP (2026-07-26, after the 602-second save and the
+        silent day of death): the body is written to a side file first
+        and the name swap is a single instant step — a death mid-write
+        can never tear his real file. Luck is retired."""
+        import os
         import pickle
-        with open(path, "wb") as f:
+        tmp = str(path) + ".writing"
+        with open(tmp, "wb") as f:
             pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
+        os.replace(tmp, path)
         return path
 
     @staticmethod
@@ -2012,6 +2115,7 @@ class Isaac:
         if limit:
             segs = segs[:limit]
         mint_at = int(self._config("idea-mint", 3))
+        s_mark = len(getattr(self, "_surprise_recent", []))
         for seg in segs:
             for seq in self.net.get_meta(seg, "sequences"):
                 self.observe(seq)
@@ -2022,10 +2126,24 @@ class Isaac:
                         and key not in self._ideas()):
                     self._mint_idea(list(seq))
             self.net.set_meta(seg, "state", "committed")
+        # accumulate this slice's surprise into the job's ledger
+        rows = getattr(self, "_surprise_recent", [])[s_mark:]
+        if job and rows:
+            acc = self.net.get_meta(job, "surprise") or [0.0, 0, 0]
+            acc = [acc[0] + sum(r[0] * r[2] for r in rows),
+                   acc[1] + sum(r[1] for r in rows),
+                   acc[2] + sum(r[2] for r in rows)]
+            self.net.set_meta(job, "surprise", acc)
         remaining = [s for s in self._job_segments(job)
                      if self.net.get_meta(s, "state") != "committed"]
         if job and not remaining:
             self.net.set_meta(job, "state", "done")
+            acc = self.net.get_meta(job, "surprise") or [0.0, 0, 0]
+            if acc[2]:
+                self.record_finding(
+                    "surprise", job,
+                    mean=round(acc[0] / acc[2], 4),
+                    novel=acc[1], transitions=acc[2])
             self.record_finding(
                 "ingest", job, sequences=n_seq,
                 segments=len(self._job_segments(job)))
@@ -2033,9 +2151,511 @@ class Isaac:
 
     def sleep_pass(self):
         """The deep pass: scoped consolidation over what commit
-        dirtied. This is sleep."""
+        dirtied; the lumping organ runs on a metabolic interval, not
+        in every merge-group sleep (2026-07-25: a ~20s global pass in
+        EVERY sleep made a 5k-word read take 8+ minutes — the filed
+        S1 contingency fired; interval throttle installed, and
+        incremental dirty-scoped consolidation is the standing v2)."""
         self.consolidate()
-        return dict(receipt="slept")
+        out = dict(receipt="slept")
+        import time as _time
+        interval = float(self._config("type-consolidate-interval-s",
+                                      900))
+        last = self.net.get_meta("types:last-pass", "value") or [0.0, 0]
+        grown = (len(self.types) > float(last[1]) * 1.2) if last[1] \
+            else True
+        due = (_time.time() - float(last[0])) >= interval
+        if due or grown:
+            tstats = self.consolidate_types()
+            self.net.set_meta("types:last-pass", "value",
+                              [_time.time(), len(self.types)])
+            out.update(types_active=tstats["after"],
+                       types_ms=tstats["ms"])
+        # the shape organ runs on its own clock, same lesson: deep
+        # work belongs to sleep's rhythm, not to every merge-group
+        sh_last = self.net.get_meta("shapes:last-pass", "value") or 0.0
+        if (_time.time() - float(sh_last)) >= float(
+                self._config("shape-interval-s", 900)):
+            sstats = self.consolidate_shapes()
+            self.net.set_meta("shapes:last-pass", "value", _time.time())
+            out.update(shapes_total=sstats["shapes_total"],
+                       shapes_ms=sstats["ms"])
+        return out
+
+    def consolidate_types(self):
+        """THE LUMPING ORGAN (owner, 2026-07-24: "think engine instead
+        of parts... wide net, then throw out anything that doesn't look
+        useful before it gets reprocessed. I would rather know that
+        everything is considered first and dismissed than just missed").
+
+        Sleep-time global type consolidation. The mint-time court
+        (0.8 overlap, best-candidate-only) lets 2-3 member shards pile
+        up unmerged; this pass runs the same court WIDE: every
+        co-membered pair is CONSIDERED and either merged or cheaply
+        dismissed, with every dismissal counted by reason — considered-
+        and-dismissed, never silently missed. The mint court's law
+        carries over verbatim: a positive negative vetoes any merge
+        (known-different never collapses). Nothing is erased: ejected
+        and absorbed types stay on the record as superseded_by meta.
+
+        Cost order matters: the junk court runs FIRST, because
+        hub-shrapnel types are what feed the pair generator its
+        quadratic blowup. Timed end to end — compression speed is a
+        first-class measurement."""
+        import time as _time
+        t0 = _time.perf_counter()
+        thresh = float(self._config("type-merge", 0.5))
+        max_passes = int(self._config("type-merge-passes", 6))
+        pair_cap = int(self._config("type-merge-pair-cap", 200))
+        stats = dict(before=len(self.types), considered=0, merged=0,
+                     contained=0, vetoed=0, low_overlap=0, ejected=0,
+                     hub_members_skipped=0, passes=0,
+                     ordered=0, dissolved=0, split_out=0)
+
+        # ── junk court: hub-shrapnel eviction ──────────────────────
+        # A type whose EVERY member is a hub token (seq-degree in the
+        # top percentile of member degrees — self-derived, never a
+        # word list) discriminates nothing: ejected from the active
+        # registry, superseded on the record.
+        degs = {}
+        for t, d in self.types.items():
+            for m in d.get("members", ()):
+                if m not in degs:
+                    degs[m] = len(self.net.get_doors(m, tag="seq"))
+        if degs:
+            vals = sorted(degs.values())
+            cut = max(vals[max(0, int(len(vals) * 0.99) - 1)], 20)
+            for t in list(self.types):
+                mem = self.types[t].get("members", set())
+                if mem and all(degs.get(m, 0) >= cut for m in mem):
+                    self.types.pop(t)
+                    self.net.set_meta(t, "superseded_by",
+                                      "ejected:hub-shrapnel")
+                    stats["ejected"] += 1
+
+        # ── the consensus court + inversion splitter (owner,
+        # 2026-07-25: "surprise is a better structural indicator than
+        # just sameness"). A type's CONSENSUS is what at least half
+        # its voting members' lived evidence predicts next. A large
+        # type with NO consensus predicts nothing as a class — glue,
+        # not category: dissolved on the record. A member whose
+        # evidence misses too much of a real consensus INVERTS the
+        # category: split out. Sameness joins; surprise splits.
+        glue_min = int(self._config("glue-min-members", 6))
+        # 0.85 chosen by sweep on his 42k-type state (2026-07-25):
+        # the most aggressive bar with ZERO correct-losses on the
+        # regression guard; 0.5 and 0.7 each cost one held sight.
+        inv_bar = float(self._config("split-inversion", 0.85))
+        hubcap = 500
+        succ_cache = {}
+
+        def _succs(m):
+            if m not in succ_cache:
+                sd = self.net.get_doors(m, tag="seq")
+                succ_cache[m] = sd if len(sd) <= hubcap else None
+            return succ_cache[m]
+
+        from collections import Counter as _Counter
+        for t in list(self.types):
+            d = self.types.get(t)
+            if d is None or d.get("parent"):
+                continue
+            mem = d.get("members", set())
+            if len(mem) < 3:
+                continue
+            votes = _Counter()
+            voters = {}
+            for m in mem:
+                sd = _succs(m)
+                if not sd:
+                    continue          # silent or hub: votes for nothing
+                voters[m] = sd
+                for tgt in sd:
+                    votes[tgt] += 1
+            consensus = {tgt for tgt, v in votes.items()
+                         if v >= max(2, len(voters) / 2)}
+            if not consensus:
+                if len(mem) >= glue_min:
+                    for m in mem:
+                        self.net.remove_door(m, t)
+                    self.types.pop(t)
+                    self.net.set_meta(t, "superseded_by",
+                                      "ejected:no-consensus")
+                    stats["dissolved"] += 1
+                continue
+            for m, sd in voters.items():
+                if len(mem) <= 2:
+                    break
+                inv = 1.0 - len(sd & consensus) / len(consensus)
+                if inv >= inv_bar:
+                    mem.discard(m)
+                    self.net.remove_door(m, t)
+                    stats["split_out"] += 1
+            if len(mem) < 2:
+                for m in mem:
+                    self.net.remove_door(m, t)
+                self.types.pop(t, None)
+                self.net.set_meta(t, "superseded_by",
+                                  "ejected:collapsed")
+                stats["dissolved"] += 1
+
+        neg_cache = {}
+
+        def _negs(members):
+            key = frozenset(members)
+            if key not in neg_cache:
+                out = set()
+                for m in members:
+                    out |= set(self.fact_index.get((m, "cannot"), []))
+                    for tg in ("seq", "neg"):
+                        out |= {d[4:] for d in self.net.get_doors(m, tag=tg)
+                                if isinstance(d, str)
+                                and d.startswith("not_")}
+                neg_cache[key] = out
+            return neg_cache[key]
+
+        def _pos(d):
+            return {s for s in d.get("succs", set()) or set()
+                    if not (isinstance(s, str) and s.startswith("not_"))}
+
+        # ── merge passes: wide net, cheap dismissal, to fixpoint ───
+        for _ in range(max_passes):
+            stats["passes"] += 1
+            inv = {}
+            for t, d in self.types.items():
+                if d.get("parent"):
+                    continue      # ordered children are structure,
+                                  # not search space
+                for m in d.get("members", ()):
+                    inv.setdefault(m, []).append(t)
+            gone = set()
+            merges_this_pass = 0
+            for m, ts in inv.items():
+                if len(ts) > pair_cap:
+                    # hub member: pairing through it is quadratic
+                    # noise — skipped, and the skip is on the record
+                    stats["hub_members_skipped"] += 1
+                    continue
+                for i in range(len(ts)):
+                    a = ts[i]
+                    for j in range(i + 1, len(ts)):
+                        b = ts[j]
+                        if (a in gone or b in gone
+                                or a not in self.types
+                                or b not in self.types):
+                            continue
+                        A, B = self.types[a], self.types[b]
+                        am = A.get("members", set())
+                        bm = B.get("members", set())
+                        stats["considered"] += 1
+                        inter = len(am & bm)
+                        larger = max(len(am), len(bm))
+                        if am == bm:
+                            kind = "merged"       # true duplicates
+                        elif am < bm or bm < am:
+                            # ORDER, don't absorb (owner, 2026-07-25:
+                            # "find the larger or smaller structures
+                            # in a thing") — the sub/superconcept
+                            # relation IS the information: wire the
+                            # empty parent/children fields instead of
+                            # erasing the child.
+                            small, large = (a, b) if len(am) < len(bm) \
+                                else (b, a)
+                            Sm = self.types[small]
+                            if Sm.get("parent") is None:
+                                Sm["parent"] = large
+                                Lg = self.types[large]
+                                ch = Lg.get("children") or []
+                                if small not in ch:
+                                    ch.append(small)
+                                Lg["children"] = ch
+                                stats["ordered"] += 1
+                            continue
+                        elif larger and inter / larger >= thresh:
+                            kind = "merged"
+                        else:
+                            stats["low_overlap"] += 1
+                            continue
+                        if (_pos(A) & _negs(bm)) or (_pos(B) & _negs(am)):
+                            stats["vetoed"] += 1
+                            continue
+                        # merge into the larger seat; the shard is
+                        # superseded on the record — and its stale
+                        # member->type doors are REMOVED (dead types
+                        # inflated recall until 2026-07-25)
+                        seat, shard = (a, b) if len(am) >= len(bm) \
+                            else (b, a)
+                        S = self.types[seat]
+                        H = self.types[shard]
+                        S["members"] = (S.get("members", set())
+                                        | H.get("members", set()))
+                        S["preds"] = (S.get("preds", set()) or set()) \
+                            & (H.get("preds", set()) or set())
+                        S["succs"] = (S.get("succs", set()) or set()) \
+                            & (H.get("succs", set()) or set())
+                        for mm in H.get("members", set()):
+                            self.net.add_door(mm, seat, tag="type")
+                            self.net.remove_door(mm, shard)
+                        for c in (H.get("children") or []):
+                            if c in self.types:
+                                self.types[c]["parent"] = seat
+                                ch = S.get("children") or []
+                                if c not in ch:
+                                    ch.append(c)
+                                S["children"] = ch
+                        self.types.pop(shard, None)
+                        self.net.set_meta(shard, "superseded_by", seat)
+                        gone.add(shard)
+                        stats[kind] += 1
+                        merges_this_pass += 1
+            if not merges_this_pass:
+                break
+
+        stats["after"] = len(self.types)
+        stats["ms"] = round((_time.perf_counter() - t0) * 1000, 1)
+        self.record_finding("type-consolidation", "types", **stats)
+        return stats
+
+    # ── THE SHAPE ORGAN (owner, 2026-07-26): "language is zero
+    # numbers — only patterns and symbols... combination structures:
+    # the core is always required, the modifiers are not. building,
+    # modifying, and passing information. he needs to be able to
+    # recreate these kinds of ideas."
+    #
+    # In sleep, lived wholes that share most of their words get laid
+    # on top of each other by the comparator. Where they always
+    # agree: the CORE, required. Where they differ by one swapped
+    # word: an OPENING, and the words seen there are its fills.
+    # Where a word is present in one whole and absent in the other:
+    # an OPTIONAL opening — a flag. A lack of difference that makes
+    # a difference is exactly where optionality comes from.
+    # The shapes are HIS — minted from what he lived, never written
+    # in. Grammar is never installed; the comparator earns it.
+
+    @staticmethod
+    def _shape_align(a, b):
+        """Lay two wholes on top of each other. Returns
+        ("sub", pos) if they agree everywhere but one swapped word,
+        ("ins", pos) if the longer one has exactly one extra word,
+        None if they are too different (the refusing null)."""
+        if a == b:
+            return None
+        if len(a) == len(b):
+            diffs = [i for i, (x, y) in enumerate(zip(a, b)) if x != y]
+            return ("sub", diffs[0]) if len(diffs) == 1 else None
+        if abs(len(a) - len(b)) == 1:
+            longer, shorter = (a, b) if len(a) > len(b) else (b, a)
+            i = 0
+            while i < len(shorter) and longer[i] == shorter[i]:
+                i += 1
+            if longer[:i] + longer[i + 1:] == shorter:
+                return ("ins", i)
+        return None
+
+    def _shapes(self):
+        """The shape index (core-skeleton -> node), rebuilt lazily."""
+        if not hasattr(self, "_shape_index"):
+            self._shape_index = {}
+        if not self._shape_index:
+            for node in self.net.get_doors("shapes", tag="shape"):
+                core = self.net.get_meta(node, "core")
+                if core:
+                    key = tuple("\x00" if c is None else c for c in core)
+                    self._shape_index[key] = node
+        return self._shape_index
+
+    def _mint_shape(self, a, b, al, stats):
+        kind, pos = al
+        if kind == "ins" and len(a) < len(b):
+            a, b = b, a
+        core = list(a)
+        fills = {a[pos]} if kind == "ins" else {a[pos], b[pos]}
+        optional = (kind == "ins")
+        core[pos] = None
+        # the exactness court: the shape must rebuild both wholes it
+        # came from, word for word, before it may exist
+        filled = tuple(a[pos] if c is None else c for c in core)
+        skipped = tuple(c for c in core if c is not None)
+        other = b if kind == "ins" else \
+            tuple(b[pos] if c is None else c for c in core)
+        if filled != tuple(a) or (kind == "ins" and skipped != tuple(b)) \
+                or (kind == "sub" and other != tuple(b)):
+            stats["exact_refused"] += 1
+            return
+        key = tuple("\x00" if c is None else c for c in core)
+        idx = self._shapes()
+        node = idx.get(key)
+        if node:
+            ops = self.net.get_meta(node, "openings")
+            ops[0]["fills"] = sorted(set(ops[0]["fills"]) | fills)
+            ops[0]["optional"] = ops[0]["optional"] or optional
+            self.net.set_meta(node, "openings", ops)
+            for f in fills:
+                self.net.add_door(node, f, tag="fill")
+            stats["extended"] += 1
+            return
+        n = 0
+        while self.net.get_meta(f"shape:{n}", "core") is not None:
+            n += 1
+        node = f"shape:{n}"
+        self.net.set_meta(node, "core", core)
+        self.net.set_meta(node, "openings",
+                          [dict(pos=pos, optional=optional,
+                                fills=sorted(fills))])
+        self.net.add_door("shapes", node, tag="shape")
+        for c in core:
+            if c is not None:
+                self.net.add_door(c, node, tag="shape")
+        for f in fills:
+            self.net.add_door(node, f, tag="fill")
+        idx[key] = node
+        self.record_finding("shape", node,
+                            core=[c if c is not None else "_"
+                                  for c in core])
+        stats["minted"] += 1
+
+    def consolidate_shapes(self):
+        """The sleep pass that mints shapes: group short lived wholes
+        by their rarest word, lay group-mates on top of each other,
+        mint where the comparator finds core + one opening. Budgeted;
+        every dismissal counted — considered and dismissed, never
+        silently missed."""
+        import time as _time
+        t0 = _time.perf_counter()
+        min_len = int(self._config("shape-min-len", 3))
+        max_len = int(self._config("shape-max-len", 14))
+        budget = int(self._config("shape-pairs", 200))
+        stats = dict(groups=0, pairs=0, minted=0, extended=0,
+                     too_different=0, exact_refused=0)
+        totals = getattr(self, "_seq_out_totals", {})
+        seen, uniq = set(), []
+        for s in self.observed_sequences:
+            t = tuple(str(w) for w in s)
+            if min_len <= len(t) <= max_len and t not in seen:
+                seen.add(t)
+                uniq.append(t)
+        groups = {}
+        for s in uniq:
+            anchor = min(s, key=lambda w: totals.get(w, 0))
+            groups.setdefault(anchor, []).append(s)
+        # the bookmark: each sleep resumes where the last one left
+        # off, so the whole of his life gets its turn under the
+        # comparator — never the same first pairs forever
+        anchors = sorted(groups)
+        cur = 0
+        if anchors:
+            cur = int(self.net.get_meta("shapes:cursor", "value")
+                      or 0) % len(anchors)
+        stopped_at = cur
+        done = False
+        for k in range(len(anchors)):
+            anchor = anchors[(cur + k) % len(anchors)]
+            grp = groups[anchor]
+            if len(grp) < 2 or len(grp) > 12:
+                continue
+            stats["groups"] += 1
+            for i in range(len(grp)):
+                for j in range(i + 1, len(grp)):
+                    if stats["pairs"] >= budget:
+                        done = True
+                        break
+                    stats["pairs"] += 1
+                    al = self._shape_align(grp[i], grp[j])
+                    if al is None:
+                        stats["too_different"] += 1
+                        continue
+                    self._mint_shape(grp[i], grp[j], al, stats)
+                if done:
+                    break
+            if done:
+                stopped_at = (cur + k) % len(anchors)
+                break
+        if anchors:
+            self.net.set_meta("shapes:cursor", "value",
+                              stopped_at if done else cur)
+        stats["shapes_total"] = len(self._shapes())
+        stats["ms"] = round((_time.perf_counter() - t0) * 1000, 1)
+        self.record_finding("shape-consolidation", "shapes", **stats)
+        return stats
+
+    def _fill_legal(self, w, fills):
+        """A word may fill an opening if he has seen it there, OR if
+        one of his own types puts it in the same pile as a word he
+        has seen there. His types are the generalizer — never a list
+        we wrote."""
+        if w in fills:
+            return True
+        fset = set(fills)
+        for t in self.net.get_doors(w, tag="type"):
+            d = self.types.get(t)
+            if d and not d.get("parent") and d["members"] & fset:
+                return True
+        return False
+
+    def recognize_shape(self, tokens):
+        """Does this whole fit a shape he holds? Returns
+        (shape_node, fill_word_or_None) — fill None means the
+        optional opening was skipped. Never-lived wholes fit when
+        the core matches and the fill is legal."""
+        toks = [str(t) for t in tokens]
+        cands = set()
+        for t in set(toks):
+            cands |= self.net.get_doors(t, tag="shape")
+        for s in sorted(cands):
+            core = self.net.get_meta(s, "core")
+            ops = self.net.get_meta(s, "openings")
+            if not core or not ops:
+                continue
+            pos, optional = ops[0]["pos"], ops[0]["optional"]
+            fills = ops[0]["fills"]
+            if len(toks) == len(core):
+                ok = all(c is None or toks[i] == c
+                         for i, c in enumerate(core))
+                if ok and self._fill_legal(toks[pos], fills):
+                    return s, toks[pos]
+            if optional and len(toks) == len(core) - 1:
+                if toks == [c for c in core if c is not None]:
+                    return s, None
+        return None, None
+
+    def shape_complete(self, prefix):
+        """THE BUILDING MOUTH: if the prefix walks into a shape he
+        holds — core words matching, any opening filled legally —
+        give back the rest of the core. He only completes what the
+        shape itself determines: he never invents a fill."""
+        toks = [str(t) for t in prefix]
+        if len(toks) < 2:
+            return []
+        cands = set()
+        for t in set(toks):
+            cands |= self.net.get_doors(t, tag="shape")
+        for s in sorted(cands):
+            core = self.net.get_meta(s, "core")
+            ops = self.net.get_meta(s, "openings")
+            if not core or not ops or len(toks) >= len(core):
+                continue
+            pos, optional = ops[0]["pos"], ops[0]["optional"]
+            fills = ops[0]["fills"]
+            ok = True
+            for i, w in enumerate(toks):
+                c = core[i]
+                if c is None:
+                    if not self._fill_legal(w, fills):
+                        ok = False
+                        break
+                elif w != c:
+                    ok = False
+                    break
+            if not ok:
+                continue
+            rest = core[len(toks):]
+            if None in rest:
+                if not optional:
+                    continue          # an unfilled required opening:
+                rest = [c for c in rest if c is not None]  # skip flag
+            if rest:
+                return list(rest)
+        return []
 
     def idle_pass(self):
         """Nothing waiting. An honest nothing."""
@@ -2277,6 +2897,18 @@ class Isaac:
         self.net.set_meta("config:idea-mint", "value", 3)
         self.net.set_meta("config:dialog-window", "value", 24)
         self.net.set_meta("config:plan-depth", "value", 8)
+        self.net.set_meta("config:type-merge", "value", 0.5)
+        self.net.set_meta("config:type-merge-passes", "value", 6)
+        self.net.set_meta("config:type-merge-pair-cap", "value", 200)
+        self.net.set_meta("config:think-budget", "value", 64)
+        self.net.set_meta("config:type-consolidate-interval-s",
+                          "value", 900)
+        self.net.set_meta("config:split-inversion", "value", 0.85)
+        self.net.set_meta("config:glue-min-members", "value", 6)
+        self.net.set_meta("config:shape-interval-s", "value", 900)
+        self.net.set_meta("config:shape-pairs", "value", 200)
+        self.net.set_meta("config:shape-min-len", "value", 3)
+        self.net.set_meta("config:shape-max-len", "value", 14)
         self.net.add_door("config", "config:plan-depth", tag="config")
         self.net.add_door("config", "config:priority-kinds", tag="config")
         self.net.add_door("config", "config:idea-mint", tag="config")
@@ -2540,7 +3172,8 @@ class Isaac:
 
     # ── discovery: the challenge loop ───────────────────────────
 
-    def discover(self, X, y, name=None, verbose=False):
+    def discover(self, X, y, name=None, verbose=False, columns=None,
+                 trace=False):
         """THE CHALLENGE LOOP. Given examples of something he cannot yet do
         (inputs X -> outcome y), find the rule. Half the examples are held
         out — the rule must WORK, not merely fit. Four honest verdicts:
@@ -2571,6 +3204,7 @@ class Isaac:
                 X, y = X[ok_rows], y[ok_rows]     # domain drop out honestly
         half = len(y) // 2
         enum = _Enumerator()
+        enum.trace_on = bool(trace)
         enum.fit(X[:half], y[:half])
         p = enum.predict(X[half:])
         ss = float(np.sum((y[half:] - y[half:].mean()) ** 2))
@@ -2706,6 +3340,51 @@ class Isaac:
         if name and has_law:
             node = f"law:{name}"
             self.net.add_door("law", node, tag="law")
+            # ── SHAPE AND INSTANCE (owner, 2026-07-26): "x0 is not a
+            # single thing, it is a variable... there are fixed atoms
+            # and relational atoms — the shape of things and the
+            # instance of things."
+            #   RELATIONAL atom (shape): xN — the slot, the role in
+            #     this form. Defined differentially: first-argument-of.
+            #   FIXED atom (thing): the named quantity (temperature) —
+            #     the abstracted thing itself, fused with the language
+            #     concept of the same name.
+            #   BINDING: slot —binds→ thing, per law (which thing
+            #     plays which role in which form).
+            #   INSTANCES (x0=6) are never net nodes: they live in
+            #     Scratch at application time (net = true in general;
+            #     scratch = true right now) — see apply_law. What the
+            #     net keeps of instance populations is the REGIME on
+            #     the fixed atom: {law, lo, hi, nominal, std, n} per
+            #     context — range and normal ("water is 0-100; ocean
+            #     ~10; heater ~55"), contexts being the regimes.
+            cols = list(columns or [])
+            used_idx = {int(mm) for mm in
+                        re.findall(r"x(\d+)", enum.equation())}
+            bindings = {}
+            for vi in range(d_raw):
+                slot = f"x{vi}"
+                nm = cols[vi] if vi < len(cols) and cols[vi] else None
+                fixed = ("_".join(tokenize(str(nm))) if nm else None)
+                seat = fixed or slot          # regimes live on the thing
+                col = X[:, vi]                # (or the slot if anonymous)
+                regs = self.net.get_meta(seat, "regimes") or []
+                regs.append(dict(law=name, lo=float(col.min()),
+                                 hi=float(col.max()),
+                                 nominal=float(col.mean()),
+                                 std=float(col.std()),
+                                 n=int(len(col))))
+                self.net.set_meta(seat, "regimes", regs)
+                if vi in used_idx:
+                    self.net.add_door(node, slot, tag="slot")
+                    self.net.add_door("variable", slot, tag="variable")
+                    if fixed:
+                        self.net.add_door(slot, fixed, tag="binds")
+                        self.net.add_door(node, fixed, tag="uses")
+                        self.net.add_door(fixed, node, tag="law")
+                        bindings[slot] = fixed
+            if bindings:
+                self.net.set_meta(node, "bindings", bindings)
             self.net.set_meta(node, "model", dict(
                 terms=list(enum.terms), coefs=enum.coefs,
                 intercept=enum.intercept, d=X.shape[1], r2=r2,
@@ -2745,17 +3424,32 @@ class Isaac:
         return dict(verdict=verdict, equation=eq_str,
                     r2=r2, r2_edge=r2_edge, scope=scope, captured_r2=cap_r2,
                     rivals=riv_summary, accounting=accounting,
-                    dossier=dossier, adequacy=adequacy, capture=capture)
+                    dossier=dossier, adequacy=adequacy, capture=capture,
+                    trace=(getattr(enum, "trace", None) if trace
+                           else None))
 
     def apply_law(self, name, X):
         """Apply a discovered law: the challenge, now computable.
-        (Distinct from solve(), the token-problem solver.)"""
+        (Distinct from solve(), the token-problem solver.)
+        Single-point application is an INSTANTIATION (owner,
+        2026-07-26: shape vs instance — 'x0 should have the shape
+        form of the atom as x0, and the instance of x0=6'): the
+        shape stays in the net; the binding x0=6 is written into
+        Scratch, where what-is-true-right-now lives."""
         m = self.net.get_meta(f"law:{name}", "model")
         d_raw = (m or {}).get("d_raw", (m or {}).get("d"))
         if m is None or np.asarray(X).shape[1] != d_raw:
             return None
-        X = self._augment_with(np.asarray(X, float),
-                               m.get("composites_used", []))
+        Xr = np.asarray(X, float)
+        if len(Xr) == 1:
+            binds = self.net.get_meta(f"law:{name}", "bindings") or {}
+            for vi in range(d_raw):
+                slot = f"x{vi}"
+                self.scratch.write(f"{slot}@{name}", float(Xr[0, vi]))
+                if slot in binds:
+                    self.scratch.write(f"{binds[slot]}@{name}",
+                                       float(Xr[0, vi]))
+        X = self._augment_with(Xr, m.get("composites_used", []))
         used = sorted({a for t in m["terms"] for a in t})
         cols = {a: _atom_col(X, m["specs"][a]) for a in used}
         D = np.column_stack(
@@ -3719,8 +4413,15 @@ class Isaac:
         return np.column_stack([X] + cols) if cols else X
 
     def _applicable_composites(self, d):
+        # ops the CURRENT engine cannot compute are skipped, never
+        # crashed on (2026-07-26: his lived history carries a
+        # 'powerprod' composite from an earlier era — it stays on the
+        # record but is not offered to the basis; found when the
+        # first live multi-column discovery KeyError'd on it)
         return [c for c in self.composites
                 if max(c["features"]) < d
+                and (c["op"] in self._COMP_OPS
+                     or c["op"] in ("mean", "log"))
                 and (len(c["features"]) == 2
                      or c["op"] in ("mean", "log"))]
 
@@ -4020,7 +4721,15 @@ class Isaac:
         This is memory sending information forward to processing."""
         knowledge = {}
         for token in context:
-            types = list(self.net.get_doors(token, tag="type"))
+            # liveness: only types that still exist in the registry
+            # (superseded/dissolved names must not haunt recall);
+            # altitude: substitution consults ROOT engines — ordered
+            # children are reachable structure, not search space.
+            all_ts = [t for t in self.net.get_doors(token, tag="type")
+                      if t in self.types]
+            roots = [t for t in all_ts
+                     if self.types[t].get("parent") is None]
+            types = roots or all_ts
             successors = self.net.get_doors(token, tag="seq")
             predecessors = self.net.get_predecessors(token, tag="seq")
             # Tokens with rich profiles are well-known.
@@ -4147,24 +4856,34 @@ class Isaac:
                 continue
 
             # Strategy B: type substitution — replace unknown tokens
-            # with type members from related known tokens
+            # with type members from related known tokens.
+            # BUDGETED (owner's speed doctrine, 2026-07-24): liberal
+            # search, but bounded — the ladder returns its honest
+            # best-so-far instead of burning the whole member union.
             if verdict.get("try_type_substitution"):
+                budget = int(self._config("think-budget", 64))
+                trials = 0
                 found = False
                 for i, token in enumerate(context):
+                    if trials >= budget:
+                        break
                     members = knowledge.get(token, {}).get("type_members", set())
                     for member in sorted(members):
+                        if trials >= budget:
+                            break
                         trial = list(context)
                         trial[i] = member
                         trial_key = tuple(trial)
                         if trial_key not in tried:
                             tried.add(trial_key)
+                            trials += 1
                             answer, conf = self._route(trial, mode, target)
                             if conf > best_conf:
                                 best_answer, best_conf = answer, conf
                             if conf >= CONFIDENCE_THRESHOLD:
                                 return answer, conf
                             found = True
-                if found:
+                if found and trials < budget:
                     continue
 
             # Strategy C: try each known token paired with the tail
@@ -6193,6 +6912,245 @@ def test_boot():
 # MAIN
 # ═════════════════════════════════════════════════════════════════
 
+def test_consolidation():
+    _div("15. SPLIT/GROUP — surprise splits, sameness joins, "
+         "containment orders")
+    z = Isaac()
+    z.wave_logging = False
+
+    def mk(name, members, succs=None):
+        z.types[name] = dict(members=set(members), preds=set(),
+                             succs=set(succs or ()), name=name,
+                             parent=None, children=[])
+        for m in members:
+            z.net.add_door(m, name, tag="type")
+
+    # surprisal: novelty is maximal once, then evidence absorbs it
+    z.observe(["cat", "sat", "mat"])
+    s_first = z._surprise_recent[-1]
+    z.observe(["cat", "sat", "mat"])
+    s_second = z._surprise_recent[-1]
+    okA = s_first[0] == 1.0 and s_second[0] < 0.01
+    print(f"  {'✓' if okA else '✗'}  surprisal: first pass "
+          f"{s_first[0]}, repeat {s_second[0]} (novelty absorbed)")
+
+    # containment ORDERS (parent/child wired), overlap merges
+    mk("type:alpha_beta[2]", ["alpha", "beta"])
+    mk("type:alpha_gamma[3]", ["alpha", "beta", "gamma"])
+    # the null that must refuse: disjoint stays its own thing
+    mk("type:xray_yankee[2]", ["xray", "yankee"])
+    # the veto that must hold: known-different never collapses
+    mk("type:robin_sparrow[2]", ["robin", "sparrow"], succs=["fly"])
+    mk("type:penguin_robin[2]", ["penguin", "robin"])
+    z.teach("penguin", "cannot", "fly")
+    # glue: many members, no shared prediction -> dissolve
+    for i, g in enumerate(["g1", "g2", "g3", "g4", "g5", "g6"]):
+        z.net.add_door(g, f"x{i}", tag="seq")
+    mk("type:g1_g2[6]", ["g1", "g2", "g3", "g4", "g5", "g6"])
+    # inversion: three members predict {fast, far}; quack doesn't
+    for v in ("run", "walk", "sit"):
+        z.net.add_door(v, "fast", tag="seq")
+        z.net.add_door(v, "far", tag="seq")
+    z.net.add_door("quack", "pond", tag="seq")
+    mk("type:run_walk[4]", ["run", "walk", "sit", "quack"])
+    # true duplicates still merge (stale doors must leave recall)
+    mk("type:p_q[2]", ["papa", "quebec"])
+    mk("type:p_q_dup[2]", ["papa", "quebec"])
+
+    stats = z.consolidate_types()
+
+    child = z.types.get("type:alpha_beta[2]")
+    parent = z.types.get("type:alpha_gamma[3]")
+    ok1 = (child is not None and parent is not None
+           and child.get("parent") == "type:alpha_gamma[3]"
+           and "type:alpha_beta[2]" in (parent.get("children") or []))
+    print(f"  {'✓' if ok1 else '✗'}  containment ORDERED, not "
+          f"absorbed: child kept, parent/children wired "
+          f"(ordered={stats['ordered']})")
+    ok2 = "type:xray_yankee[2]" in z.types
+    print(f"  {'✓' if ok2 else '✗'}  disjoint type refused (the null)")
+    ok3 = ("type:robin_sparrow[2]" in z.types
+           and "type:penguin_robin[2]" in z.types)
+    print(f"  {'✓' if ok3 else '✗'}  positive negative held "
+          f"(vetoed={stats['vetoed']})")
+    ok4 = ("type:g1_g2[6]" not in z.types
+           and z.net.get_meta("type:g1_g2[6]", "superseded_by")
+           == "ejected:no-consensus"
+           and "type:g1_g2[6]" not in z.net.get_doors("g1", tag="type"))
+    print(f"  {'✓' if ok4 else '✗'}  glue dissolved: no consensus, "
+          f"no prediction, doors removed (dissolved="
+          f"{stats['dissolved']})")
+    verbs = z.types.get("type:run_walk[4]")
+    ok5 = (verbs is not None and "quack" not in verbs["members"]
+           and "run" in verbs["members"]
+           and "type:run_walk[4]" not in
+           z.net.get_doors("quack", tag="type"))
+    print(f"  {'✓' if ok5 else '✗'}  inversion split: quack out of "
+          f"the run/walk/sit type (split_out={stats['split_out']})")
+    dup_alive = [t for t in ("type:p_q[2]", "type:p_q_dup[2]")
+                 if t in z.types]
+    dead = [t for t in ("type:p_q[2]", "type:p_q_dup[2]")
+            if t not in z.types]
+    ok6 = (len(dup_alive) == 1 and len(dead) == 1
+           and dead[0] not in z.net.get_doors("papa", tag="type"))
+    print(f"  {'✓' if ok6 else '✗'}  duplicates merged AND stale "
+          f"member->type door removed from recall")
+    fnd = [f for f in z.findings
+           if f.get("kind") == "type-consolidation"]
+    ok7 = bool(fnd) and stats["ms"] >= 0
+    print(f"  {'✓' if ok7 else '✗'}  receipts + clock filed "
+          f"({stats['before']} -> {stats['after']}, "
+          f"{stats['ms']}ms)")
+    return all([okA, ok1, ok2, ok3, ok4, ok5, ok6, ok7])
+
+
+def test_atoms():
+    _div("16. VARIABLE ATOMS — quantities are nodes with range+nominal")
+    z = Isaac()
+    z.wave_logging = False
+    X = np.linspace(1, 10, 40).reshape(-1, 1)
+    z.discover(X, 3.0 * X[:, 0], name="springs",
+               columns=["temperature"])
+    ok1 = ("temperature" in z.net.get_doors("law:springs", tag="uses")
+           and "x0" in z.net.get_doors("law:springs", tag="slot")
+           and "temperature" in z.net.get_doors("x0", tag="binds")
+           and (z.net.get_meta("law:springs", "bindings")
+                or {}).get("x0") == "temperature")
+    print(f"  {'✓' if ok1 else '✗'}  shape and instance wired: slot x0 "
+          f"(relational atom) binds the thing (fixed atom)")
+    regs = z.net.get_meta("temperature", "regimes") or []
+    ok2 = (len(regs) == 1 and regs[0]["lo"] == 1.0
+           and regs[0]["hi"] == 10.0
+           and 5.0 < regs[0]["nominal"] < 6.0)
+    print(f"  {'✓' if ok2 else '✗'}  regime filed: range 1-10, "
+          f"nominal ~5.5 ({regs and regs[0]})")
+    z.discover(X, X[:, 0] ** 2, name="areas", columns=["temperature"])
+    regs2 = z.net.get_meta("temperature", "regimes") or []
+    laws_on = z.net.get_doors("temperature", tag="law")
+    ok3 = (len(regs2) == 2
+           and {"law:springs", "law:areas"} <= set(laws_on))
+    print(f"  {'✓' if ok3 else '✗'}  second context ACCUMULATES on the "
+          f"same atom (regimes={len(regs2)}, laws={sorted(laws_on)})")
+    z.observe(tokenize("the temperature rises in the kettle"))
+    succ = z.net.get_doors("temperature", tag="seq")
+    ok4 = "rises" in succ and "law:springs" in laws_on
+    print(f"  {'✓' if ok4 else '✗'}  ONE node carries both lanes: "
+          f"language doors + law doors on 'temperature'")
+    rng = np.random.default_rng(3)
+    z.discover(X, rng.normal(size=40), name="noise",
+               columns=["temperature"])
+    ok5 = "law:noise" not in z.net.get_doors("law", tag="law")
+    print(f"  {'✓' if ok5 else '✗'}  the null refuses: noise mints no "
+          f"law and no uses-doors")
+    # THE OLD WOUND (y = x0 + x1, filed 2026-07-22): parts first
+    z2 = Isaac()
+    z2.wave_logging = False
+    rng2 = np.random.default_rng(42)
+    Xa = rng2.uniform(1, 10, size=(49, 2))
+    ra = z2.discover(Xa, Xa[:, 0] + Xa[:, 1], name="together",
+                     columns=["left", "right"])
+    eq = ra["equation"]
+    ok6 = (ra["verdict"] == "UNDERSTOOD" and "x0" in eq and "x1" in eq
+           and "x0*x1" not in eq and "cosh" not in eq)
+    print(f"  {'✓' if ok6 else '✗'}  THE ADDITIVE WOUND CLOSES: "
+          f"{ra['verdict']} {eq!r}")
+    pred = z2.apply_law("together", np.array([[2.0, 3.0]]))
+    ok7 = (pred is not None and abs(float(pred[0]) - 5.0) < 0.1
+           and z2.scratch.read("left@together") == 2.0
+           and z2.scratch.read("x1@together") == 3.0)
+    print(f"  {'✓' if ok7 else '✗'}  the sum-law applies elsewhere AND "
+          f"instantiates in scratch: f(2,3)={pred}, "
+          f"left@together={z2.scratch.read('left@together')}")
+    rb = z2.discover(Xa[:12], Xa[:12, 0] + Xa[:12, 1], name="tiny",
+                     columns=["left", "right"])
+    ok8 = str(rb["verdict"]).startswith("NO RULE")
+    print(f"  {'✓' if ok8 else '✗'}  small-n stays honest: n=12 -> "
+          f"{rb['verdict']}")
+    # a lived composite with an op this engine can't compute must be
+    # SKIPPED, never crashed on (the 'powerprod' lesson)
+    z3 = Isaac()
+    z3.wave_logging = False
+    z3.composites.append(dict(op="powerprod", features=[0, 1],
+                              name="legacy_pp"))
+    rc = z3.discover(Xa, Xa[:, 0] + Xa[:, 1], name="robust",
+                     columns=["left", "right"])
+    ok9 = rc["verdict"] == "UNDERSTOOD"
+    print(f"  {'✓' if ok9 else '✗'}  unknown-op composite skipped, "
+          f"not crashed: {rc['verdict']}")
+    return all([ok1, ok2, ok3, ok4, ok5, ok6, ok7, ok8, ok9])
+
+
+def test_shapes():
+    _div("17. THE SHAPE ORGAN — core + optional fills, minted from "
+         "lived wholes")
+    z = Isaac()
+    z.wave_logging = False
+    z.observe(tokenize("the ball rolled down"))
+    z.observe(tokenize("the red ball rolled down"))
+    z.observe(tokenize("the blue ball rolled down"))
+    z.observe(tokenize("we ate lunch yesterday happily"))
+    z.observe(tokenize("we ate dinner yesterday happily"))
+    # too different to share a shape: agree only at the end
+    z.observe(tokenize("birds fly south quickly"))
+    z.observe(tokenize("fish swim north quickly"))
+    stats = z.consolidate_shapes()
+
+    # one shape: core "the _ ball rolled down", opening OPTIONAL,
+    # fills red and blue
+    ball = None
+    for node in z.net.get_doors("shapes", tag="shape"):
+        core = z.net.get_meta(node, "core")
+        if core and "ball" in core:
+            ball = node
+    ops = z.net.get_meta(ball, "openings") if ball else None
+    ok1 = (ball is not None and ops and ops[0]["optional"]
+           and set(ops[0]["fills"]) == {"red", "blue"})
+    print(f"  {'✓' if ok1 else '✗'}  shape minted: core kept, opening "
+          f"optional, fills {ops and ops[0]['fills']}")
+
+    # exactness: the shape rebuilds its sources word for word
+    core = z.net.get_meta(ball, "core") if ball else []
+    with_fill = [("red" if c is None else c) for c in core]
+    without = [c for c in core if c is not None]
+    ok2 = (with_fill == ["the", "red", "ball", "rolled", "down"]
+           and without == ["the", "ball", "rolled", "down"])
+    print(f"  {'✓' if ok2 else '✗'}  rebuilds both lived wholes "
+          f"exactly (filled and skipped)")
+
+    # never-lived recognition: green was never in that opening — but
+    # HIS type puts green in the same pile as red and blue
+    z.types["type:col[3]"] = dict(members={"red", "blue", "green"},
+                                  preds=set(), succs=set(),
+                                  name="type:col[3]", parent=None,
+                                  children=[])
+    for w in ("red", "blue", "green"):
+        z.net.add_door(w, "type:col[3]", tag="type")
+    s, fill = z.recognize_shape(tokenize("the green ball rolled down"))
+    ok3 = s == ball and fill == "green"
+    print(f"  {'✓' if ok3 else '✗'}  NEVER-LIVED whole recognized "
+          f"through his own type: fill={fill!r}")
+
+    # THE BUILD: complete a prefix he never heard
+    rest = z.shape_complete(tokenize("the green ball"))
+    ok4 = rest == ["rolled", "down"]
+    print(f"  {'✓' if ok4 else '✗'}  HE BUILDS: 'the green ball' -> "
+          f"{rest} (not memory — construction)")
+
+    # the refusing null: a word from the wrong family does not fit
+    s2, _ = z.recognize_shape(tokenize("the green lunch rolled down"))
+    ok5 = s2 is None
+    print(f"  {'✓' if ok5 else '✗'}  the null refuses: wrong core "
+          f"word fits no shape")
+
+    ok6 = (stats["minted"] >= 2 and stats["too_different"] >= 1
+           and bool([f for f in z.findings
+                     if f.get("kind") == "shape-consolidation"]))
+    print(f"  {'✓' if ok6 else '✗'}  receipts: minted={stats['minted']} "
+          f"extended={stats['extended']} dismissed="
+          f"{stats['too_different']} in {stats['ms']}ms, filed")
+    return all([ok1, ok2, ok3, ok4, ok5, ok6])
+
+
 if __name__ == "__main__":
     print("Isaac — Unified Engine")
     print("One operation. All the way up.\n")
@@ -6210,6 +7168,9 @@ if __name__ == "__main__":
     results["rivalry"] = test_rivalry()
     results["spatial"] = test_spatial()
     results["boot"] = test_boot()
+    results["consolidation"] = test_consolidation()
+    results["atoms"] = test_atoms()
+    results["shapes"] = test_shapes()
 
     _div("SUMMARY")
     for name, passed in results.items():
