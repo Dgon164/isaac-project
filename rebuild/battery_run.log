@@ -1,0 +1,270 @@
+﻿Isaac — Unified Engine
+One operation. All the way up.
+
+
+═════════════════════════════════════════════════════════════════
+  LANGUAGE
+═════════════════════════════════════════════════════════════════
+  crystallized: 7 types, 0 rules, 8 lockouts
+
+  Generation:
+    'cat' → the cat is loyal .
+    'dog' → the dog barked .
+    'ball' → a red ball bounced .
+
+  dog→sat inferred: True via cat
+
+═════════════════════════════════════════════════════════════════
+  MATH — matrix recall
+═════════════════════════════════════════════════════════════════
+  ✓  7 * 8 = → 56  (expected 56, conf=16.2)
+  ✓  3 + 5 = → 8  (expected 8, conf=16.2)
+  ✓  12 * 12 = → 144  (expected 144, conf=16.2)
+  ✓  19 + 19 = → 38  (expected 38, conf=16.2)
+  ✓  0 * 15 = → 0  (expected 0, conf=16.2)
+  ✓  1 * 7 = → 7  (expected 7, conf=16.2)
+
+  6/6
+
+═════════════════════════════════════════════════════════════════
+  LOGIC
+═════════════════════════════════════════════════════════════════
+  ✓  true and true                  → true
+  ✓  true and false                 → false
+  ✓  false or true                  → true
+  ✓  false or false                 → false
+  ✓  not true                       → false
+  ✓  not false                      → true
+  ✓  true xor false                 → true
+
+  7/7
+  ✓  true and false or true         → true
+  ✓  not true or false              → false
+  ✓  not false and true             → true
+  compound: 3/3
+
+═════════════════════════════════════════════════════════════════
+  REASONING
+═════════════════════════════════════════════════════════════════
+  ✓  cat is_a animal? True  chain: cat → mammal → animal → living_thing
+  ✓  cat is_a living_thing? True  chain: cat → mammal → animal → living_thing
+  ✓  robin is_a animal? True  chain: robin → bird → animal → living_thing
+  ✓  cat is_a plant? False  chain: cat → mammal → animal → living_thing
+    robin can fly → YES (inherited from bird, conf=8.0)
+  ✓  can robin fly? True
+    robin can sing → YES (inherited from bird, conf=8.0)
+  ✓  can robin sing? True
+    cat can climb → YES (direct, conf=8.0)
+  ✓  can cat climb? True
+    cat can grow → YES (inherited from living_thing, conf=16.0)
+  ✓  can cat grow? True
+    penguin cannot fly → BLOCKED (conf=16.0)
+  ✓  can penguin fly? False
+    penguin can swim → YES (direct, conf=16.0)
+  ✓  can penguin swim? True
+  ✓  ball in house? True  chain: ball → box → closet → room → house
+
+  11/11
+
+═════════════════════════════════════════════════════════════════
+  DECOMPOSE WHEN SHRUG
+═════════════════════════════════════════════════════════════════
+  137 * 48 = ?  [shrug, conf=0.16] → decomposing...
+    1×4=   4 ×   1000 =     4000
+    1×8=   8 ×    100 =      800
+    3×4=  12 ×    100 =     1200
+    3×8=  24 ×     10 =      240
+    7×4=  28 ×     10 =      280
+    7×8=  56 ×      1 =       56
+    ────────────────────────────────────────
+    TOTAL = 6576
+  cross-check: 48*137 decomposed = 6576 ✓
+  ✓  137 * 48 = 6576  (expected 6576) [decomposed]
+  256 * 31 = ?  [shrug, conf=0.16] → decomposing...
+    2×3=   6 ×   1000 =     6000
+    2×1=   2 ×    100 =      200
+    5×3=  15 ×    100 =     1500
+    5×1=   5 ×     10 =       50
+    6×3=  18 ×     10 =      180
+    6×1=   6 ×      1 =        6
+    ────────────────────────────────────────
+    TOTAL = 7936
+  cross-check: 31*256 decomposed = 7936 ✓
+  ✓  256 * 31 = 7936  (expected 7936) [decomposed]
+  999 * 999 = ?  [shrug, conf=0.00] → decomposing...
+    9×9=  81 ×  10000 =   810000
+    9×9=  81 ×   1000 =    81000
+    9×9=  81 ×    100 =     8100
+    9×9=  81 ×   1000 =    81000
+    9×9=  81 ×    100 =     8100
+    9×9=  81 ×     10 =      810
+    9×9=  81 ×    100 =     8100
+    9×9=  81 ×     10 =      810
+    9×9=  81 ×      1 =       81
+    ────────────────────────────────────────
+    TOTAL = 998001
+  cross-check: 999*999 decomposed = 998001 ✓
+  ✓  999 * 999 = 998001  (expected 998001) [decomposed]
+
+  3/3
+
+═════════════════════════════════════════════════════════════════
+  PERSISTENCE — learn from consequences
+═════════════════════════════════════════════════════════════════
+  ✓  me build birdhouse        → proceed
+  ✓  me smash watch            → caution
+  ✓  me snap stick             → proceed
+  ✓  me oil watch              → proceed
+  ✓  me smash computer         → caution  [think loop fallback]
+  ✓  me build castle           → proceed  [think loop fallback]
+  ✓  me snap pencil            → proceed  [think loop fallback]
+
+  7/7
+
+═════════════════════════════════════════════════════════════════
+  WAVES — simultaneity, movement, circles
+═════════════════════════════════════════════════════════════════
+  ✓  simultaneity: the 5 planted pairs, no noise doors (5 groups)
+  ✓  circles: day-cycle (3) and tide-cycle (2) → ['circle:dark>light>tools', 'circle:dry>tide_in']
+  ✓  circles entered the net as nodes (composable upward)
+  ✓  shuffled-time control: groups survive, movement dies (0 edges, 0 circles)
+
+  4/4
+
+═════════════════════════════════════════════════════════════════
+  TRACKING — his clock, temporary statuses, emergent explanation
+═════════════════════════════════════════════════════════════════
+  ✓  day/night circle discovered and followed (circle:disk>moon)
+  ✓  clock in scratch: phase correct 100.0% (incl. occlusion)
+  ✓  temporary status via world state: 'sun missing disk' tracks (day AND cloud) 94.1%/tick
+  ✓  explanation emerged and was taught as a fact: blocks(disk) <- ['cloud_a', 'cloud_b', 'wave:cloud_a_cloud_b[2]']
+  ✓  recognize_doors: sun fires from partial doors, disk hidden (score 0.75)
+
+  5/5
+
+═════════════════════════════════════════════════════════════════
+  DISCOVERY — the challenge loop: the thing that learns things
+═════════════════════════════════════════════════════════════════
+  ✓  hidden law found: UNDERSTOOD (held-out R2 1.000)
+       equation: +1.00*x2*x2 -1.00*x3 +1.00*x0*x1 +0.00
+  ✓  the law is now COMPUTABLE: apply_law() on new instances R2 1.000
+  ✓  transcendental law: UNDERSTOOD (R2 1.000)  +1.00*x0*x1*cos(1*(x2-x3)) +0.00
+  ✓  pure noise: NO RULE (no invented equation; accounting 0.0/0.0/100.0 = law/caught/noise)
+  ✓  hard rule sin(3*x0*x1): PARTIAL (equation R2 0.464, captured 0.547) — partially said / caught, honestly not UNDERSTOOD
+  ✓  one input, transcendental+poly: UNDERSTOOD (R2 1.000)
+       equation: +0.50*x0*x0 +1.50*sin(2*x0) -0.00
+  ✓  damped oscillation (complex pair, off-grid decay): UNDERSTOOD (R2 0.999)
+       equation: +1.00*cos(3*x0)*exp(-0.4025*x0) +0.00
+  ✓  accounting vs planted truth: articulated 72.7% (true ~73.5%) + captured 0.0% + noise 27.3% = 100; residual dossier attached (x:challenge_g, 27.3% share)
+  ✓  extrapolated confidence: inside 0.88 > near-beyond 0.57 > far-beyond 0.38 (measured decay, not a stamp)
+
+  9/9
+
+═════════════════════════════════════════════════════════════════
+  RIVALRY — the classic look-alikes, held open until confirmed
+═════════════════════════════════════════════════════════════════
+  ✓  narrow-range cosine: tie declared with ['cosine'] (F [1.4])
+  ✓  probe points OUTSIDE the observed range: sample x0 near 2.99 (observed was ±1.2)
+  ✓  confirm(): OVERTURNED -> cosine -> +5.19*cos(0.49*x0) -0.19
+  ✓  control (true parabola): CONFIRMED -> -0.60*x0*x0 +5.00
+
+  4/4
+
+═════════════════════════════════════════════════════════════════
+  SPATIAL — the bridge: relations from motion, coordinates stay out
+═════════════════════════════════════════════════════════════════
+  ✓  four-bar perceived: 4 bars (incl. the undeclared ground), 4 hinges; facts answer: p0 locked_to ['fbA.p1', 'fbA.p3'], anchored ['fbA.p0', 'fbA.p3']
+  ✓  same mechanism, 2.4x bigger, rotated, moved: SAME (signature gap 0.0)
+  ✓  rigid plate on a pin vs four-bar: DIFFERENT
+  ✓  random walkers: 0 relations survive the nulls, 0 facts taught (index 47 -> 47)
+
+  4/4
+
+═════════════════════════════════════════════════════════════════
+  BOOT — the boot line: shapes run the mind, code only walks
+═════════════════════════════════════════════════════════════════
+  ✓  first boot seeds flow:boot-loop (8 steps in net meta), idle beat -> done
+  ✓  pipeline lookup == direct lookup -> mat (conf 25.0 vs 25.0)
+  ✓  W matrices machine-identical (shape (3, 11))
+  ✓  job done with crystal + assessment receipts on the record
+  ✓  delta compile == one-shot compile (137 frames, machine-identical)
+  ✓  scrambled flow -> refused with receipt (no exception)
+  ✓  empty job -> refused, reason kept, loop unharmed
+  ✓  superseded mid-run: next beat walks boot-loop-v2; the old flow stays whole
+  ✓  circular flow -> hop-cap
+  ✓  dangling redirect -> latest sound chapter flow:boot-loop-v2 [done], receipt on the record
+  ✓  unconnected chapter found and reconnected -> flow:boot-loop-v3 [done]
+  ✓  all chapters broken -> rebuilt from boot:recovery (8 steps), wreckage superseded (1 kept)
+  ✓  recovery sector still pristine after the rebuild
+  ✓  fast lane: pulled job:2 ahead of bulk job:1
+  ✓  bulk job done in 6 bounded quanta; content answers -> z
+  ✓  lived x3 -> minted ['idea:1']; lived once -> refused (0 minted)
+  ✓  the zip: 5 part-doors, round-trip rebuild exact -> the tide returns to the shore
+  ✓  recognition: 8 tokens -> 3 units (1 compressed); window carries the idea as one slot
+  ✓  A->X: found ingest > segment_job > crystallize_job > assess_job > merge_job > commit_job -> reached=True, content answers
+  ✓  unreachable goal -> no chain within plan-depth — an honest refusal
+  ✓  dead-end act bypassed -> road=standing plan
+  ✓  second seek used the standing plan (searched once, owned after)
+  ✓  imported a donor mind as a worker (2 sequences) -> his pipeline integrated it, content answers
+
+  23/23
+
+═════════════════════════════════════════════════════════════════
+  15. SPLIT/GROUP — surprise splits, sameness joins, containment orders
+═════════════════════════════════════════════════════════════════
+  ✓  surprisal: first pass 1.0, repeat 0.0 (novelty absorbed)
+  ✓  containment ORDERED, not absorbed: child kept, parent/children wired (ordered=1)
+  ✓  disjoint type refused (the null)
+  ✓  positive negative held (vetoed=2)
+  ✓  glue dissolved: no consensus, no prediction, doors removed (dissolved=1)
+  ✓  inversion split: quack out of the run/walk/sit type (split_out=1)
+  ✓  duplicates merged AND stale member->type door removed from recall
+  ✓  receipts + clock filed (9 -> 7, 0.1ms)
+
+═════════════════════════════════════════════════════════════════
+  16. VARIABLE ATOMS — quantities are nodes with range+nominal
+═════════════════════════════════════════════════════════════════
+  ✓  shape and instance wired: slot x0 (relational atom) binds the thing (fixed atom)
+  ✓  regime filed: range 1-10, nominal ~5.5 ({'law': 'springs', 'lo': 1.0, 'hi': 10.0, 'nominal': 5.5, 'std': 2.6638607032188912, 'n': 40})
+  ✓  second context ACCUMULATES on the same atom (regimes=2, laws=['law:areas', 'law:springs'])
+  ✓  ONE node carries both lanes: language doors + law doors on 'temperature'
+  ✓  the null refuses: noise mints no law and no uses-doors
+  ✓  THE ADDITIVE WOUND CLOSES: UNDERSTOOD '+1.00*x1 +1.00*x0 +0.00'
+  ✓  the sum-law applies elsewhere AND instantiates in scratch: f(2,3)=[5.], left@together=2.0
+  ✓  small-n stays honest: n=12 -> NO RULE
+  ✓  unknown-op composite skipped, not crashed: UNDERSTOOD
+
+═════════════════════════════════════════════════════════════════
+  17. THE SHAPE ORGAN — core + optional fills, minted from lived wholes
+═════════════════════════════════════════════════════════════════
+  ✓  shape minted: core kept, opening optional, fills ['blue', 'red']
+  ✓  rebuilds both lived wholes exactly (filled and skipped)
+  ✓  NEVER-LIVED whole recognized through his own type: fill='green'
+  ✓  HE BUILDS: 'the green ball' -> ['rolled', 'down'] (not memory — construction)
+  ✓  the null refuses: wrong core word fits no shape
+  ✓  receipts: minted=2 extended=2 dismissed=1 in 0.1ms, filed
+
+═════════════════════════════════════════════════════════════════
+  SUMMARY
+═════════════════════════════════════════════════════════════════
+  ✓  language
+  ✓  math
+  ✓  logic
+  ✓  reasoning
+  ✓  decompose
+  ✓  persistence
+  ✓  waves
+  ✓  tracking
+  ✓  discovery
+  ✓  rivalry
+  ✓  spatial
+  ✓  boot
+  ✓  consolidation
+  ✓  atoms
+  ✓  shapes
+
+  15/15 capability areas passed
+
+  Quick status: 14 nodes, 13 doors, compiled=False, dirty_seqs=4
+
+  One file. One class. One operation.

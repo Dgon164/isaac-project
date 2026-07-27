@@ -1,0 +1,6 @@
+﻿workers sweep, corpus 72000 tokens, i9-14900KF (8P+16E), 2026-07-26
+workers=1: 2.72s for 581 segments
+workers=4: 0.87s for 581 segments
+workers=8: 0.60s for 581 segments
+workers=12: 0.58s for 581 segments
+workers=16: 0.66s for 581 segments

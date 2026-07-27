@@ -1,0 +1,58 @@
+﻿======================================================================
+  BOOT SCALE PROBE — chunking, compile, knee, workers
+======================================================================
+
+  tier 2000: 237 sequences...
+    [pull] 0.00s
+    [segment] 0.00s
+    [crystallize] 0.07s
+    [assess] 0.00s
+    [merge] 0.21s
+    [commit] 0.00s
+    [sleep] 0.18s
+    [interactive probe]...
+
+  tier 2001 tokens (237 seqs -> 17 segments)
+    pull=0.00s segment=0.00s crystallize=0.07s assess=0.00s merge=0.21s commit=0.00s sleep=0.18s
+    net: 899 nodes, 3451 doors; W (95, 1211) nnz=1235
+    compile: delta 1ms vs full 1ms  (1x)
+    interactive: 18ms per message (ingest+beat+lookup) | monolithic baseline 0.00s
+
+  tier 8000: 930 sequences...
+    [pull] 0.00s
+    [segment] 0.00s
+    [crystallize] 0.29s
+    [assess] 0.01s
+    [merge] 0.86s
+    [commit] 0.01s
+    [sleep] 4.63s
+    [interactive probe]...
+
+  tier 8010 tokens (930 seqs -> 66 segments)
+    pull=0.00s segment=0.00s crystallize=0.29s assess=0.01s merge=0.86s commit=0.01s sleep=4.63s
+    net: 2606 nodes, 17035 doors; W (228, 4680) nnz=4887
+    compile: delta 7ms vs full 7ms  (1x)
+    interactive: 53ms per message (ingest+beat+lookup) | monolithic baseline 0.02s
+
+  tier 24000: 2800 sequences...
+    [pull] 0.00s
+    [segment] 0.00s
+    [crystallize] 0.89s
+    [assess] 0.06s
+    [merge] 2.59s
+    [commit] 0.03s
+    [sleep] 21.45s
+    [interactive probe]...
+
+  tier 24005 tokens (2800 seqs -> 195 segments)
+    pull=0.00s segment=0.00s crystallize=0.89s assess=0.06s merge=2.59s commit=0.03s sleep=21.45s
+    net: 5364 nodes, 42457 doors; W (342, 13780) nnz=14641
+    compile: delta 26ms vs full 27ms  (1x)
+    interactive: 140ms per message (ingest+beat+lookup) | monolithic baseline 0.05s
+
+  workers on crystallize (tier 24000):
+    workers=1: 0.93s for 195 segments
+    workers=4: 0.41s for 195 segments
+    speedup: 2.27x (spawn overhead included — honest)
+
+  csv -> C:\Users\jtwee\Documents\isaac-project\rebuild\boot_scale_probe_results.csv
