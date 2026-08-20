@@ -285,6 +285,17 @@ Full design: `BOOT_LINE_DESIGN.md`.
 - Delta compile: `_compile` now parses only sequences newer than
   `_counts_up_to` (counts accumulate in `_pair_counts`); the matrix is
   machine-identical to a full reparse — proven in-battery.
+- **EVERY PREFIX IS A LESSON (2026-08-19)**: `_compile` compiles every
+  position of a sequence as a delta (same frame+window treatment the
+  final position always had). The old final-only road meant a
+  punctuated sentence taught nothing but "everything leads to ." —
+  the diagnosis campaign's mechanical wound, reproduced and CURED at
+  day zero in `rebuild/worstcase_baseline.py` (a fact taught ONCE is
+  now completable; 10 meetings failed before). `_pair_counts_rule=2`
+  auto-rebuilds any mind's stale final-only count cache. Companion:
+  **THE STRANGER GUARD** in `lookup()` — a context token never
+  observed anywhere gets a shrug, not the window frames' population
+  answer (unknown-word honesty held after the compile cure).
 - THE LOCAL SLEEP + ENTRY INTERPRETER (2026-07-22, owner's design):
   scoped `_crystallize` compares CRYSTALS TO CRYSTALS, never node to
   node. Each dirty entry is scored against the standing type

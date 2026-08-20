@@ -1571,22 +1571,35 @@ class Isaac:
         counts = getattr(self, "_pair_counts", None)
         if (counts is None
                 or getattr(self, "_pair_max_context", None) != max_context
+                or getattr(self, "_pair_counts_rule", 1) != 2
                 or getattr(self, "_counts_up_to", 0)
                 > len(self.observed_sequences)):
             counts = defaultdict(float)
             self._pair_counts = counts
             self._pair_max_context = max_context
+            self._pair_counts_rule = 2      # rebuild final-only caches
             self._counts_up_to = 0
+        # EVERY PREFIX IS A LESSON (2026-08-19). The old road compiled
+        # only the LAST token of a sequence as a delta — so a
+        # punctuated sentence taught nothing but "everything leads to
+        # ." (the diagnosis campaign's mechanical wound, 0/20 on
+        # punctuated lines; reproduced at day zero in the worst-case
+        # baseline: "a grinth eats" -> None WITH the period, 'seeds'
+        # WITHOUT it). Now each position in the sequence compiles as
+        # a delta with the same frame+window treatment the final
+        # position always had; the final prefix reproduces the old
+        # counts exactly, interior positions only ADD.
         for seq in self.observed_sequences[self._counts_up_to:]:
             if len(seq) < 2:
                 continue
-            frame = tuple(seq[:-1])
-            delta = seq[-1]
-            counts[(delta, frame)] += 1.0
-            for width in range(2, min(len(frame) + 1, max_context)):
-                partial = frame[-width:]
-                if partial != frame:
-                    counts[(delta, partial)] += 1.0
+            for end in range(1, len(seq)):
+                frame = tuple(seq[:end])
+                delta = seq[end]
+                counts[(delta, frame)] += 1.0
+                for width in range(2, min(len(frame) + 1, max_context)):
+                    partial = frame[-width:]
+                    if partial != frame:
+                        counts[(delta, partial)] += 1.0
         self._counts_up_to = len(self.observed_sequences)
 
         if not counts:
@@ -5108,7 +5121,16 @@ class Isaac:
 
     def lookup(self, context, top_k=5):
         """Argmax over the output vector. 'What comes next?'
-        Routes through the think loop — recall, process, evaluate."""
+        Routes through the think loop — recall, process, evaluate.
+        THE STRANGER GUARD (2026-08-19): if a context token has NEVER
+        been observed, no frame can honestly answer about it — the
+        every-prefix compile's window frames would otherwise fill
+        "a wug is an ___" with the population answer. A question
+        about a stranger gets the shrug it deserves (courted in the
+        worst-case baseline's unknown-word honesty check)."""
+        for tok in context:
+            if tok not in self.net.doors and tok not in self.net.preds:
+                return None, 0.0
         return self._think(context, mode="lookup")
 
     def check(self, context, target):
