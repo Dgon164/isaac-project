@@ -84,7 +84,20 @@ can enter further discoveries). Four laws govern every mechanism:
 - `lookup(context)` / `check(context, target)` — argmax / specific-cell read
   through the think loop (recall → process → evaluate) over the compiled
   frame→delta matrix. Auto-compiles when dirty.
-- `predict_next`, `walk_chain`, `generate` — door-walking alternatives.
+- **SELECTION + FEEDBACK API (2026-08-20, owner design — ranked lists
+  instead of a single answer):** `lookup_topk(context, k)` — ranked
+  candidates best-to-least with scores (empty list if the question
+  contains a never-seen word); `complete_topk(context, k, max_len)` —
+  multi-word completions via beam search; `cloze_topk(left, right, k)`
+  — fill-in-the-blank at ANY position (beginning uses sentence-starter
+  stats, middle re-ranks by one-step lookahead into the right
+  context); `feedback(context, candidate, "good"|"marginal"|"bad")` —
+  good boosts the ranking AND banks the pair as a real observation,
+  bad suppresses ×0.1 (not a permanent ban), marginal is logged only;
+  `feedback_connection(src, tgt, grade)` — good adds the edge, bad
+  adds a lockout. All grades append to `feedback_log`; log and
+  adjustments persist through save/load. Tests:
+  `rebuild/selection_feedback_test.py` (16/16).
 - `transduce(start, stream)` — the universal state walk: next state =
   `lookup([state, symbol])`; state lives in Scratch. Counting, parity,
   motion all reuse this loop; only the taught doors differ.

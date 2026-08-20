@@ -5138,6 +5138,169 @@ class Isaac:
         Routes through the think loop — recall, process, evaluate."""
         return self._think(context, mode="check", target=target)
 
+    # ── SELECTION + FEEDBACK (owner design 2026-08-20) ──────────
+    # "have him not present a final, but a selection... a list of
+    # topk answers in order of best to least... more than single
+    # word guessing... test at the beginning middle and end...
+    # feedback in the form of good, marginal and bad" — on both
+    # answers and suggested graph connections.
+    # The score vector already ranks every candidate; the old API
+    # discarded all but the argmax. These methods read out the full
+    # ranking, and the feedback log adjusts future rankings.
+
+    def _score_candidates(self, context, want):
+        """Raw ranked candidates from one matrix pass (no threshold
+        gate — selection shows uncertainty instead of hiding it)."""
+        self._ensure_compiled()
+        if not self._compiled:
+            return []
+        x = self._encode(context)
+        if x is None:
+            return []
+        y = self._compiled["W_norm"] @ x
+        order = y.argsort()[::-1][:max(want * 3, want)]
+        out = []
+        for i in order:
+            s = float(y[i])
+            if s <= 0.02:
+                break
+            out.append((self._compiled["deltas"][i], s))
+        return out
+
+    def _apply_feedback(self, context, ranked):
+        """Multiply scores by stored feedback: good boosts, bad
+        suppresses, marginal recorded but neutral."""
+        adjust = getattr(self, "feedback_adjust", None)
+        if not adjust:
+            return ranked
+        key = tuple(context)
+        out = []
+        for cand, s in ranked:
+            mult = adjust.get((key, cand), 1.0)
+            out.append((cand, s * mult))
+        out.sort(key=lambda p: -p[1])
+        return out
+
+    def lookup_topk(self, context, k=5):
+        """The selection: ranked candidates, best to least, with
+        scores. Same honesty guard as lookup(): a question containing
+        a never-seen word returns an empty list."""
+        for tok in context:
+            if tok not in self.net.doors and tok not in self.net.preds:
+                return []
+        ranked = self._apply_feedback(
+            context, self._score_candidates(context, k))
+        return ranked[:k]
+
+    def complete_topk(self, context, k=3, max_len=8):
+        """Multi-word: beam search over the same score table.
+        Returns ranked (sequence, score) pairs; a sequence ends at
+        '.' or max_len tokens."""
+        for tok in context:
+            if tok not in self.net.doors and tok not in self.net.preds:
+                return []
+        beams = [(list(context), 1.0)]
+        done = []
+        for _ in range(max_len):
+            grown = []
+            for seq, score in beams:
+                steps = self._apply_feedback(
+                    seq, self._score_candidates(seq, 3))[:3]
+                if not steps:
+                    done.append((seq, score))
+                    continue
+                for cand, s in steps:
+                    nseq, nscore = seq + [cand], score * s
+                    if cand == ".":
+                        done.append((nseq, nscore))
+                    else:
+                        grown.append((nseq, nscore))
+            beams = sorted(grown, key=lambda p: -p[1])[:k]
+            if not beams:
+                break
+        done.extend(beams)
+        done.sort(key=lambda p: -p[1])
+        return [(seq[len(context):], round(sc, 4))
+                for seq, sc in done[:k]]
+
+    def cloze_topk(self, left, right, k=5):
+        """Fill-in-the-blank at any position — beginning, middle, or
+        end. Candidates are scored by the left context, then
+        re-ranked by a one-step lookahead: does the right context
+        actually follow this candidate? A blank at the very start
+        uses the sentence-starter statistics instead."""
+        for tok in list(left) + list(right):
+            if tok not in self.net.doors and tok not in self.net.preds:
+                return []
+        if left:
+            base = self._score_candidates(list(left), max(k * 3, k))
+        else:
+            base = []
+            for node, meta in self.net.meta.items():
+                if meta.get("start"):
+                    base.append((node, float(meta.get(
+                        "initiator_strength", 1))))
+            base.sort(key=lambda p: -p[1])
+            top = base[0][1] if base else 1.0
+            base = [(c, s / top) for c, s in base[:max(k * 3, k)]]
+        if not right:
+            ranked = self._apply_feedback(list(left), base)
+            return ranked[:k]
+        out = []
+        for cand, s in base:
+            ahead = self._score_candidates(list(left) + [cand], 12)
+            look = 0.0
+            for nxt, s2 in ahead:
+                if nxt == right[0]:
+                    look = s2
+                    break
+            out.append((cand, s * (0.05 + look)))
+        out = self._apply_feedback(list(left), out)
+        out.sort(key=lambda p: -p[1])
+        return out[:k]
+
+    def feedback(self, context, candidate, grade):
+        """The grading channel: good / marginal / bad on a suggested
+        answer for a context. good = boost the ranking AND bank the
+        pair as a real observation (a graded-good answer is training
+        data). bad = suppress the ranking (x0.1 — not a permanent
+        ban; wrong here is not wrong everywhere). marginal = kept on
+        record, ranking unchanged. Every grade is logged."""
+        if grade not in ("good", "marginal", "bad"):
+            raise ValueError("grade must be good, marginal, or bad")
+        if not hasattr(self, "feedback_log"):
+            self.feedback_log = []
+        if not hasattr(self, "feedback_adjust"):
+            self.feedback_adjust = {}
+        self.feedback_log.append(
+            {"kind": "answer", "context": list(context),
+             "candidate": candidate, "grade": grade})
+        key = (tuple(context), candidate)
+        if grade == "good":
+            self.feedback_adjust[key] = 2.5
+            self.observe(list(context) + [candidate])
+        elif grade == "bad":
+            self.feedback_adjust[key] = 0.1
+        return {"logged": len(self.feedback_log), "grade": grade}
+
+    def feedback_connection(self, src, tgt, grade, tag="seq"):
+        """The grading channel for suggested graph connections.
+        good = the edge is added (real evidence). bad = the pair is
+        locked out (the existing lockout store predict_next already
+        honors). marginal = logged only."""
+        if grade not in ("good", "marginal", "bad"):
+            raise ValueError("grade must be good, marginal, or bad")
+        if not hasattr(self, "feedback_log"):
+            self.feedback_log = []
+        self.feedback_log.append(
+            {"kind": "connection", "src": src, "tgt": tgt,
+             "grade": grade})
+        if grade == "good":
+            self.net.add_door(src, tgt, tag=tag)
+        elif grade == "bad":
+            self.lockouts.add((src, tgt))
+        return {"logged": len(self.feedback_log), "grade": grade}
+
     # ── walking (net) ───────────────────────────────────────────
 
     def predict_next(self, context, tag="seq"):
