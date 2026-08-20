@@ -39,7 +39,7 @@ def court(name, ok, detail=""):
 
 
 print("1. RANKED SELECTION (end position)")
-r = m.lookup_topk(["a", "grinth", "eats"], k=4)
+r = m.lookup_topk(["a", "grinth", "eats"], k=4, scores=True)
 print(f"   a grinth eats -> {[(c, round(s, 2)) for c, s in r]}")
 court("ranked list returned (one entry is correct when only one "
       "candidate clears the score floor)", len(r) >= 1)
@@ -49,28 +49,28 @@ court("best-to-least order",
       all(r[i][1] >= r[i + 1][1] for i in range(len(r) - 1)))
 
 print("2. FILL-IN-THE-BLANK — beginning / middle / end")
-rb = m.cloze_topk([], ["grinth", "flew", "."], k=4)
+rb = m.cloze_topk([], ["grinth", "flew", "."], k=4, scores=True)
 print(f"   [_] grinth flew . -> {[(c, round(s, 2)) for c, s in rb]}")
 court("beginning blank offers sentence starters",
       any(c in ("the", "a") for c, _ in rb))
-rm = m.cloze_topk(["the"], ["flew", "."], k=4)
+rm = m.cloze_topk(["the"], ["flew", "."], k=4, scores=True)
 print(f"   the [_] flew .   -> {[(c, round(s, 2)) for c, s in rm]}")
 court("middle blank ranks the flyer first",
       bool(rm) and rm[0][0] == "grinth")
-re_ = m.lookup_topk(["a", "florb", "is", "an"], k=3)
+re_ = m.lookup_topk(["a", "florb", "is", "an"], k=3, scores=True)
 print(f"   a florb is an [_] -> {[(c, round(s, 2)) for c, s in re_]}")
 court("end blank finds the category",
       any(c == "animal" for c, _ in re_))
 
 print("3. MULTI-WORD COMPLETION")
-mc = m.complete_topk(["the", "florb"], k=3)
+mc = m.complete_topk(["the", "florb"], k=3, scores=True)
 print(f"   the florb ... -> {mc}")
 court("multi-word candidates returned", len(mc) >= 2)
 court("a full lived sentence among them",
       any(seq[:2] in (["walked", "."], ["slept", "."]) for seq, _ in mc))
 
 print("4. FEEDBACK — good / marginal / bad on answers")
-before = m.lookup_topk(["zero", "plus", "zero", "="], k=4)
+before = m.lookup_topk(["zero", "plus", "zero", "="], k=4, scores=True)
 print(f"   before: zero plus zero = -> "
       f"{[(c, round(s, 2)) for c, s in before]}")
 wrongs = [c for c, _ in before if c != "zero"]
@@ -78,7 +78,7 @@ if wrongs:
     m.feedback(["zero", "plus", "zero", "="], wrongs[0], "bad")
 m.feedback(["zero", "plus", "zero", "="], "zero", "good")
 m.feedback(["zero", "plus", "zero", "="], "one", "marginal")
-after = m.lookup_topk(["zero", "plus", "zero", "="], k=4)
+after = m.lookup_topk(["zero", "plus", "zero", "="], k=4, scores=True)
 print(f"   after : zero plus zero = -> "
       f"{[(c, round(s, 2)) for c, s in after]}")
 court("good-graded answer now ranks first",
@@ -104,10 +104,17 @@ p = os.path.join(SCRATCH, "selection_test.isaac2")
 m.save(p)
 t = Isaac.load(p)
 court("feedback log persists", len(t.feedback_log) == 5)
-ta = t.lookup_topk(["zero", "plus", "zero", "="], k=4)
+ta = t.lookup_topk(["zero", "plus", "zero", "="], k=4, scores=True)
 court("adjusted ranking persists", bool(ta) and ta[0][0] == "zero")
 court("locked-out connection persists",
       ("zim", "walked") in t.lockouts)
 
 print(f"\nRESULT: {passed}/{passed + len(failed)} checks passed"
+      + (f"; FAILED: {failed}" if failed else ""))
+
+print("7. DEFAULT OUTPUT IS ORDER ONLY (owner: no specific rating)")
+plain = m.lookup_topk(["a", "grinth", "eats"], k=4)
+court("plain ordered list, no numbers attached",
+      all(isinstance(c, str) for c in plain))
+print(f"\nFINAL: {passed}/{passed + len(failed)} checks"
       + (f"; FAILED: {failed}" if failed else ""))

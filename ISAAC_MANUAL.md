@@ -1,416 +1,314 @@
 # THE ISAAC MANUAL
-### The complete, current capability reference — every part, every method, honestly scoped
-**Engine:** `code/isaac.py` (one file, one class, numpy only, no neural nets in any decision path)
-**Self-test:** `PYTHONIOENCODING=utf-8 python isaac.py` → expect **12/12**
-**UI:** `python ui/isaac_workspace.py` → http://127.0.0.1:8675 (three-channel workspace; legacy console: `python ui/isaac_ui.py` → :8674)
+**Version 0.1.2 alpha 1 — rewritten in plain engineering language 2026-08-20.**
+The previous manual survives in git history. Maintenance rule unchanged: when a
+capability is added, changed, or broken, update this file in the same commit.
+If it isn't documented here, assume it doesn't exist.
 
-> **MAINTENANCE RULE (same as ISAAC_BUILD_STATE.md):** when a capability is
-> added, changed, or broken, update THIS manual in the same step. If a
-> capability isn't documented here, assume it doesn't exist. The narrative
-> introduction lives in `PAPERCLIP_MANUAL.md`; the day-by-day state ledger in
-> `2_the_machine/docs/ISAAC_BUILD_STATE.md`; THIS doc is what he can DO.
-
----
-
-## 0. The two primitives and the four laws
-
-Everything below is two operations composing: **differentiation** (compare;
-keep what recurs) and **memory recursion** (a discovery becomes a thing that
-can enter further discoveries). Four laws govern every mechanism:
-
-1. **The null law** — every admitted claim beats a null designed to destroy
-   exactly the claimed structure, nothing else. (Five case studies: jitter
-   null for co-timing; null-gated basis; conditional rate-gap for blockers;
-   F-test at the noise ceiling; block-permutation needed for autocorrelated
-   targets — the last is still an open item, guarded by a term cap.)
-2. **Tests over thresholds** — wherever a fixed threshold caused trouble, a
-   statistical test replaced it.
-3. **The proposal principle** — "we offer possible solutions, not THE
-   solution." Teaching adds candidates; only evidence adds conclusions.
-4. **Everything enters, nothing leaves** — forgetting is demotion from the
-   comparison set, never deletion.
+- **Engine:** `code/isaac.py` — one file, one main class, Python + numpy only.
+  No neural networks anywhere in a decision path. `__version__ = "0.1.2-alpha1"`.
+- **Self-test:** `python code/isaac.py` → expect **15/15 capability areas**.
+- **UI:** `python ui/isaac_workspace.py` → http://127.0.0.1:8675
+  (⚠ on the desktop machine, do NOT launch the workspace until the migration
+  work is done — on import it loads and auto-saves the live mind file from
+  `../isaac-life/`). Legacy single-panel UI: `ui/isaac_ui.py` → :8674.
 
 ---
 
-## 1. The mind's substrate
+## 1. What Isaac is
 
-| part | what it is | key methods |
+A symbolic learning system. Everything he knows lives in two inspectable
+stores: a **graph database** (nodes and tagged directed edges) and a
+**prediction matrix** compiled from his observations. He learns by being shown
+token sequences (sentences, equations, tables); he answers by matrix lookup,
+graph walking, and — new this week — step-by-step expression reduction. Every
+answer is traceable to stored evidence, wrong answers are kept on record with
+their corrections, and "no answer" is a first-class honest output. Design
+rules: no information is hard-coded into him (only machinery); anything
+learned can be superseded by better evidence but never silently deleted.
+
+## 2. Quick start
+
+```python
+import sys; sys.path.insert(0, "code")
+from isaac import Isaac, tokenize
+
+m = Isaac()
+m.observe(tokenize("a florb is an animal ."))     # teach by showing
+m.observe(tokenize("3 + 4 = 7"))
+m.consolidate()                                   # batch index/type build
+m.lookup(["a", "florb", "is", "an"])              # -> ("animal", conf)
+m.lookup_topk(["3", "+", "4", "="], k=3)          # -> ["7", ...] ranked
+m.teach("*", "precedes", "+")                     # order of operations, taught
+m.lookup(tokenize("2 + 3 * 4 ="))                 # -> ("14", conf) via reducer
+m.save("mind.isaac"); m2 = Isaac.load("mind.isaac")
+```
+
+## 3. The parts (data structures)
+
+| structure | what it holds | key operations |
 |---|---|---|
-| `Net` | the only data structure: nodes + directed tagged doors + metadata | `add_door(src,tgt,tag)`, `get_doors(node,tag)`, `get_predecessors`, `get_full_profile`, `set_meta/get_meta` |
-| `Scratch` | working memory: named registers with history | `write/read/incr/append/latch/history/snapshot` |
-| `compare(a,b)` | the differentiation atom (sets): shared / only-a / only-b | module function |
-| `World` | mutable entity states + taught actions | `set_state/clear_state/has_state`, `teach_action`, `execute` |
-| findings | the scientific memory (see §8) | `record_finding/recall_findings/load_ledger` |
+| `Net` | THE knowledge store: nodes (strings) + directed edges ("doors") with tags + per-node metadata + edge observation counts | `add_door`, `get_doors`, `get_predecessors`, `get_full_profile`, `set_meta/get_meta` |
+| prediction matrix | compiled from observed sequences: rows = possible next tokens, columns = context patterns ("frames"), cells = normalized counts | built by `_compile`, used by every lookup |
+| `Scratch` | working memory: named registers with history (used by state tracking, dialog window) | `write/read/incr/append/history` |
+| `fact_index` | (subject, relation) → [objects] — explicit facts, incl. taught operator precedence | `teach(s, r, o)`, `teach_not` |
+| types | groups discovered by shared edges (formal-concept-analysis style); types are themselves nodes | `consolidate()`, `crystallize()` |
+| `World` | mutable entity states + taught actions | `set_state`, `teach_action`, `execute` |
+| findings ledger | JSON-lines science log: every discovered law, verdict, confirmation, overturn | `record_finding`, `recall_findings`, `load_ledger` |
+| `feedback_log` / `feedback_adjust` | every good/marginal/bad grade ever given + ranking adjustments | `feedback`, `feedback_connection` |
+| `activation_log` | the event history (his diary); 2/3 of file size, compressed in storage | appended by `tick` |
 
-## 2. Sensing (how experience enters)
+## 4. How learning works
 
-- `observe(tokens)` — sequence → sequential doors; dirty-marking; immediate
-  type-slotting (`_sense`); auto-`tick`s each token with its type doors.
-- `observe_negative / observe_tagged / observe_frame / observe_matrix` —
-  negation, custom tags, frames, tabular ingestion.
-- `teach(subject, relation, object)` — a fact: observed AND indexed in
-  `fact_index[(s,r)] → [objects]`. (Internal discoveries use `_teach_fact`,
-  which skips the tokenizer — structured names would be shredded.)
-- `tick(active_set)` — one instant of simultaneous activation. Any retina,
-  game loop, or sensor can call it; it feeds `activation_log` and, if a
-  circle is being followed (§6), advances the clock and opens statuses.
-  **Caveat:** clock ticks are sensory ticks — keep one stream per episode.
+1. **`observe(tokens)`** — stores the sequence, adds sequential edges to the
+   graph, marks the affected region dirty. ~49,000 facts/sec measured.
+   Variants: `observe_negative` (wrong examples → lockouts),
+   `observe_matrix` (each row of a 2D table as a sequence), `observe_frame`,
+   `observe_tagged`.
+2. **Matrix compile (`_compile`)** — turns observed sequences into the
+   prediction matrix. Incremental: only sequences newer than the last compile
+   are parsed. **Fixed 2026-08-19: every position in a sequence is a training
+   example.** (The old code used only the final token, so punctuated
+   sentences taught almost nothing — this bug invalidated all pre-fix
+   language scores. A fact stated once is now retrievable; ten repetitions
+   failed before.) Old save files auto-rebuild their count caches.
+3. **`consolidate()` / `crystallize()`** — batch step ("sleep"): groups nodes
+   with shared edge profiles into types, reconciles with existing types
+   (absorb / supersede / add). Known limits: groups cannot overlap (shared
+   attributes merge groups); batch time grows superlinearly with size — see
+   §10.
+4. **`teach(subject, relation, object)`** — an explicit fact: observed as a
+   sentence AND indexed for direct query. Used for is-a facts and for
+   operator precedence (`teach("*", "precedes", "+")`).
+5. **Time-series learning** — `tick(active_set)` feeds simultaneous
+   activation; `wave_consolidate()` discovers co-firing groups, handoffs,
+   repeating cycles, and expectation-failure statuses. (Details unchanged
+   from July; see git history of this manual for the full envelope numbers.)
 
-## 3. Consolidation (idle mode — "sleep")
+## 5. How answering works
 
-- `consolidate()` / `crystallize()` — FCA-style type discovery from door
-  profiles (dirty-scoped or full). Types are nodes; membership doors both
-  ways. **Known limit:** connected-component grouping cannot represent
-  OVERLAPPING concepts (measured: shared doors merge groups).
-- `wave_consolidate()` — the temporal crystallizer, one mechanism recursed:
-  - **groups** — doors that fire together (jitter-null + independence floor,
-    1.4× anti-bridge margin);
-  - **conditional rescue** — a door exiled by heavy interference re-joins
-    when membership holds where a candidate blocker is absent; the blocker
-    is taught as a `blocks` fact in the same move;
-  - **handoffs** — group g off co-timed with h on (the wave moving);
-  - **circles** — closed handoff paths; entered as nodes with `wave_next`
-    order; dwell learned as meta (the clock's calibration);
-  - **level 2** — circle activity becomes doors; same stages rerun
-    (circles of circles, demonstrated);
-  - **status explanations** — `miss:X` doors get explained by ordinary
-    co-activation scoped to the entity's own timeframe → `blocks` facts.
-  Operating envelope (battery-measured): period ≥ 9 ticks, instantaneous
-  handoffs, non-overlapping groups, fire rate ≥ 0.7, ≲4 concurrent
-  aperiodic waves, T ≥ ~1000. Movement claims: 0/20 false on noise.
+`lookup(context)` runs this pipeline, in order:
 
-## 4. Thinking (query paths)
+1. **Multi-step routing (2026-08-20):** if the question ends with `=` and
+   contains two or more operators, or parentheses → the **expression
+   reducer** (§6). Prevents the measured failure where multi-step questions
+   got wrong answers from partial pattern matches (was 87/100 wrong).
+2. **Never-seen-word guard (2026-08-19):** if any context token was never
+   observed, return no answer. (Without this, generalized patterns would
+   answer questions about words he's never seen.)
+3. **The think loop:** recall (what do I know about these tokens) → route
+   (one matrix multiply over the compiled matrix; best-scoring next token)
+   → evaluate (confidence check; retry strategies: drop unknown tokens,
+   substitute type members). Returns `(answer, confidence)`; below the
+   confidence threshold returns `(None, conf)`.
 
-- `lookup(context)` / `check(context, target)` — argmax / specific-cell read
-  through the think loop (recall → process → evaluate) over the compiled
-  frame→delta matrix. Auto-compiles when dirty.
-- **SELECTION + FEEDBACK API (2026-08-20, owner design — ranked lists
-  instead of a single answer):** `lookup_topk(context, k)` — ranked
-  candidates best-to-least with scores (empty list if the question
-  contains a never-seen word); `complete_topk(context, k, max_len)` —
-  multi-word completions via beam search; `cloze_topk(left, right, k)`
-  — fill-in-the-blank at ANY position (beginning uses sentence-starter
-  stats, middle re-ranks by one-step lookahead into the right
-  context); `feedback(context, candidate, "good"|"marginal"|"bad")` —
-  good boosts the ranking AND banks the pair as a real observation,
-  bad suppresses ×0.1 (not a permanent ban), marginal is logged only;
-  `feedback_connection(src, tgt, grade)` — good adds the edge, bad
-  adds a lockout. All grades append to `feedback_log`; log and
-  adjustments persist through save/load. Tests:
-  `rebuild/selection_feedback_test.py` (16/16).
-- `transduce(start, stream)` — the universal state walk: next state =
-  `lookup([state, symbol])`; state lives in Scratch. Counting, parity,
-  motion all reuse this loop; only the taught doors differ.
-- `compute(a, op, b)` — arithmetic with decompose-when-shrug + memoization.
-- `solve(problem)` — token problems with `?` unknowns (forward / backward /
-  gap-fill). *(Distinct from `apply_law` — see §7.)*
-- `logic_eval`, `reason_chain`, `is_a_check`, `can_check`,
-  `containment_check`, `property_check`, `syllogism` — the symbolic layer;
-  reads facts and type doors.
-- `assess / plan_think_execute` + `World` actions — consequence layer.
+**The selection API (owner spec 2026-08-20 — ranked lists, order only):**
+- `lookup_topk(context, k)` → list of candidates, best to least. No numbers
+  attached (pass `scores=True` in a test harness to see them).
+- `complete_topk(context, k, max_len)` → ranked multi-word completions
+  (beam search; a completion ends at "." or the length cap).
+- `cloze_topk(left, right, k)` → fill-in-the-blank at ANY position:
+  end = ranked lookup; middle = candidates re-ranked by whether the
+  right-hand context actually follows them; beginning = ranked sentence
+  starters.
+- `feedback(context, candidate, "good"|"marginal"|"bad")` — good boosts that
+  answer's future rank AND stores question+answer as a real observation;
+  bad suppresses ×0.1 (penalty, not a ban); marginal is logged only.
+- `feedback_connection(src, tgt, grade)` — same grading for suggested graph
+  edges: good adds the edge, bad adds a lockout.
+- All grades append to `feedback_log`; everything persists through save/load.
+- Current limitation: a grade applies only to the exact question it was
+  given on (no generalization to similar questions yet).
 
-## 5. Perception (doors, not boxes)
+**Other query paths:**
+- `check(context, target)` — "is THIS the answer?" — reads one matrix cell.
+- `evaluate(tokens)` — the reducer directly; returns `(answer, confidence,
+  steps)` where steps is the worked derivation.
+- `solve("3 + ? = 7")` — single unknown, forward/backward/gap-fill.
+- `solve_steps([...])` — a list of steps resolved in order with `$0, $1`
+  references to earlier results (caller supplies the steps).
+- `compute(a, op, b)` — arithmetic with fallback: direct recall, else
+  decompose into known sub-facts, verify, memorize the result.
+- `transduce(start, stream)` — state-machine walk: next state =
+  `lookup([state, symbol])`. Counting, parity, tracking reuse this.
+- `generate(concept)` — produce a sentence by walking learned transitions.
+  Known bug: can mix attributes of similar items (see §10).
+- `infer(a, b)` — type-based transfer ("florb can fly? — via grinth").
+- Reasoning layer: `reason_chain`, `is_a_check`, `can_check`,
+  `containment_check`, `property_check`, `syllogism` — reads facts + type
+  edges.
+- `discover(X, y)` — the numeric law engine: given a data table, searches
+  readable equation forms, validates on a held-out half, reports verdict
+  UNDERSTOOD / PARTIAL / CAPTURED / NO RULE with the equation, its valid
+  range, and surviving rival forms with the experiment that would decide
+  them. `confirm()` retires or overturns on new evidence; `apply_law()`
+  reuses a law as computation. (0/40 false discoveries across batteries;
+  Kepler-from-8-planets predicted Pluto at 248.0 vs true 247.9.)
 
-- `fit_lens(name, X, ...)` — registers an aligner. **Default = the
-  null-gated basis**: standardize, then rotate only along correlations
-  beating ~3/√n (the basis itself must beat chance). Optional random lift,
-  discriminative select (Fisher option survives but is deprecated by
-  audit 2.7 — do not use it for causal ranking).
-- `crystallize_features(X, y, lens=)` — one concept-node per class whose
-  doors are **observed quantile log-densities** (proximity doors). Legacy
-  box meta still written for `recognize_matrix`/old scripts.
-- `classify_features(X)` — summed log-likelihood, one matmul-shaped
-  decision. **Known gap: no abstention** — it always answers (fix queued:
-  shrug + genus-level answers).
-- `recognize_doors(active, tag)` — partial, recursive recognition: a
-  concept fires from the fraction of its `part` doors present (permanence;
-  load-bearing in the clock).
-- Harness-side (validated, not yet in-engine): **registration front-end**
-  (`rebuild/registration_perception.py` — pose/identity factoring; digits
-  under position+scale 5–15% → 84–87%; pose returned as data) and
-  **ideals + differentia** (`rebuild/ideals_differentia.py` — genus/
-  species recognition, key identifiers discovered by minimal inter-sibling
-  door overlap, honest genus-level ties, truncation cue).
+## 6. The expression reducer (owner design 2026-08-20)
 
-## 6. The clock, statuses, expectation
+Multi-step math and logic are evaluated the way you'd hand-trace them:
+organize into pairs, resolve one pair at a time, carry interim results.
 
-- `follow(circle)` — attend to a discovered circle: phases ordered by
-  `wave_next`, members and learned dwell loaded; registers live in Scratch.
-- every `tick` then: evidence advances the phase (via `recognize_doors` —
-  occlusion-tolerant); learned dwell dead-reckons when evidence is hidden;
-  expected-but-dark doors persist 2 ticks → **status**: `world.set_state
-  (phase, "missing X")` + a `miss:X` door fed back into the same tick
-  (statuses are doors — explanations emerge in §3). Statuses clear on
-  sight or when the entity leaves the stage (absence-by-night ≠ occlusion).
-- Self-test: phase 100% through occlusion; statuses 94.1%/tick;
-  `blocks(disk) ← cloud` queryable in `fact_index`.
+- **One pair at a time:** the highest-precedence operator's pair is answered
+  through the learned matrix (`lookup([a, op, b, "="])`); the result replaces
+  the pair; repeat until one value remains.
+- **Order of operations is TAUGHT, not built in:** the reducer consults
+  `fact_index` for `X precedes Y` facts. Untaught pairs resolve left to
+  right.
+- **Parentheses = subsections,** innermost first.
+- **A pair only counts if the exact fact is in the matrix** (or derivable by
+  `compute`'s decompose road for + * −). Partial pattern matches are
+  rejected — that rule took the junk-expression wrong-answer rate from
+  50/100 to 0/100.
+- **Interim state is tracked:** `evaluate()` returns the step list — a
+  worked derivation, including the failing step when it refuses.
+- Derived pair results are memorized as observations, so worked problems
+  become matrix entries.
+- Limitation: binary operators only ("not" is unary — not yet routed).
 
-## 7. Discovery — the challenge loop (the thing that learns things)
+Measured (rebuild/pemdas_eval_test.py): 200/200 three-operand additions,
+200/200 mixed precedence (zero left-to-right errors), 200/200 parenthesized,
+16/16 exhaustive and/or chains, 100/100 honest refusals on expressions with
+an unanswerable step.
 
-- `discover(X, y, name=)` — given examples of something he cannot do:
-  - **atom library**: variables; products to degree 3; sin/cos at scale
-    grids; exp decay AND growth; **powers** (±0.5, ±1, −2, 1.5 grids);
-    pairwise cos/sin/cosh of differences. Grids PROPOSE scale parameters
-    (unreachable by regression); hill-climbing refits SHARPEN them.
-  - **staged, null-gated admission**: candidates grow only around admitted
-    terms; a term must beat the max-over-candidates correlation on
-    permuted residuals; trial shortlist is structurally diverse (raw-var
-    candidates guaranteed trials); completers judged by **F-test**
-    (significance decides; genuine ties go to the simpler form);
-    `max_terms=16` brake (autocorrelated targets — see law 1).
-  - **half held out**: the rule must WORK, not merely fit.
-  - **verdicts**: `UNDERSTOOD` (R² ≥ .9 held-out) / `PARTIAL` / `CAPTURED`
-    (nearest-exemplar beats permuted null — incl. per-feature 1-D
-    fallback; caught, not said; no nets) / `NO RULE` (0/40 false
-    discoveries across batteries).
-  - **scope**: `form-true` (edges of observed range hold) vs `range-valid`
-    (usable inside; never silently swapped). Both are knowledge.
-  - **rivals**: classic look-alikes (linear/quadratic/cubic/sin/cos/
-    exp±) swapped in per single-feature term, F-tested; survivors stay
-    LIVE on the law with a **probe** — the input where the tied forms
-    diverge (usually outside the observed range).
-- `confirm(name, X, y)` — new evidence retires rivals (CONFIRMED) or
-  **OVERTURNS** and rewrites the law. (Pendulum demo: parabola chosen on
-  ±1.2, cosine tie declared, probe "x≈3", overturned on the wide view.)
-- `apply_law(name, X)` — a law is reusable computation. (Kepler, learned
-  from 8 planets, predicted Pluto: 248.0 vs 247.9 — beyond training range,
-  across a session boundary.)
-- **Cross-domain** (harness `rebuild/cross_domain.py`, validated): laws
-  matched by structure via log-track exponents (power laws are linear in
-  log-log); families become abstraction nodes (`instance_of` facts);
-  **analogy-primed transfer** solves data-starved domains (magnetism n=24:
-  cold 0.82 → primed 0.995). Log-track inside `discover()` is a queued
-  engine item.
-- Known limits (battery + red team, all documented): wrong-form risk at
-  n < ~400 (provisional rule); frequency reach ≈ 2× grid max; nested
-  nonlinearities land in CAPTURED by design; iid permutation invalid on
-  autocorrelated targets (cap + pending block-perm); rational functions
-  admit usable trig surrogates (range-valid).
+## 7. Files on disk
 
-## 8. Memory that outlives the process
+- **Save format v2 (2026-08-19), one file:** header + sections — core (the
+  object graph), netgraph (every node name stored once; edges as integer
+  arrays), history (the event log, compressed) — plus an append-only journal
+  tail (`Isaac.journal_append`) so autosaves append instead of rewriting;
+  a torn tail is detected by checksum and skipped. Measured on a real
+  49.4MB v1 mind: **2.9MB (17× smaller), save 1.6s, load 1.0s**, every data
+  structure verified equal after round trip. v1 pickle files load forever
+  (format detected by magic bytes). `fork()` deep-copies a mind for
+  what-if experiments.
+- **Findings ledger** (`data/findings.jsonl` in the UI): one JSON line per
+  discovery/confirmation/overturn. The snapshot preserves a mind; the
+  ledger preserves knowledge.
+- **Telemetry** (`data/telemetry.jsonl`): one line per event (timestamp,
+  event, ms, node count).
 
-- **Findings ledger** — `record_finding` fires automatically on every
-  discover (laws AND verdicts — negative knowledge included), confirm
-  (confirmations/overturns), and wave consolidation. One JSON line each:
-  verdict, equation, scope, rivals+probes, provenance, full model for laws.
-  `recall_findings(kind=, contains=)` searches; `load_ledger(path)`
-  rehydrates a previous session's laws as APPLICABLE. Set `ledger_path`
-  to persist (UI uses `data/findings.jsonl`).
-- **Whole-mind persistence** — `save(path)` / `Isaac.load(path)`: the
-  entire mind, one small file. `fork()`: deep-copy branch for
-  counterfactual experiments (teach the fork; the original is untouched).
-  **v2 body since 2026-08-19** (owner: "one file total"): one file,
-  sectioned inside — core (the mind), netgraph (every node name stored
-  once + columnar edges; the v1 pickle stored each name ~26×), history
-  (the activation log, compressed, kept whole) — measured 49.4MB → 2.9MB
-  (17×) on a real him, save 1.6s / load 1.0s, equivalence court EXACT
-  item-for-item (courts: `rebuild/onefile_probe.py`,
-  `rebuild/onefile_install_court.py`). `Isaac.journal_append(path, ops)`
-  appends delta records to the same file (autosave without a rewrite;
-  torn tail truncates cleanly on load; next full `save()` compacts).
-  `preds` is derived and never stored — rebuilt on load. **v1 pickles
-  load forever** (magic-sniffed): every protective .bak stays
-  resurrectable.
-- The distinction is deliberate: **the snapshot preserves a mind; the
-  ledger preserves knowledge.** Minds are cheap to fork and discard;
-  knowledge accumulates across all of them.
+## 8. The background processing system
 
-## 9. The UI (`ui/isaac_ui.py`)
+- **Job pipeline:** `ingest(content)` → job node → split into segments →
+  each segment processed in a disposable scratch mind (parallel worker
+  processes if `config:workers` > 1) → assessed against the net → merged →
+  committed by a single writer → scoped consolidation. All queue/config
+  state lives in the graph itself.
+- **Two lanes:** interactive replies take priority (8ms median message
+  latency measured while a 9.6k-token document processed in the
+  background); bulk work advances in bounded slices (`work_quantum`).
+- **Boot flows:** the processing steps themselves are stored in the graph
+  as flow nodes — inspectable, supersedable, with a pristine recovery copy
+  and a 4-stage fallback chain if flows are damaged. Only the entry point
+  is hard-coded.
+- **The workspace** (`ui/isaac_workspace.py`): three channels — /file
+  (inputs, read-only to him), /in + /say (conversation, append-only), and
+  /findings (his output). Auto-saves the standing mind every 2 minutes.
+  Nothing generates words on his behalf; silence is an honest answer.
 
-One stdlib file. Panels: **Mind** (save/load/new/fork; laws held),
-**Converse** (teach s-r-o; observe; ask — `cat is_a ?` or next-token),
-**Discover** (paste CSV → verdict card: equation, R², edge, scope, rivals
-with probes; apply any law to new rows), **Remember** (ledger search).
-Server binds 127.0.0.1:8674; minds stored in `data/minds/`.
+## 9. Current measured state (2026-08-19/20, this machine: 14900K/48GB/3090)
 
-## 10. Test map (what proves what)
+**Fresh-mind baseline** (`rebuild/worstcase_baseline.py` — invented words,
+so nothing is recall from anywhere):
+language generate 3/3, completion 3/3, unknown-word refusal ✓; math 6/6
+with 2/2 honest refusals beyond the tables; discovery 2/2 planted laws
+exact + noise correctly refused; memory 3/3 through save/load death.
 
-- Engine self-test (12 areas): language, math, logic, reasoning, decompose,
-  persistence, waves, tracking, discovery, rivalry, spatial, boot.
-- Harness (`rebuild/`): six rebuild proofs (doors, composition, enumerator,
-  waves, interference, entity-status); batteries with per-run CSVs
-  (`wave_battery`, `discovery_battery`); adversarial `redteam_discovery`;
-  real-data (`covtype_*`, `higgs_real_test`, `gauntlet` — 10 datasets, one
-  pipeline); `cross_domain`; `condensation_scaling`; `clock_world`;
-  `registration_perception`; `ideals_differentia`; `digits_structural`.
-- Reports: `rebuild/RESULTS.md`, `WAVE_TEST_REPORT.md`,
-  `WRITEUP_2026-07-01_FOR_REVIEW.md` (§7 = verify-everything commands).
+**Full-coverage scale test** (`rebuild/scale_eval.py`): 1,198 generated
+facts (tables 0-19, comparisons, logic), one pass — **100.0% on all 1,198**;
+honesty: 200/200 out-of-range questions refused, 0 wrong; multi-step:
+**100/100** three-operand problems (13/100 before the reducer, with 87
+wrong answers).
 
-## 11. Current honest scoreboard (2026-07-02)
+**Real exams** (`rebuild/cloth_run.py` — CMU CLOTH, real middle-school
+cloze exams, 4 options, chance = 25%): 120 passages, 1,108 questions,
+taught as plain unmodified passages, one pass each:
 
-Competitive: covtype 94.4% (record ~97.5); exact law recovery incl.
-off-grid damped oscillation; cross-domain transfer. Commodity-or-below:
-MNIST 95.2 / Fashion 76.5 / CIFAR 32.6 / Omniglot 1-shot 51.6 / FSDD 92
-mixed–54 transfer. Differentiated (the product): verdicts + scope +
-rivals + probes + precedent-dossier explanations + cross-session
-inheritance — honesty machinery wrapped around discovery, on a CPU,
-readable end to end.
+| batch | baseline (control) | after class | batch-1 retention |
+|---|---|---|---|
+| 1 | 30% | **92%** | 92% |
+| 2 | 35% | **91%** | 91% |
+| 3 | 31% | 80% | 92% |
+| 4 | 31% | 86% | 91% |
+| 5 | 26% | 88% | 89% |
+| 6 | 23% | 88% | 90% |
 
-## 12. What does NOT exist yet (so nobody assumes it)
+**Whole-course final exam: 944/1,108 = 85%** — every question from all six
+batches re-tested after the full course, so this includes retention across
+the entire run (1,148s total, 7,346 nodes, 4,518 types).
 
-No abstention in classify_features; no compound doors in-engine; uptake
-composition harness-only; no FCA lattice (overlap merging); no
-shrug→discover reflex; no block-permutation null; no symbolic/token
-challenges in discover(); no CAPTURED→law graduation loop; no
-learned-invariant perception (phase 4); no curiosity — challenges arrive
-from outside, and the probe queue is proposals only. The clock-reading
-harness readout is broken (22.9% — harness bug, engine unimplicated).
+July comparison: plain teaching scored 40% then (the compile bug discarded
+sentence content); reaching 89% required reformatting all material into
+fragments at 8× the data volume. Plain teaching now scores 85-92%.
 
-## 13. The boot line (2026-07-22) — shapes run the mind, code only walks
+**Speeds:** 49,000 facts/sec ingest; ~5,000-9,000 questions/sec at small
+scale; interactive replies 40ms at 874 nodes / 281ms at 5,342 nodes.
+**The measured scale problem:** per-batch processing time in the exam run
+grew 5s → 26 → 68 → 127 → 199 → 299s (superlinear consolidation), and the
+dense matrix reached 2,554 × 82,169 (~210M cells) at just 120 passages.
+Sparse matrix storage + consolidation algorithm work are the named fixes.
 
-The hard-drive principle: the only hard-coded thing is the entry point.
-Full design: `BOOT_LINE_DESIGN.md`.
+## 10. Known bugs and missing features (honest list)
 
-- `beat()` — THE ENTRY POINT: reads `boot:entry` from the net, walks the
-  current boot flow once (re-read every beat — supersession takes effect
-  live). `boot(beats=)` repeats until idle. First call on a bare net runs
-  the one-time seed (`_seed_boot`): the default boot loop + pipeline are
-  authored as net shapes, meta-stamped as told-structure, supersedable.
-- THE RECOVERY SECTOR: the install also writes a pristine copy of the
-  original at `boot:recovery` (meta `sector`). Every flow carries a
-  `chapter` number (authorship order, a fact in the net). Resolution
-  chain at every beat: the `current` redirect if structurally sound
-  (`_flow_ok`: steps meta + flow-start + every step spec) → else the
-  LATEST sound boot chapter among boot-tagged doors → else a sound
-  UNCONNECTED chapter (boot lineage by name or `branched_from` chain)
-  found and reconnected → else `_recover_boot()` rebuilds the original
-  from the sector (broken steps superseded onto the record, never
-  erased) → else factory reseed. Every recovery records a
-  `boot-recovery` finding.
-- Parallel workers: `config:workers` (seeded 1) — when > 1,
-  `crystallize_job` runs segments in separate PROCESSES
-  (`_crystallize_piece` is stateless, never touches the mind; the main
-  process stays the single consumer, race-free by construction).
-- Flows as net content: `define_flow(name, steps)` / `branch_flow(src,
-  new, replace_step=)` — specs in `flow:`/`step:` node meta; `walk_flow`
-  runs ops (`getattr` on the mind), takes the first firing door, receipts
-  EVERY door taken or bypassed; unknown op / missing spec → `refused`
-  (an outcome, not an exception); `hop_cap` stops runaway walks. Every
-  walk records a `flow-walk` finding.
-- The spine: `ingest(content)` → `job:` node on `queue:inbox` (state
-  open/working/done/refused — refusals keep their why). Default pipeline:
-  `segment_job` (pieces ≤ `config:segment-size` tokens, whole sequences)
-  → `crystallize_job` (per-segment disposable scratch mind, crystal
-  receipt on the `seg:` node) → `assess_job` (known/new/kin vs the net,
-  mechanical) → `merge_job` (recrystallize in `config:merge-group`
-  batches) → `commit_job` (THE SINGLE WRITER — same observe path as
-  ever) → `sleep_pass` (scoped consolidation).
-- Delta compile: `_compile` now parses only sequences newer than
-  `_counts_up_to` (counts accumulate in `_pair_counts`); the matrix is
-  machine-identical to a full reparse — proven in-battery.
-- **EVERY PREFIX IS A LESSON (2026-08-19)**: `_compile` compiles every
-  position of a sequence as a delta (same frame+window treatment the
-  final position always had). The old final-only road meant a
-  punctuated sentence taught nothing but "everything leads to ." —
-  the diagnosis campaign's mechanical wound, reproduced and CURED at
-  day zero in `rebuild/worstcase_baseline.py` (a fact taught ONCE is
-  now completable; 10 meetings failed before). `_pair_counts_rule=2`
-  auto-rebuilds any mind's stale final-only count cache. Companion:
-  **THE STRANGER GUARD** in `lookup()` — a context token never
-  observed anywhere gets a shrug, not the window frames' population
-  answer (unknown-word honesty held after the compile cure).
-- THE LOCAL SLEEP + ENTRY INTERPRETER (2026-07-22, owner's design):
-  scoped `_crystallize` compares CRYSTALS TO CRYSTALS, never node to
-  node. Each dirty entry is scored against the standing type
-  signatures and sorted into the pile it resembles (or the new pile).
-  Full crystal matches ABSORB in one subset test; boundary cases
-  ("possibly this type plus some factor") close their circle against
-  the pile's own members, never the world; misfits crystallize among
-  themselves in chunks of `config:crystal-pile` (64). Results
-  RECONCILE with the standing registry — absorb matches, supersede
-  changed names on the record, add the new, leave the untouched net
-  alone (this also fixed the old scoped mode's lossy registry
-  rebuild). The chance-null runs on a capped region (80 nodes,
-  deterministic slice). Accepted, documented fidelity trade:
-  cross-pile pairs surface at the crystal-vs-crystal altitude or a
-  later sleep, not this one. `Net` gained a predecessor index
-  (`preds`, lazy rebuild for old pickles); closure runs by holder-list
-  intersection. Full `crystallize()` keeps from-scratch semantics.
-- SPEED DOCTRINE (owner, 2026-07-22): "no more than a few hundred
-  nodes or crystals per entry." `config:entry-budget` (300) caps every
-  per-entry scan; hub doors are ejected at every altitude (candidate
-  gen, negatives, rules, the null); an absorb-only sleep skips the
-  chance-null entirely (no new structure — the standing verdicts
-  stand); violations contrast only touched nodes. `_recall` reads type
-  members from the predecessor index (was a world-scan per token — the
-  single biggest fix: lookup 24s → <10ms on a 2.5k-node net).
-- FIRST PAST THE POST (owner, 2026-07-22): the interpreter does not
-  rank the world — candidates arrive rarest-shared-door-first from
-  the signature index and the FIRST one passing the functional gate
-  (shared idf-weight ≥ half the crystal's signature weight) is KEPT;
-  a gate-failing candidate sharing ≥ min_shared doors piles as a
-  boundary case; nothing passing = the new pile, an honest refusal.
-  Viability proven in `rebuild/shape_fptp_probe.py` before build:
-  ~12 gate checks per entry at 100k crystals (cost FALLS with
-  scale), kept-quality median 1.00 vs exhaustive best, pure junk
-  refused 100/100. Element modification on later conflict is the
-  standing repair (boundary circles + supersession + later sleeps).
-  Measured in-engine (battery green throughout): per-message
-  interactive 19.1s → 40ms at an 874-node net; 101ms at 2,583;
-  281ms at 5,342 (was 1.2s pre-FPTP). Batch sleep for a 24k-token
-  single gulp: 55s (one-time; segment-wise sleeping is the named
-  next amortization). Earlier shape-tower prototypes (v1/v2,
-  `rebuild/shape_viability_probe.py`) FAILED their courts — kept for
-  the record; the sig-figs zoom idea remains open research on top of
-  the FPTP base.
-- THE TWO LANES (owner, 2026-07-22: "the interaction version must be
-  fast; background processing for larger full-depth work"). FAST
-  LANE: `q_next` pulls `config:priority-kinds` jobs (default `/in`)
-  ahead of bulk — a reply never waits behind a book. SLOW LANE:
-  `work_quantum(max_segments=)` advances the oldest unfinished job
-  one bounded stage-slice (crystallize/commit ≤ N segments, one
-  merge group, scoped sleep per commit slice — segment-wise sleeping
-  achieved); `crystallize_job`/`merge_job`/`commit_job` take
-  `limit=`; a job is done only when every segment came through.
-  Measured: 8ms median message latency WHILE a 9.6k-token book reads
-  full-depth in the background (~90s).
-- THE STANDING MIND + TELEMETRY (workspace): he is instantiated and
-  LIVE — `ui/isaac_workspace.py` resurrects `data/minds/isaac.isaac`
-  on start, autosaves every 2 min, saves after every finished
-  background read and at exit; a server restart is a nap, not a
-  death (verified: killed mid-life, restarted, same nodes, same
-  answers). Every event appends to `data/telemetry.jsonl` (ts,
-  event, ms, nodes, types, findings).
-- THE IDEA ORGAN + ROLLING CONVERSATION MEMORY (owner design,
-  2026-07-22): a whole lived `config:idea-mint` (3) times becomes ONE
-  thing — an `idea:` node whose part-doors point at what it is made
-  of (the zip; order rides as meta like a law's equation; parts kept;
-  `unzip_idea` rebuilds exactly, recursively). `recognize_ideas`
-  collapses known wholes to unit tokens (new material stays raw —
-  compression is earned); `dialog_turn` observes each turn at unit
-  altitude (idea→idea transitions accrue in the same matrix) and
-  keeps the rolling window in Scratch, sized in UNITS
-  (`config:dialog-window`, 24) — the more he holds as wholes, the
-  more conversation fits. SELF-HEARING (workspace): his /say goes
-  back in as a `/say` job — pre-crystallized, assessed, reconciled by
-  the background lane ("should match what he holds, but sometimes it
-  changes things" — the realization while speaking); his turns enter
-  the dialog stream marked as his voice. There is deliberately NO
-  correction command: "no" is a word he must come to understand from
-  lived experience. Information is never installed — only capability,
-  as bootup machinery for him to learn with.
-- THE ACTION LIST + A-TO-X (owner, 2026-07-23: "we dont want a to b.
-  we want a to x with him figuring out how to get there"). Seeded as
-  capability only: `act:` nodes with slot signatures (op, args,
-  takes, makes — D5 doctrine); ROUTES are never seeded. `seek(goal,
-  state)`: standing plan for the goal tried first; else backward
-  chaining over his action list (bounded by `config:plan-depth`,
-  first workable chain wins), the found route AUTHORED AS A FLOW
-  (`flow:plan-N` — his, on the record, supersedable), executed, and
-  courted (did X obtain?); success stands as his answer to that goal
-  (searched once, owned after — and reusable); unreachable = honest
-  refusal with the reason named; dead-end acts are bypassed by
-  selection. In-battery he re-derives his own six-stage ingestion
-  pipeline from signatures alone, with no route shown.
-- Courts in `test_boot` (22 checks): exactness (pipeline vs direct: same
-  lookup, `np.array_equal` W), delta-vs-one-shot compile, three nulls
-  that must refuse (scrambled flow, payload-less job, circular flow),
-  the supersession court (repoint `boot:entry` mid-run, next beat obeys,
-  old flow stays whole), and four recovery checks (dangling redirect →
-  latest sound chapter; connected chapters broken → unconnected chapter
-  found and reconnected; everything broken → rebuilt from the sector
-  with wreckage superseded; the sector pristine after its own use).
-- v1 honest limits: single-process, workers inline; W dense at
-  materialization (sparse is the named next step); the crystallizer's
-  scoped-vs-full trade-offs unchanged (the ~800-node knee is its own
-  future build).
+1. **No general working space.** The design Isaac was meant to have — take
+   incoming information, organize it into a structured working table
+   (formal-concept-analysis style), then resolve row by row toward a final
+   answer — does not exist in this engine. Fragments exist: `observe_matrix`
+   (table intake), `solve_steps` (row-by-row resolution, but caller supplies
+   the rows), `Scratch` (registers), and the expression reducer (a working
+   special case for math/logic only). Top architecture gap. The June-era
+   engine (`Documents/isaac_project`) may hold the original design.
+2. **No general inference/chaining** outside expressions: he cannot combine
+   two known facts to answer a novel question (knows three=3 and 3+4=7;
+   cannot answer "three plus four" unless taught in words — measured 0/12).
+   The planned fix is bidirectional search through the graph (design doc:
+   dc/docs/DESIGN_SEED_STRUCTURES_2026-08-19.md).
+3. **Partial-match wrong answers** remain possible on the general
+   single-answer path (a fragment of the question can match a common
+   pattern). Fixed inside the reducer via the exact-pair rule; the general
+   confidence rule (score tied to how much of the question matched) is not
+   built. `check()` and `predict_next()` also lack the never-seen-word
+   guard.
+4. **The generator can mix up similar items' attributes** (said "the grinth
+   eats moss" — grinths eat seeds; florbs eat moss). It follows
+   category-level statistics, not per-item facts.
+5. **Scale:** superlinear consolidation time and dense-matrix memory growth
+   (numbers in §9). More hardware does not fix it (measured on both
+   machines); it's algorithmic work.
+6. **Feedback doesn't generalize** past the exact question graded, and the
+   boost/penalty constants (×2.5 / ×0.1) are first-pass hard-codes.
+7. **Language dose economics unmeasured post-fix** — how much repetition and
+   what delivery format real prose needs is being re-established (July
+   numbers were measured through the compile bug).
+8. Older known limits still true: `classify_features` never abstains;
+   type groups cannot overlap; no curiosity loop (challenges arrive from
+   outside).
+
+## 11. Test suites (all under `rebuild/`, run with `python <file>`)
+
+| file | what it proves |
+|---|---|
+| `code/isaac.py` itself | 15-area engine self-test (regression gate for every change) |
+| `worstcase_baseline.py` | fresh-mind floor: what day zero can do; rerun after every engine change |
+| `scale_eval.py` | full-coverage recall, honesty, and multi-step at scale + throughput numbers |
+| `pemdas_eval_test.py` | expression reducer: precedence, parentheses, logic chains, refusals |
+| `selection_feedback_test.py` | ranked selection API + feedback channel (17 checks) |
+| `cloth_run.py [n]` | real exams: baseline control → teach → exam → retention |
+| `onefile_probe.py` / `onefile_install_court.py` | v2 file format: round-trip equality, crash recovery, journal |
+| `discovery_battery.py`, `redteam_discovery.py`, `wave_battery.py`, `gauntlet.py` | law-discovery correctness, adversarial cases, time-series, 10 real datasets |
+
+## 12. Version history (short)
+
+- **June 2026** — original engine (`Documents/isaac_project`): equation
+  discovery, closure theory, the working-space design era.
+- **July 2026** — canonical rebuild (this repo): boot flows, job pipeline,
+  two lanes, idea nodes, workspace; the study era (real-exam attempts);
+  measured wounds: retrieval strong / selection weak.
+- **2026-08-19 — v0.1.2 alpha 1:** one-file save format v2 (17× smaller,
+  journal appends, v1 loads forever); compile bug fixed (every position
+  trains — invalidated all prior language scores in his favor);
+  never-seen-word guard.
+- **2026-08-20:** ranked selection API (order only) + good/marginal/bad
+  feedback channel; expression reducer with taught precedence; multi-step
+  routing; exact-pair honesty rule; CLOTH re-run at 88-92% vs 25% chance.

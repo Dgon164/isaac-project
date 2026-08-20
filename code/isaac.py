@@ -5127,7 +5127,19 @@ class Isaac:
         every-prefix compile's window frames would otherwise fill
         "a wug is an ___" with the population answer. A question
         about a stranger gets the shrug it deserves (courted in the
-        worst-case baseline's unknown-word honesty check)."""
+        worst-case baseline's unknown-word honesty check).
+        MULTI-STEP ROUTING (2026-08-20): an expression with two or
+        more operators (or parentheses) goes to the pair-at-a-time
+        reducer — measured before this: 87/100 multi-operand
+        questions got a WRONG answer from partial pattern matches."""
+        if context and context[-1] == "=":
+            expr = list(context[:-1])
+            ops = {"+", "*", "-", "/", ">", "<", "and", "or",
+                   "xor", "implies"}
+            n_ops = sum(1 for t in expr if t in ops)
+            if "(" in expr or n_ops >= 2:
+                ans, conf, _steps = self.evaluate(context)
+                return ans, conf
         for tok in context:
             if tok not in self.net.doors and tok not in self.net.preds:
                 return None, 0.0
@@ -5181,20 +5193,23 @@ class Isaac:
         out.sort(key=lambda p: -p[1])
         return out
 
-    def lookup_topk(self, context, k=5):
-        """The selection: ranked candidates, best to least, with
-        scores. Same honesty guard as lookup(): a question containing
-        a never-seen word returns an empty list."""
+    def lookup_topk(self, context, k=5, scores=False):
+        """The selection: ranked candidates, best to least. ORDER
+        ONLY by default (owner 2026-08-20: "he should just do order,
+        not a specific rating") — pass scores=True for the raw
+        numbers when a harness needs them. Same honesty guard as
+        lookup(): a question containing a never-seen word returns an
+        empty list."""
         for tok in context:
             if tok not in self.net.doors and tok not in self.net.preds:
                 return []
         ranked = self._apply_feedback(
-            context, self._score_candidates(context, k))
-        return ranked[:k]
+            context, self._score_candidates(context, k))[:k]
+        return ranked if scores else [c for c, _ in ranked]
 
-    def complete_topk(self, context, k=3, max_len=8):
+    def complete_topk(self, context, k=3, max_len=8, scores=False):
         """Multi-word: beam search over the same score table.
-        Returns ranked (sequence, score) pairs; a sequence ends at
+        Ranked sequences, order only by default; a sequence ends at
         '.' or max_len tokens."""
         for tok in context:
             if tok not in self.net.doors and tok not in self.net.preds:
@@ -5220,15 +5235,16 @@ class Isaac:
                 break
         done.extend(beams)
         done.sort(key=lambda p: -p[1])
-        return [(seq[len(context):], round(sc, 4))
-                for seq, sc in done[:k]]
+        out = [(seq[len(context):], round(sc, 4))
+               for seq, sc in done[:k]]
+        return out if scores else [seq for seq, _ in out]
 
-    def cloze_topk(self, left, right, k=5):
+    def cloze_topk(self, left, right, k=5, scores=False):
         """Fill-in-the-blank at any position — beginning, middle, or
-        end. Candidates are scored by the left context, then
-        re-ranked by a one-step lookahead: does the right context
-        actually follow this candidate? A blank at the very start
-        uses the sentence-starter statistics instead."""
+        end. Order only by default. Candidates are scored by the left
+        context, then re-ranked by a one-step lookahead: does the
+        right context actually follow this candidate? A blank at the
+        very start uses the sentence-starter statistics instead."""
         for tok in list(left) + list(right):
             if tok not in self.net.doors and tok not in self.net.preds:
                 return []
@@ -5244,8 +5260,8 @@ class Isaac:
             top = base[0][1] if base else 1.0
             base = [(c, s / top) for c, s in base[:max(k * 3, k)]]
         if not right:
-            ranked = self._apply_feedback(list(left), base)
-            return ranked[:k]
+            ranked = self._apply_feedback(list(left), base)[:k]
+            return ranked if scores else [c for c, _ in ranked]
         out = []
         for cand, s in base:
             ahead = self._score_candidates(list(left) + [cand], 12)
@@ -5257,7 +5273,8 @@ class Isaac:
             out.append((cand, s * (0.05 + look)))
         out = self._apply_feedback(list(left), out)
         out.sort(key=lambda p: -p[1])
-        return out[:k]
+        out = out[:k]
+        return out if scores else [c for c, _ in out]
 
     def feedback(self, context, candidate, grade):
         """The grading channel: good / marginal / bad on a suggested
@@ -5300,6 +5317,92 @@ class Isaac:
         elif grade == "bad":
             self.lockouts.add((src, tgt))
         return {"logged": len(self.feedback_log), "grade": grade}
+
+    # ── EXPRESSION REDUCTION (owner design 2026-08-20) ──────────
+    # "lisp style interactions... organize the different functions
+    # and do interim state tracking as it processes. pemdas and all.
+    # basically teach it order of operations and how to do
+    # subsections. one pair at a time."
+    # The reducer is machinery (like transduce); every PAIR is
+    # answered by his learned table (lookup, then the decompose road
+    # for arithmetic). Order of operations is TAUGHT, not built in:
+    # teach("*", "precedes", "+") — the reducer consults the fact
+    # index. Parentheses are subsections, innermost first. If any
+    # pair is unanswerable the whole expression refuses honestly —
+    # no wrong answer from a partial pattern match.
+
+    def _op_rank(self, ops_present):
+        """Taught precedence: op X outranks Y if the fact
+        'X precedes Y' was taught. Rank = how many present ops it
+        beats. Untaught pairs tie → leftmost wins (left-to-right)."""
+        fi = getattr(self, "fact_index", {})
+        rank = {}
+        for op in ops_present:
+            beats = fi.get((op, "precedes"), [])
+            rank[op] = sum(1 for o in ops_present
+                           if o != op and o in beats)
+        return rank
+
+    def _reduce_flat(self, span, steps):
+        """Reduce operand-op-operand... to one value, one pair at a
+        time. Returns (value, min_confidence) or (None, 0.0)."""
+        min_conf = float("inf")
+        while len(span) > 1:
+            if len(span) < 3 or len(span) % 2 == 0:
+                return None, 0.0
+            ops = span[1::2]
+            rank = self._op_rank(set(ops))
+            best_i, best_r = None, -1
+            for i in range(1, len(span), 2):
+                r = rank.get(span[i], 0)
+                if r > best_r:
+                    best_i, best_r = i, r
+            a, op, b = span[best_i - 1], span[best_i], span[best_i + 1]
+            ans, conf = self.lookup([a, op, b, "="])
+            # a PAIR is a fact: it counts only if the exact 4-token
+            # question was taught (partial-window matches like
+            # "7 =" produced wrong answers for junk pairs such as
+            # "true and 7" — measured in the honesty exam)
+            if ans is not None and self._compiled and \
+                    (a, op, b, "=") not in self._compiled["fidx"]:
+                ans, conf = None, 0.0
+            if ans is None and op in ("+", "*", "-") \
+                    and a.lstrip("-").isdigit() and b.lstrip("-").isdigit():
+                got = self.compute(int(a), op, int(b), verbose=False)
+                if got and got[0] is not None:
+                    ans, conf = str(got[0]), float(CONFIDENCE_THRESHOLD)
+            if ans is None:
+                steps.append((a, op, b, None))
+                return None, 0.0
+            steps.append((a, op, b, ans))
+            min_conf = min(min_conf, conf)
+            span = span[:best_i - 1] + [ans] + span[best_i + 2:]
+        return span[0], (min_conf if min_conf != float("inf") else 0.0)
+
+    def evaluate(self, tokens):
+        """Evaluate a multi-step expression by pair reduction.
+        Returns (answer, confidence, steps) — steps is the worked
+        derivation [(a, op, b, result), ...], the interim state
+        record. A failed pair appears in steps with result None and
+        the whole expression returns (None, 0.0, steps)."""
+        work = [t for t in tokens if t != "="]
+        steps = []
+        while "(" in work:
+            close = None
+            for j, t in enumerate(work):
+                if t == "(":
+                    open_ = j
+                elif t == ")":
+                    close = j
+                    break
+            if close is None:
+                return None, 0.0, steps
+            val, conf = self._reduce_flat(work[open_ + 1:close], steps)
+            if val is None:
+                return None, 0.0, steps
+            work = work[:open_] + [val] + work[close + 1:]
+        val, conf = self._reduce_flat(work, steps)
+        return val, conf, steps
 
     # ── walking (net) ───────────────────────────────────────────
 
