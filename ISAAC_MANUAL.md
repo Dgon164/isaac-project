@@ -186,6 +186,18 @@ can enter further discoveries). Four laws govern every mechanism:
 - **Whole-mind persistence** — `save(path)` / `Isaac.load(path)`: the
   entire mind, one small file. `fork()`: deep-copy branch for
   counterfactual experiments (teach the fork; the original is untouched).
+  **v2 body since 2026-08-19** (owner: "one file total"): one file,
+  sectioned inside — core (the mind), netgraph (every node name stored
+  once + columnar edges; the v1 pickle stored each name ~26×), history
+  (the activation log, compressed, kept whole) — measured 49.4MB → 2.9MB
+  (17×) on a real him, save 1.6s / load 1.0s, equivalence court EXACT
+  item-for-item (courts: `rebuild/onefile_probe.py`,
+  `rebuild/onefile_install_court.py`). `Isaac.journal_append(path, ops)`
+  appends delta records to the same file (autosave without a rewrite;
+  torn tail truncates cleanly on load; next full `save()` compacts).
+  `preds` is derived and never stored — rebuilt on load. **v1 pickles
+  load forever** (magic-sniffed): every protective .bak stays
+  resurrectable.
 - The distinction is deliberate: **the snapshot preserves a mind; the
   ledger preserves knowledge.** Minds are cheap to fork and discard;
   knowledge accumulates across all of them.

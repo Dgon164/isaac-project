@@ -25,6 +25,10 @@ from collections import defaultdict
 import re
 import numpy as np
 
+# ISAAC v0.1.2 alpha 1 (owner-named, 2026-08-19) — the release that
+# ships THE ONE-FILE BODY (persistence format v2).
+__version__ = "0.1.2-alpha1"
+
 
 # ═════════════════════════════════════════════════════════════════
 # NET — doors, tags, metadata. The only data structure.
@@ -1742,31 +1746,228 @@ class Isaac:
 
     # ── whole-mind persistence ──────────────────────────────────
 
+    # THE ONE-FILE BODY, v2 (2026-08-19, owner: "one file total,
+    # smaller files as ram essentially for the workers"). One file,
+    # sectioned inside: core (the mind, big stores emptied so every
+    # cross-reference survives in one object graph), netgraph (every
+    # node name stored ONCE + columnar edges — the old road stored
+    # each name ~26x over), history (the activation log, compressed,
+    # kept whole per keep-everything), then an append-only JOURNAL
+    # TAIL: an autosave can append deltas instead of rewriting him.
+    # preds is derived and never stored (rebuilt on load). Courted in
+    # rebuild/onefile_probe.py before install: round trip item-for-
+    # item EXACT on a real 49.4MB him -> 2.9MB (17x), torn tail
+    # truncates cleanly. v1 pickles load forever (magic sniff).
+
+    _V2_MAGIC = b"ISAAC2\x00\x01"
+
+    @staticmethod
+    def _v2_pack(obj, preset=3):
+        import lzma
+        import pickle
+        return lzma.compress(
+            pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL),
+            preset=preset)
+
+    @staticmethod
+    def _v2_unpack(blob):
+        import lzma
+        import pickle
+        return pickle.loads(lzma.decompress(blob))
+
     def save(self, path):
-        """Snapshot the WHOLE mind — net, doors, types, facts, laws,
-        compiled matrix, activation log, world state, findings — one file.
+        """Snapshot the WHOLE mind — one file (the v2 sectioned body).
         (The ledger persists his science; this persists HIM.)
         WRITE-THEN-SWAP (2026-07-26, after the 602-second save and the
         silent day of death): the body is written to a side file first
         and the name swap is a single instant step — a death mid-write
         can never tear his real file. Luck is retired."""
+        import hashlib
+        import json
         import os
-        import pickle
+        import struct
+        net = self.net
+        log = getattr(self, "activation_log", [])
+        aside = dict(doors=net.doors,
+                     door_tags=net.door_tags,
+                     door_counts=getattr(net, "door_counts",
+                                         defaultdict(int)),
+                     meta=net.meta,
+                     preds=getattr(net, "preds", defaultdict(set)))
+        try:
+            net.doors = defaultdict(set)
+            net.door_tags = defaultdict(set)
+            net.door_counts = defaultdict(int)
+            net.meta = defaultdict(dict)
+            net.preds = defaultdict(set)
+            self.activation_log = type(log)()
+            core = self._v2_pack(self)
+        finally:
+            net.doors, net.door_tags = aside["doors"], aside["door_tags"]
+            net.door_counts, net.meta = (aside["door_counts"],
+                                         aside["meta"])
+            net.preds = aside["preds"]
+            self.activation_log = log
+
+        names = set(aside["doors"].keys()) | set(aside["meta"].keys())
+        for tgts in aside["doors"].values():
+            names |= tgts
+        for (s, t) in aside["door_tags"]:
+            names.add(s)
+            names.add(t)
+        for (s, t) in aside["door_counts"]:
+            names.add(s)
+            names.add(t)
+        vocab = sorted(names)
+        nid = {n: i for i, n in enumerate(vocab)}
+        tagsets, tagset_id = [], {}
+        srcs, tgts_a, counts, tsids, seen = [], [], [], [], set()
+        for s, ts in aside["doors"].items():
+            for t in ts:
+                srcs.append(nid[s])
+                tgts_a.append(nid[t])
+                counts.append(aside["door_counts"].get((s, t), 0))
+                fs = frozenset(aside["door_tags"].get((s, t), set()))
+                if fs not in tagset_id:
+                    tagset_id[fs] = len(tagsets)
+                    tagsets.append(sorted(fs))
+                tsids.append(tagset_id[fs])
+                seen.add((s, t))
+        netgraph = self._v2_pack(dict(
+            vocab=vocab, srcs=srcs, tgts=tgts_a, counts=counts,
+            tsids=tsids, tagsets=tagsets,
+            stray_tags=[(nid[s], nid[t], sorted(v))
+                        for (s, t), v in aside["door_tags"].items()
+                        if (s, t) not in seen],
+            stray_counts=[(nid[s], nid[t], c)
+                          for (s, t), c in aside["door_counts"].items()
+                          if (s, t) not in seen],
+            door_keys=[nid[s] for s in aside["doors"]],
+            meta={nid[k]: v for k, v in aside["meta"].items()}))
+        history = self._v2_pack(log)
+
+        sections, off, table = [("core", core), ("netgraph", netgraph),
+                                ("history", history)], 0, []
+        for name, blob in sections:
+            table.append(dict(name=name, off=off, len=len(blob),
+                              sha=hashlib.sha256(blob).hexdigest()))
+            off += len(blob)
+        head = json.dumps(dict(version=2, sections=table)).encode()
         tmp = str(path) + ".writing"
         with open(tmp, "wb") as f:
-            pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
+            f.write(self._V2_MAGIC)
+            f.write(struct.pack("<I", len(head)))
+            f.write(head)
+            for _, blob in sections:
+                f.write(blob)
         os.replace(tmp, path)
         return path
 
     @staticmethod
     def load(path):
-        """Resurrect a saved mind, exactly as it was."""
+        """Resurrect a saved mind, exactly as it was. Reads both
+        bodies: v2 (magic-sniffed, journal tail replayed) and the
+        v1 whole-pickle — every protective .bak loads forever."""
         import pickle
         with open(path, "rb") as f:
-            mind = pickle.load(f)
+            data = f.read()
+        if data.startswith(Isaac._V2_MAGIC):
+            return Isaac._load_v2(data)
+        mind = pickle.loads(data)
         if not isinstance(mind, Isaac):
             raise ValueError("not an Isaac snapshot")
         return mind
+
+    @staticmethod
+    def _load_v2(data):
+        import hashlib
+        import json
+        import struct
+        p = len(Isaac._V2_MAGIC)
+        (hlen,) = struct.unpack_from("<I", data, p)
+        p += 4
+        head = json.loads(data[p:p + hlen])
+        p += hlen
+        sec = {}
+        for s in head["sections"]:
+            blob = data[p + s["off"]: p + s["off"] + s["len"]]
+            if hashlib.sha256(blob).hexdigest() != s["sha"]:
+                raise ValueError(f"section {s['name']} corrupt")
+            sec[s["name"]] = blob
+        body_end = p + sum(s["len"] for s in head["sections"])
+
+        mind = Isaac._v2_unpack(sec["core"])
+        g = Isaac._v2_unpack(sec["netgraph"])
+        vocab = g["vocab"]
+        net = mind.net
+        net.doors = defaultdict(set)
+        net.door_tags = defaultdict(set)
+        net.door_counts = defaultdict(int)
+        net.meta = defaultdict(dict)
+        for k in g["door_keys"]:
+            net.doors[vocab[k]]          # empty-entry keys restored
+        tagsets = [set(ts) for ts in g["tagsets"]]
+        for s_i, t_i, c, ts_i in zip(g["srcs"], g["tgts"],
+                                     g["counts"], g["tsids"]):
+            s, t = vocab[s_i], vocab[t_i]
+            net.doors[s].add(t)
+            if tagsets[ts_i]:
+                net.door_tags[(s, t)] = set(tagsets[ts_i])
+            if c:
+                net.door_counts[(s, t)] = c
+        for s_i, t_i, tags in g["stray_tags"]:
+            net.door_tags[(vocab[s_i], vocab[t_i])] = set(tags)
+        for s_i, t_i, c in g["stray_counts"]:
+            net.door_counts[(vocab[s_i], vocab[t_i])] = c
+        for k_i, v in g["meta"].items():
+            net.meta[vocab[k_i]] = v
+        net.preds = defaultdict(set)     # derived: rebuilt, not stored
+        for s, ts in net.doors.items():
+            for t in ts:
+                net.preds[t].add(s)
+        mind.activation_log = Isaac._v2_unpack(sec["history"])
+        Isaac._journal_replay(net, data, body_end)
+        return mind
+
+    @staticmethod
+    def journal_append(path, ops):
+        """Autosave without rewriting him: append delta records to
+        the one file. op = ("add_door", src, tgt, tag) or
+        ("set_meta", node, key, value). A torn record (death mid-
+        append) is detected by checksum and cleanly ignored on load;
+        the next full save() compacts the tail away."""
+        import hashlib
+        import pickle
+        import struct
+        payload = pickle.dumps(ops, protocol=pickle.HIGHEST_PROTOCOL)
+        rec = (struct.pack("<I", len(payload))
+               + hashlib.sha256(payload).digest()[:8] + payload)
+        with open(path, "ab") as f:
+            f.write(rec)
+
+    @staticmethod
+    def _journal_replay(net, data, pos):
+        import hashlib
+        import pickle
+        import struct
+        applied = 0
+        while pos < len(data):
+            if pos + 12 > len(data):
+                break                    # torn: ignore, honestly
+            (plen,) = struct.unpack_from("<I", data, pos)
+            sha = data[pos + 4: pos + 12]
+            payload = data[pos + 12: pos + 12 + plen]
+            if (len(payload) < plen
+                    or hashlib.sha256(payload).digest()[:8] != sha):
+                break
+            for op in pickle.loads(payload):
+                if op[0] == "add_door":
+                    net.add_door(op[1], op[2], tag=op[3])
+                elif op[0] == "set_meta":
+                    net.set_meta(op[1], op[2], op[3])
+            applied += 1
+            pos += 12 + plen
+        return applied
 
     def fork(self):
         """A living branch: deep-copy this mind for counterfactual work —
