@@ -2,11 +2,22 @@
 # Order of operations is TAUGHT (teach("*","precedes","+")), not
 # hard-coded. Every multi-step answer must reduce through pairs he
 # actually knows, or refuse. Hundreds of generated problems per exam.
+import os
 import random
 import sys
 
-sys.path.insert(0, r"C:\Users\jtwee\Documents\isaac-project\code")
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                '..', 'code'))
 from isaac import Isaac, tokenize                       # noqa: E402
+
+# Failure collector: each named check that misses its expected value
+# lands here; the gate at the bottom turns the list into exit code 1.
+FAILS = []
+
+
+def check(name, ok):
+    if not ok:
+        FAILS.append(name)
 
 random.seed(20260820)
 m = Isaac()
@@ -30,6 +41,7 @@ ans, conf, steps = m.evaluate(tokenize("2 + 3 * 4 ="))
 for a_, op, b_, r in steps:
     print(f"    {a_} {op} {b_} -> {r}")
 print(f"    answer: {ans} (want 14, NOT 20 — taught precedence)")
+check("worked-example-14", str(ans) == "14")
 
 print("\nEXAM A — 200 three-operand additions (was 13/100 right, "
       "87/100 WRONG before the reducer)")
@@ -44,6 +56,8 @@ for _ in range(200):
     else:
         wrong += 1
 print(f"  right {right}/200   refused {refused}/200   WRONG {wrong}/200")
+check("examA-right-200", right == 200)
+check("examA-wrong-0", wrong == 0)
 
 print("\nEXAM B — 200 mixed a + b * c (precedence must beat "
       "left-to-right)")
@@ -63,6 +77,9 @@ for _ in range(200):
         wrong += 1
 print(f"  right {right}/200   left-to-right-error {wrong_ltr}/200   "
       f"other-wrong {wrong}/200   refused {refused}/200")
+check("examB-right-200", right == 200)
+check("examB-ltr-0", wrong_ltr == 0)
+check("examB-otherwrong-0", wrong == 0)
 
 print("\nEXAM C — 200 parenthesized ( a + b ) * c (subsections "
       "innermost first)")
@@ -78,6 +95,8 @@ for _ in range(200):
     else:
         wrong += 1
 print(f"  right {right}/200   wrong {wrong}/200   refused {refused}/200")
+check("examC-right-200", right == 200)
+check("examC-wrong-0", wrong == 0)
 
 print("\nEXAM D — logic chains, exhaustive: x and y or z / "
       "x or y and z (and-precedes-or must discriminate)")
@@ -95,6 +114,7 @@ for x in ["true", "false"]:
             wrong += ans not in (None,
                                  "true" if xv or (yv and zv) else "false")
 print(f"  right {right}/16   wrong {wrong}/16")
+check("examD-right-16", right == 16)
 
 print("\nEXAM E — honesty: 100 expressions with an unanswerable step")
 refused = wrong = 0
@@ -109,9 +129,19 @@ for i in range(100):
     else:
         wrong += 1
 print(f"  refused (honest) {refused}/100   answered-anyway {wrong}/100")
+check("examE-refused-100", refused == 100)
+check("examE-answered-0", wrong == 0)
 
 print("\nfailed-step trace (the refusal shows its work):")
 ans, conf, steps = m.evaluate(tokenize("8 / 2 + 1 ="))
 for a_, op, b_, r in steps:
     print(f"    {a_} {op} {b_} -> {r}")
 print(f"    answer: {ans} (refused at the unknown pair)")
+check("trace-answer-none", ans is None)
+
+# GATE: one summary line, then a real exit code so a scheduler can see red.
+if FAILS:
+    print(f"\nGATE: FAIL ({', '.join(FAILS)})")
+else:
+    print("\nGATE: PASS")
+sys.exit(1 if FAILS else 0)

@@ -18,12 +18,27 @@
 # taught), bridged score (expect 100), verification rate (expect
 # 100%), and the reverse query his matrix cannot do at all
 # ("three plus WHAT is ten").
+import os
 import sys
 
-import clingo
+try:
+    import clingo
+except ImportError:
+    print("SKIP: clingo module not installed (pip install clingo)")
+    sys.exit(77)
 
-sys.path.insert(0, r"C:\Users\jtwee\Documents\isaac-project\code")
+sys.path.insert(0, os.path.join(os.path.dirname(
+    os.path.abspath(__file__)), "..", "code"))
 from isaac import Isaac, tokenize                       # noqa: E402
+
+# Failed check names collect here; the gate at the bottom exits
+# nonzero if any check failed.
+FAILS = []
+
+
+def check(name, ok):
+    if not ok:
+        FAILS.append(name)
 
 W = ["zero", "one", "two", "three", "four", "five", "six", "seven",
      "eight", "nine", "ten", "eleven", "twelve", "thirteen",
@@ -45,6 +60,7 @@ for a in range(10):
         ans, _ = m.lookup([W[a], "plus", W[b], "="])
         native += ans == W[a + b]
 print(f"NATIVE: {native}/100 word problems (never taught in words)")
+check("native-0", native == 0)
 
 # 3. HIS EXPERIENCE COMPILES OUT — mechanical translation of his own
 #    observed sequences; nothing is authored that he did not learn
@@ -103,6 +119,8 @@ for a in range(10):
             verified += ok
 print(f"BRIDGED: {bridged}/100 correct   "
       f"VERIFIED against his own store: {verified}/{bridged}")
+check("bridged-100", bridged == 100)
+check("verified-100", verified == 100)
 
 ok, legs = verify("three", "four", derived[("three", "four")])
 print("\nreceipt for 'three plus four':")
@@ -119,6 +137,7 @@ print("\nNEGATIVE CONTROL 1 — planted wrong derivation:")
 ok_bad, legs_bad = verify("three", "four", "eight")   # wrong on purpose
 print(f"    word_sum(three,four,EIGHT) -> verification "
       f"{'REJECTED (correct)' if not ok_bad else 'ACCEPTED (BUG!)'}")
+check("neg-control-1-rejected", not ok_bad)
 for leg, good in legs_bad:
     print(f"      {'v' if good else 'x'} {leg}")
 
@@ -142,6 +161,7 @@ def verify_in(mm, a_w, b_w, c_w):
 ok_missing = verify_in(m2, "three", "four", "seven")
 print(f"    same derivation vs a store lacking 'seven = 7' -> "
       f"{'REJECTED (correct)' if not ok_missing else 'ACCEPTED (BUG!)'}")
+check("neg-control-2-rejected", not ok_missing)
 print("    (leg-verification certifies consistency WITH THE STORE, "
       "not truth; the store's own correctness is the audit road's "
       "job — stated plainly in the handoff)")
@@ -158,3 +178,11 @@ ctl2.solve(on_model=lambda mo: rev.extend(
     if s.name == "ans"))
 print(f"\nREVERSE: 'three plus WHAT is ten' -> {rev} "
       f"(want ['seven']; direction his matrix cannot answer)")
+check("reverse-seven", rev == ["seven"])
+
+# GATE — the summary line and the exit code agree with the receipts
+if FAILS:
+    print(f"\nGATE: FAIL ({', '.join(FAILS)})")
+else:
+    print("\nGATE: PASS")
+sys.exit(1 if FAILS else 0)

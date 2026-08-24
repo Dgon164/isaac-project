@@ -17,14 +17,15 @@
 import os
 import random
 import sys
+import tempfile
 import time
 
-sys.path.insert(0, r"C:\Users\jtwee\Documents\isaac-project\code")
+sys.path.insert(0, os.path.join(os.path.dirname(
+    os.path.abspath(__file__)), "..", "code"))
 from isaac import Isaac, tokenize                       # noqa: E402
 
-SCRATCH = (r"C:\Users\jtwee\AppData\Local\Temp\claude"
-           r"\c--Users-jtwee-Downloads-New-folder--3-"
-           r"\d93c0d2c-8d04-45aa-9f80-804c774fbc7e\scratchpad")
+# failed check names collect here; summary + exit code at the bottom
+FAILS = []
 random.seed(20260820)
 
 m = Isaac()
@@ -84,6 +85,10 @@ print(f"  exact: {right}/{len(facts)} = {100 * right / len(facts):.1f}%   "
       f"({len(facts) / t_exam:,.0f} questions/sec)")
 for k, (r, t) in per.items():
     print(f"    {k:8s} {r}/{t} = {100 * r / max(t, 1):.1f}%")
+if right != len(facts):
+    FAILS.append("exam1-exact")
+if top3 != len(facts):
+    FAILS.append("exam1-top3")
 
 print("\nEXAM 2 — honesty at scale: 200 out-of-range questions, "
       "known tokens only")
@@ -100,6 +105,10 @@ for _ in range(200):
 print(f"  refused (honest): {refused}/200 = {refused / 2:.1f}%   "
       f"wrong answer given: {wrong}/200 = {wrong / 2:.1f}%   "
       f"accidentally right: {200 - refused - wrong}/200")
+if refused != 200:
+    FAILS.append("exam2-refused")
+if wrong != 0:
+    FAILS.append("exam2-wrong")
 
 print("\nEXAM 3 — multi-step: 100 three-operand problems "
       "(historical control: 13/100 correct with 87 confident wrong "
@@ -118,12 +127,18 @@ print(f"  correct: {c_right}/100   refused: {c_refused}/100   "
 print("  (every answer reduces through pairs he actually holds; "
       "general rule-learning beyond arithmetic remains open — see "
       "the logic bridge and R1 in the handoff proposal)")
+if c_right != 100:
+    FAILS.append("exam3-correct")
+if 100 - c_right - c_refused != 0:
+    FAILS.append("exam3-wrong")
 
 print("\nSYSTEM COSTS at this scale")
 t0 = time.perf_counter()
 m.consolidate()
 print(f"  consolidate (index/type rebuild): {time.perf_counter() - t0:.1f}s")
-p = os.path.join(SCRATCH, "scale_eval.isaac2")
+# unique temp dir so concurrent harness runs cannot collide
+tmpdir = tempfile.mkdtemp(prefix="scale_eval_")
+p = os.path.join(tmpdir, "scale_eval.isaac2")
 t0 = time.perf_counter()
 m.save(p)
 t_s = time.perf_counter() - t0
@@ -133,3 +148,9 @@ t_l = time.perf_counter() - t0
 print(f"  save {t_s:.1f}s / load {t_l:.1f}s / file "
       f"{os.path.getsize(p) / 1048576:.1f}MB / "
       f"{m.status()['nodes']} nodes")
+
+if FAILS:
+    print(f"GATE: FAIL ({', '.join(FAILS)})")
+else:
+    print("GATE: PASS")
+sys.exit(1 if FAILS else 0)

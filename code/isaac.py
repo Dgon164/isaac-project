@@ -23,6 +23,7 @@ Knowledge is doors. Structure is discovered. Everything enters, nothing leaves.
 
 from collections import defaultdict
 import re
+import sys
 import numpy as np
 
 # ISAAC v0.1.2 alpha 1 (owner-named, 2026-08-19) — the release that
@@ -7691,3 +7692,6 @@ if __name__ == "__main__":
     print(f"\n  Quick status: {st['nodes']} nodes, {st['doors']} doors, "
           f"compiled={st['compiled']}, dirty_seqs={st['dirty_sequences']}")
     print(f"\n  One file. One class. One operation.")
+
+    # exit code carries the verdict: green = exit 0, any failed area = 1
+    sys.exit(0 if total == len(results) else 1)

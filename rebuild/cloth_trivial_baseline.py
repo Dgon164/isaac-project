@@ -33,11 +33,17 @@ load()/sentences() copied verbatim from rebuild/cloth_run.py:34-67
 import json
 import os
 import re
+import sys
 from collections import Counter, defaultdict
 from glob import glob
 
-DATA = r"C:\Users\jtwee\Documents\isaac-project\data\cloth\CLOTH\train\middle"
+# data path relative to this file (same layout as cloth_run.py:25-26)
+DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                    "..", "data", "cloth", "CLOTH", "train", "middle")
 N_PASSAGES = 120
+
+# collected check failures; gate at the bottom exits nonzero if any
+FAILS = []
 CTX = 8
 LETTERS = "ABCD"
 
@@ -86,6 +92,9 @@ def sentences(toks):
 
 # ── selection: verbatim logic of cloth_run.py:87-94 ─────────────────
 files = sorted(glob(os.path.join(DATA, "*.json")))
+if not files:
+    print("SKIP: no CLOTH data at %s" % DATA)
+    sys.exit(77)
 passages = []
 for f in files:
     p = load(f)
@@ -231,3 +240,21 @@ print("full quiz context verbatim in taught stream:  %4d/%d = %.1f%%"
 print("always-pick-alphabetically-last option:       %4d/%d = %.1f%%  "
       "(the harness tie-break when all confs are 0)"
       % (alpha_last_right, N, 100.0 * alpha_last_right / N))
+
+# ── gate ─────────────────────────────────────────────────────────────
+# (a) is 100% by construction: the completed passage holds the truth
+# token at the blank position. Anything else means the harness or the
+# corpus changed, so it must go red.
+if a_right != N:
+    FAILS.append("exact_position_100pct")
+# with the standard 120-passage selection the corpus yields 1108
+# single-token items; a different count means the corpus changed
+if len(passages) == 120 and n_items != 1108:
+    FAILS.append("item_count_1108")
+
+print()
+if FAILS:
+    print("GATE: FAIL (%s)" % ", ".join(FAILS))
+else:
+    print("GATE: PASS")
+sys.exit(1 if FAILS else 0)

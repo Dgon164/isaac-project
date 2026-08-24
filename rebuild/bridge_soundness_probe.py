@@ -5,12 +5,27 @@
 # rules through (a) a generic "every leg exists in his store" check
 # and (b) the probe's actual verify() (which adds the zc==z join).
 # Also autopsies the native 0/100 control.
+import os
 import sys
 
-sys.path.insert(0, r"C:\Users\jtwee\Documents\isaac-project\code")
+sys.path.insert(0, os.path.join(os.path.dirname(
+    os.path.abspath(__file__)), "..", "code"))
 from isaac import Isaac, tokenize  # noqa: E402
 
-import clingo  # noqa: E402
+try:
+    import clingo  # noqa: E402
+except ImportError:
+    print("SKIP: clingo module not installed (pip install clingo)")
+    sys.exit(77)
+
+# Failed check names collect here; the gate at the bottom exits
+# nonzero if any check failed.
+FAILS = []
+
+
+def check(name, ok):
+    if not ok:
+        FAILS.append(name)
 
 W = ["zero", "one", "two", "three", "four", "five", "six", "seven",
      "eight", "nine", "ten", "eleven", "twelve", "thirteen",
@@ -106,7 +121,22 @@ for name, rule in [("RIGHT           ", RIGHT),
     print(f"{name}: derived={len(atoms):5d}  false-conclusions="
           f"{len(wrong):5d}  pass-legs-exist={le_wrong:5d}  "
           f"pass-probe-verify={pv_wrong}")
+    # Stated expectations: the broken dropped-join rule's false
+    # conclusions all pass the bare leg-existence check (1800), and
+    # NO false conclusion from any broken rule survives the
+    # re-derivation join (0).
+    if name.startswith("WRONG dropped-join"):
+        check("dropped-join-legs-exist-1800", le_wrong == 1800)
+    if name.startswith("WRONG"):
+        check("broken-rule-probe-verify-0", pv_wrong == 0)
 print("\nreading: pass-legs-exist on false conclusions = provenance "
       "stamp fails as soundness; pass-probe-verify=0 means the "
       "equality join (a native RE-DERIVATION) is the load-bearing "
       "check.")
+
+# GATE — the summary line and the exit code agree with the receipts
+if FAILS:
+    print(f"\nGATE: FAIL ({', '.join(sorted(set(FAILS)))})")
+else:
+    print("\nGATE: PASS")
+sys.exit(1 if FAILS else 0)

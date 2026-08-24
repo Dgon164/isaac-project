@@ -5,13 +5,14 @@
 # future rankings; everything survives save/load.
 import os
 import sys
+import tempfile
 
-sys.path.insert(0, r"C:\Users\jtwee\Documents\isaac-project\code")
+sys.path.insert(0, os.path.join(os.path.dirname(
+    os.path.abspath(__file__)), "..", "code"))
 from isaac import Isaac, tokenize                       # noqa: E402
 
-SCRATCH = (r"C:\Users\jtwee\AppData\Local\Temp\claude"
-           r"\c--Users-jtwee-Downloads-New-folder--3-"
-           r"\d93c0d2c-8d04-45aa-9f80-804c774fbc7e\scratchpad")
+# unique temp dir per run so concurrent harnesses cannot collide
+SCRATCH = tempfile.mkdtemp(prefix="selection_feedback_")
 
 m = Isaac()
 for s in ["a florb is an animal .", "a grinth is an animal .",
@@ -118,3 +119,11 @@ court("plain ordered list, no numbers attached",
       all(isinstance(c, str) for c in plain))
 print(f"\nFINAL: {passed}/{passed + len(failed)} checks"
       + (f"; FAILED: {failed}" if failed else ""))
+
+# Gate: every court() verdict above feeds this list; a wrong check
+# count is itself a failure (17 checks expected, no more, no less).
+FAILS = list(failed)
+if passed + len(failed) != 17:
+    FAILS.append(f"check-count-{passed + len(failed)}-not-17")
+print(f"GATE: {'FAIL (' + ', '.join(FAILS) + ')' if FAILS else 'PASS'}")
+sys.exit(1 if FAILS else 0)

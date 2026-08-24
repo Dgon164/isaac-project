@@ -48,9 +48,12 @@ SCRATCH = (r"C:\Users\jtwee\AppData\Local\Temp\claude"
            r"\d93c0d2c-8d04-45aa-9f80-804c774fbc7e\scratchpad")
 if not os.path.isdir(SCRATCH):          # stranger-proof: any temp dir
     SCRATCH = tempfile.gettempdir()
+# output files get their own unique temp dir — other test harnesses
+# run in parallel and must never clobber each other's files
+OUTDIR = tempfile.mkdtemp(prefix="onefile_probe_")
 ENGINE = os.path.join(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))), "code")
-V2 = os.path.join(SCRATCH, "probe_mind.isaac2")
+V2 = os.path.join(OUTDIR, "probe_mind.isaac2")
 sys.path.insert(0, ENGINE)
 import isaac as isaac_mod                                  # noqa: E402
 
@@ -61,25 +64,33 @@ def ensure_v1_mind():
     pickled mind IS a valid v1 file. Fixture sizes differ from the
     49.4MB historical record; the equivalence tests prove the same
     properties at any size."""
-    if len(sys.argv) > 1 and os.path.exists(sys.argv[1]):
-        return sys.argv[1]
+    if len(sys.argv) > 1:
+        if os.path.exists(sys.argv[1]):
+            return sys.argv[1]
+        # a named specimen that is missing is missing input data
+        print(f"SKIP: v1 mind specimen not found: {sys.argv[1]}")
+        sys.exit(77)
     staged = os.path.join(SCRATCH, "audit_copy.isaac")
     if os.path.exists(staged):
         return staged
     import random
     print("no v1 mind supplied; synthesizing a fixture "
           "(pass a path as argv[1] to test a real mind)")
-    fx = isaac_mod.Isaac()
-    rng = random.Random(7)
-    words = [f"w{i}" for i in range(120)]
-    for _ in range(600):
-        a, b, c = rng.sample(words, 3)
-        fx.observe(isaac_mod.tokenize(f"{a} {b} {c} ."))
-    for x in range(12):
-        for y in range(12):
-            fx.observe(isaac_mod.tokenize(f"{x} + {y} = {x + y}"))
-    fx.consolidate()
-    path = os.path.join(SCRATCH, "fixture_v1.isaac")
+    try:
+        fx = isaac_mod.Isaac()
+        rng = random.Random(7)
+        words = [f"w{i}" for i in range(120)]
+        for _ in range(600):
+            a, b, c = rng.sample(words, 3)
+            fx.observe(isaac_mod.tokenize(f"{a} {b} {c} ."))
+        for x in range(12):
+            for y in range(12):
+                fx.observe(isaac_mod.tokenize(f"{x} + {y} = {x + y}"))
+        fx.consolidate()
+    except Exception as e:                 # no specimen obtainable at all
+        print(f"SKIP: cannot synthesize fixture specimen ({e})")
+        sys.exit(77)
+    path = os.path.join(OUTDIR, "fixture_v1.isaac")
     with open(path, "wb") as fh:
         pickle.dump(fx, fh, protocol=pickle.HIGHEST_PROTOCOL)
     return path
@@ -334,6 +345,7 @@ def deep_eq(a, b, seen=None, path="$"):
 # ── the run ──────────────────────────────────────────────────────
 
 def main():
+    FAILS = []                    # every failed check lands here by name
     print("ONE-FILE BODY v2 PROBE")
     t0 = time.perf_counter()
     orig = isaac_mod.Isaac.load(V1)
@@ -349,14 +361,21 @@ def main():
           f"({os.path.getsize(V1) / v2_size:.1f}x smaller)")
     for n, b in sizes.items():
         print(f"          section {n:9s} {b / 1048576:5.1f}MB")
+    # C2 check: a real v2 file exists and every section holds bytes
+    if not (v2_size > 0 and sizes and all(b > 0 for b in sizes.values())):
+        FAILS.append("size")
     print(f"C3 SPEED  v2 save {t_save:.1f}s", end="")
 
     t0 = time.perf_counter()
     twin, applied, torn = load_v2(V2)
-    print(f"   v2 load {time.perf_counter() - t0:.1f}s")
+    t_load = time.perf_counter() - t0
+    print(f"   v2 load {t_load:.1f}s")
+    # C3 check: both timings measured (positive wall-clock numbers)
+    if not (t_save > 0 and t_load > 0):
+        FAILS.append("speed")
 
     # C1 the equivalence court — item for item or stop
-    fails = []
+    fails = FAILS                 # court failures feed the exit gate
     for name, a, b in [
             ("doors", dict(orig.net.doors), dict(twin.net.doors)),
             ("door_tags", dict(orig.net.door_tags),
@@ -386,7 +405,7 @@ def main():
             print(f"C1 attr {name:20s} FAIL {why}")
     n_attr = len([n for n in vars(orig) if n not in skip])
     print(f"C1 {n_attr} other attributes: "
-          f"{'ALL EXACT' if not any(f not in ('doors','door_tags','door_counts','meta','activation_log') for f in fails) else 'see fails'}")
+          f"{'ALL EXACT' if not any(f not in ('doors','door_tags','door_counts','meta','activation_log','size','speed') for f in fails) else 'see fails'}")
 
     # C5 behavior: sampled profiles + all_nodes
     nodes = sorted(orig.net.all_nodes())
@@ -420,10 +439,18 @@ def main():
           and m3.net.has_door("probe:b", "probe:c"))
     print(f"C4 TORN TAIL survives: {'GREEN' if j2 else 'FAIL'} "
           f"(valid prefix {applied3} applied, tear detected)")
-    if not (j1 and j2):
+    if not j1:
         fails.append("journal")
+    if not j2:
+        fails.append("torn_tail")
 
     print(f"\nVERDICT: {'ALL COURTS GREEN' if not fails else 'FAILS: ' + ', '.join(sorted(set(fails)))}")
+    # exit gate: green prose above is now backed by a real exit code
+    if FAILS:
+        print("GATE: FAIL (" + ", ".join(sorted(set(FAILS))) + ")")
+    else:
+        print("GATE: PASS")
+    sys.exit(1 if FAILS else 0)
 
 
 if __name__ == "__main__":

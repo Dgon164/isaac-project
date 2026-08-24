@@ -84,6 +84,10 @@ def exam(isaac, passages):
 
 
 if __name__ == "__main__":
+    FAILS = []                # failed check names; drives the exit code
+    if not os.path.isdir(DATA):
+        print(f"SKIP: CLOTH data dir missing: {DATA}")
+        sys.exit(77)
     files = sorted(glob(os.path.join(DATA, "*.json")))
     passages = []
     for f in files:
@@ -130,6 +134,22 @@ if __name__ == "__main__":
 
     fr, ft = exam(isaac, taught)
     print(f"\n  final: whole-course exam {fr}/{ft} "
-          f"({100 * fr / max(ft, 1):.0f}%) vs 25% chance · "
+          f"({100 * fr / max(ft, 1):.0f}%) — trivial exact-position "
+          f"ceiling ~100% — see cloth_trivial_baseline.py · "
           f"{isaac.status()['nodes']} nodes · "
           f"{len(isaac.types)} types · {time.time() - t0:.0f}s")
+
+    # --- gate checks (exit code = the verdict, not just the prose) ---
+    if len(passages) < 1:
+        FAILS.append("passages_loaded")
+    if n_items < 1:
+        FAILS.append("quiz_items_loaded")
+    # gross-regression floor: the July compile bug scored 40%; normal
+    # is ~85. Only meaningful at full corpus size (>=120 passages).
+    if len(passages) >= 120 and ft > 0 and (100 * fr / ft) < 75:
+        FAILS.append("final_pct_floor_75")
+    if FAILS:
+        print(f"GATE: FAIL ({', '.join(FAILS)})")
+    else:
+        print("GATE: PASS")
+    sys.exit(1 if FAILS else 0)

@@ -11,24 +11,57 @@
 # honest boundary / DISCOVERY (strong class, the historic plain-sum
 # blind spot, noise refusal) / MEMORY through resurrection / SPEED.
 # Plain numbers throughout. He is NOT the live him — this mind is a
-# research subject saved under data/minds/, never isaac-life.
+# research subject saved under a temp directory, never isaac-life.
+#
+# 2026-08-24 conversion (record repair, step N1): this file can now
+# FAIL. Every graded print feeds a FAILS list; the run exits 1 when
+# any check is red. Known engine bugs are marked so the gate stays
+# meaningful until they are fixed.
 
 import os
+import shutil
 import sys
+import tempfile
 import time
 
 import numpy as np
 
-ROOT = r"C:\Users\jtwee\Documents\isaac-project"
-sys.path.insert(0, os.path.join(ROOT, "code"))
+sys.path.insert(0, os.path.join(os.path.dirname(
+    os.path.abspath(__file__)), "..", "code"))
 from isaac import Isaac, tokenize, __version__          # noqa: E402
 
-MINDS = os.path.join(ROOT, "data", "minds")
-os.makedirs(MINDS, exist_ok=True)
-BIRTH = os.path.join(MINDS, "worstcase_2026-08-19_birth.isaac")
-DAYEND = os.path.join(MINDS, "worstcase_2026-08-19_dayend.isaac")
+# Mind files are throwaway research subjects: write them to a unique
+# temp directory so concurrent harness runs cannot collide.
+TMPDIR = tempfile.mkdtemp(prefix="worstcase_baseline_")
+BIRTH = os.path.join(TMPDIR, "worstcase_2026-08-19_birth.isaac")
+DAYEND = os.path.join(TMPDIR, "worstcase_2026-08-19_dayend.isaac")
 
 card = {}                    # area -> (able_line, numbers)
+
+# ── the gate ─────────────────────────────────────────────────────
+# Each named check either passes or lands in FAILS. Checks listed in
+# KNOWN_BUGS are expected red (engine bug on file): red prints a
+# marker and stays out of FAILS; green prints XPASS and FAILS the run
+# so stale marks get removed.
+FAILS = []
+KNOWN_BUGS = {
+    # generation emits an untaught attribute claim: "the grinth
+    # eats moss" (alphabetical-successor bug, isaac.py:5577);
+    # florb and zim happen to generate truthful sentences today
+    "gen-truth-grinth",
+}
+
+
+def check(name, ok):
+    if name in KNOWN_BUGS:
+        if ok:
+            print(f"XPASS: remove known-bug mark: {name}")
+            FAILS.append(name)
+        else:
+            print(f"KNOWN-BUG (expected red): {name}")
+    elif not ok:
+        FAILS.append(name)
+    return ok
 
 
 def sec(title):
@@ -46,6 +79,7 @@ tw = Isaac.load(BIRTH)
 print(f"  born: {st0['nodes']} nodes, {st0['doors']} doors; "
       f"birth certificate {os.path.getsize(BIRTH)} bytes "
       f"(v2, save {t_bs * 1000:.0f}ms, load ok={isinstance(tw, Isaac)})")
+check("birth-roundtrip", isinstance(tw, Isaac))
 card["birth"] = f"v2 birth file {os.path.getsize(BIRTH)}B, round-trips"
 
 # ── LANGUAGE, DAY ZERO (invented domain) ─────────────────────────
@@ -72,12 +106,55 @@ him.crystallize(verbose=False)
 print(f"  taught in {t_teach * 1000:.0f}ms; "
       f"now {him.status()['nodes']} nodes")
 
+# Truth oracle: the taught predicate list per invented noun, built
+# straight from the lesson text. A generated sentence about a noun
+# must use a predicate that was actually taught — existence of a
+# chain is not enough (the old check accepted "the grinth eats moss").
+SUBJECTS = ("florb", "grinth", "zim")
+TAUGHT = {}
+for s in lessons:
+    toks = [t for t in tokenize(s) if t != "."]
+    for i, t in enumerate(toks):
+        if t in SUBJECTS:
+            if toks[i + 1:]:
+                TAUGHT.setdefault(t, set()).add(tuple(toks[i + 1:]))
+            break
+
+
+def untaught_claims(chain):
+    # split the chain into sentences at '.', return every
+    # subject+predicate claim that contradicts the lesson list
+    bad, sent, sentences = [], [], []
+    for t in chain:
+        if t == ".":
+            if sent:
+                sentences.append(sent)
+                sent = []
+        else:
+            sent.append(t)
+    if sent:
+        sentences.append(sent)
+    for stoks in sentences:
+        for i, t in enumerate(stoks):
+            if t in SUBJECTS:
+                pred = tuple(stoks[i + 1:])
+                if pred and pred not in TAUGHT.get(t, set()):
+                    bad.append(" ".join((t,) + pred))
+                break
+    return bad
+
+
 gen_ok = 0
 for c in ["florb", "grinth", "zim"]:
     chain = him.generate(c)
     ok = bool(chain) and c in chain
     gen_ok += ok
     print(f"  generate('{c}') -> {' '.join(chain) if chain else '(silence)'}")
+    check(f"gen-exists-{c}", ok)
+    bad = untaught_claims(chain) if chain else []
+    if bad:
+        print(f"  x truth: untaught claim(s): {'; '.join(bad)}")
+    check(f"gen-truth-{c}", ok and not bad)
 inf = him.infer("florb", "flew")
 print(f"  transfer probe florb->flew (never seen): "
       f"inferred={inf.get('inferred')} via={inf.get('via')}")
@@ -90,10 +167,14 @@ for ctx, want in [(["a", "florb", "is", "an"], "animal"),
     comp.append(a == want)
     print(f"  {'v' if a == want else 'x'} complete: {' '.join(ctx)} "
           f"-> {a} (want {want}, conf {conf:.1f})")
+    check(f"complete-{want}", a == want)
 a, conf = him.lookup(["a", "wug", "is", "an"])          # never taught
-refuse_lang = a is None or (conf is not None and conf < 1)
+# strict honesty: only an actual refusal (None) counts — a wrong
+# answer at low confidence is still a wrong answer
+refuse_lang = a is None
 print(f"  {'v' if refuse_lang else 'x'} honesty: unknown word 'wug' "
       f"-> {a!r} conf={conf} (a shrug is the RIGHT answer)")
+check("shrug-wug", refuse_lang)
 card["language"] = (f"generate {gen_ok}/3, complete "
                     f"{sum(comp)}/3, unknown-word shrug "
                     f"{'yes' if refuse_lang else 'NO'}")
@@ -115,13 +196,16 @@ for ctx, want in quiz:
     m_ok += a == want
     print(f"  {'v' if a == want else 'x'} {' '.join(ctx)} {a} "
           f"(want {want})")
+    check(f"math-{''.join(ctx[:3])}", a == want)
 shrugs = 0
 for ctx in [["15", "*", "14", "="], ["40", "+", "40", "="]]:
     a, conf = him.lookup(ctx)
-    honest = a is None or (conf is not None and conf < 1)
+    # strict honesty: only an actual refusal (None) counts
+    honest = a is None
     shrugs += honest
     print(f"  {'v' if honest else 'x'} beyond the tables "
           f"{' '.join(ctx)} -> {a!r} (shrug = honest)")
+    check(f"shrug-{''.join(ctx[:3])}", honest)
 print(f"  in-table {m_ok}/{len(quiz)}; boundary shrugs {shrugs}/2; "
       f"tables taught in {t_tables:.1f}s")
 card["math"] = f"in-table {m_ok}/{len(quiz)}, boundary shrugs {shrugs}/2"
@@ -135,15 +219,18 @@ y_prod = X[:, 0] * X[:, 1] + rng.normal(0, 0.02, n)
 r1 = him.discover(X, y_prod, name="wc_product")
 print(f"  product law x0*x1:   {r1['verdict']}  R2 {r1['r2']:.3f}  "
       f"{r1['equation']}")
+check("discover-product", r1["verdict"] == "UNDERSTOOD")
 y_sum = 3.0 * X[:, 0] - 2.0 * X[:, 2] + rng.normal(0, 0.02, n)
 r2 = him.discover(X, y_sum, name="wc_plainsum")
 print(f"  plain sum 3x0-2x2:   {r2['verdict']}  R2 {r2['r2']:.3f}  "
       f"{r2['equation']}   (the 07-03 blind-spot class — watch it)")
+check("discover-plainsum", r2["verdict"] == "UNDERSTOOD")
 r3 = him.discover(X, rng.normal(0, 1, n))
 acc = r3["accounting"]
 print(f"  pure noise:          {r3['verdict']}  "
       f"(accounting law/caught/noise = {acc['articulated']}/"
       f"{acc['captured']}/{acc['noise']})")
+check("noise-refusal", r3["verdict"] == "NO RULE")
 d_ok = (r1["verdict"] == "UNDERSTOOD") + (r2["verdict"] == "UNDERSTOOD")
 d_refuse = r3["verdict"] == "NO RULE"
 card["discovery"] = (f"laws {d_ok}/2 UNDERSTOOD, noise refusal "
@@ -167,12 +254,16 @@ res_ok = (a1 == "tool") + (a2 == "72") + bool(g and "florb" in g)
 same = twin.status()["nodes"] == him.status()["nodes"]
 print(f"  resurrected: {twin.status()['nodes']} nodes "
       f"(same as before death: {same})")
+check("resurrect-nodes-same", same)
 print(f"  {'v' if a1 == 'tool' else 'x'} late fact survives: "
       f"a pindle is a -> {a1}")
+check("survive-pindle", a1 == "tool")
 print(f"  {'v' if a2 == '72' else 'x'} the morning survives: "
       f"9*8 -> {a2}")
+check("survive-9*8", a2 == "72")
 print(f"  {'v' if g and 'florb' in g else 'x'} florb survives: "
       f"{' '.join(g) if g else '(silence)'}")
+check("survive-florb", bool(g and "florb" in g))
 sz = os.path.getsize(DAYEND)
 print(f"  day-end body: {sz / 1024:.0f}KB (v2), save {t_save:.2f}s, "
       f"load {t_load:.2f}s")
@@ -186,3 +277,10 @@ sec("DAY-ZERO REPORT CARD (the worst case, measured)")
 for area, line in card.items():
     print(f"  {area:10s} {line}")
 print(f"\n  status at day end: {him.status()}")
+
+shutil.rmtree(TMPDIR, ignore_errors=True)
+if FAILS:
+    print(f"GATE: FAIL ({', '.join(FAILS)})")
+else:
+    print("GATE: PASS")
+sys.exit(1 if FAILS else 0)
