@@ -831,6 +831,20 @@ class Isaac:
             self._seq_out_totals = defaultdict(int)
         if not hasattr(self, "_surprise_recent"):
             self._surprise_recent = []
+        # DIAGNOSTIC TRAP (2026-08-23): an intermittent crash
+        # (TypeError: unhashable type: 'set', historically ~1-in-3 in
+        # one environment, 0/26 reproduction attempts today) dies deep
+        # in graph reads when a non-hashable element reaches the token
+        # stream. Fail HERE, at insertion, with the full context, so
+        # the next occurrence names its true call site.
+        for _t in tokens:
+            try:
+                hash(_t)
+            except TypeError:
+                raise TypeError(
+                    f"observe(): unhashable element {_t!r} in tokens "
+                    f"{tokens!r} — this is the intermittent "
+                    f"unhashable-set bug; report this message") from None
         dc = getattr(self.net, "door_counts", {})
         s_sum, novel = 0.0, 0
         n_tr = len(tokens) - 1

@@ -6,15 +6,13 @@ import os
 import sys
 import time
 
-SCRATCH = (r"C:\Users\jtwee\AppData\Local\Temp\claude"
-           r"\c--Users-jtwee-Downloads-New-folder--3-"
-           r"\d93c0d2c-8d04-45aa-9f80-804c774fbc7e\scratchpad")
-sys.path.insert(0, r"C:\Users\jtwee\Documents\isaac-project\code")
-sys.path.insert(0, r"C:\Users\jtwee\Documents\isaac-project\rebuild")
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(os.path.dirname(HERE), "code"))
+sys.path.insert(0, HERE)
 from isaac import Isaac                                    # noqa: E402
-from onefile_probe import deep_eq                          # noqa: E402
+from onefile_probe import SCRATCH, deep_eq, ensure_v1_mind  # noqa: E402
 
-V1 = os.path.join(SCRATCH, "audit_copy.isaac")
+V1 = ensure_v1_mind()          # CLI arg, staged copy, or synthesized
 V2 = os.path.join(SCRATCH, "install_court.isaac2")
 
 orig = Isaac.load(V1)                       # v1 pickle road (forever)

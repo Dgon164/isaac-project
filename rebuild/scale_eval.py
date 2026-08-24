@@ -101,8 +101,10 @@ print(f"  refused (honest): {refused}/200 = {refused / 2:.1f}%   "
       f"wrong answer given: {wrong}/200 = {wrong / 2:.1f}%   "
       f"accidentally right: {200 - refused - wrong}/200")
 
-print("\nEXAM 3 — chaining (known missing feature, measured): "
-      "100 three-operand problems")
+print("\nEXAM 3 — multi-step: 100 three-operand problems "
+      "(historical control: 13/100 correct with 87 confident wrong "
+      "answers before the 08-20 reducer; now routed through "
+      "pair-at-a-time reduction)")
 c_right = c_refused = 0
 for _ in range(100):
     a, b, c = (random.randrange(10) for _ in range(3))
@@ -113,8 +115,9 @@ for _ in range(100):
         c_refused += 1
 print(f"  correct: {c_right}/100   refused: {c_refused}/100   "
       f"wrong: {100 - c_right - c_refused}/100")
-print("  (he holds every sub-fact needed; a chaining routine is the "
-      "missing piece)")
+print("  (every answer reduces through pairs he actually holds; "
+      "general rule-learning beyond arithmetic remains open — see "
+      "the logic bridge and R1 in the handoff proposal)")
 
 print("\nSYSTEM COSTS at this scale")
 t0 = time.perf_counter()

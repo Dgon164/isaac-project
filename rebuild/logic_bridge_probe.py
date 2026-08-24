@@ -111,6 +111,41 @@ for leg, good in legs:
 print(f"    answer: {derived[('three', 'four')]}  "
       f"[derived externally, certified internally]")
 
+# 4b. NEGATIVE CONTROLS — the verifier must be shown to REJECT.
+#     (Review finding 2026-08-23: 100/100 verified is guaranteed by
+#     construction when the store, the export, and the checker all
+#     agree; prove the checker can fail closed.)
+print("\nNEGATIVE CONTROL 1 — planted wrong derivation:")
+ok_bad, legs_bad = verify("three", "four", "eight")   # wrong on purpose
+print(f"    word_sum(three,four,EIGHT) -> verification "
+      f"{'REJECTED (correct)' if not ok_bad else 'ACCEPTED (BUG!)'}")
+for leg, good in legs_bad:
+    print(f"      {'v' if good else 'x'} {leg}")
+
+print("NEGATIVE CONTROL 2 — store missing a leg:")
+m2 = Isaac()                       # twin taught WITHOUT "seven = 7"
+for a in range(10):
+    for b in range(10):
+        m2.observe(tokenize(f"{a} + {b} = {a + b}"))
+for d in range(19):
+    if W[d] != "seven":
+        m2.observe(tokenize(f"{W[d]} = {d}"))
+m2.consolidate()
+def verify_in(mm, a_w, b_w, c_w):
+    xa, _ = mm.lookup([a_w, "="])
+    xb, _ = mm.lookup([b_w, "="])
+    if xa is None or xb is None:
+        return False
+    z, _ = mm.lookup([xa, "+", xb, "="])
+    zc, _ = mm.lookup([c_w, "="])
+    return z is not None and zc == z
+ok_missing = verify_in(m2, "three", "four", "seven")
+print(f"    same derivation vs a store lacking 'seven = 7' -> "
+      f"{'REJECTED (correct)' if not ok_missing else 'ACCEPTED (BUG!)'}")
+print("    (leg-verification certifies consistency WITH THE STORE, "
+      "not truth; the store's own correctness is the audit road's "
+      "job — stated plainly in the handoff)")
+
 # 5. THE REVERSE QUERY — solve for the unknown in the middle,
 #    something his matrix has no road for at all
 ctl2 = clingo.Control(["--warn=none"])

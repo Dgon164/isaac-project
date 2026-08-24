@@ -39,17 +39,53 @@ import os
 import pickle
 import struct
 import sys
+import tempfile
 import time
 from collections import defaultdict
 
 SCRATCH = (r"C:\Users\jtwee\AppData\Local\Temp\claude"
            r"\c--Users-jtwee-Downloads-New-folder--3-"
            r"\d93c0d2c-8d04-45aa-9f80-804c774fbc7e\scratchpad")
-ENGINE = r"C:\Users\jtwee\Documents\isaac-project\code"
-V1 = os.path.join(SCRATCH, "audit_copy.isaac")
+if not os.path.isdir(SCRATCH):          # stranger-proof: any temp dir
+    SCRATCH = tempfile.gettempdir()
+ENGINE = os.path.join(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))), "code")
 V2 = os.path.join(SCRATCH, "probe_mind.isaac2")
 sys.path.insert(0, ENGINE)
 import isaac as isaac_mod                                  # noqa: E402
+
+
+def ensure_v1_mind():
+    """Path to a v1-format mind file. Priority: CLI argument, a staged
+    audit_copy.isaac in SCRATCH, else SYNTHESIZE a fixture — any
+    pickled mind IS a valid v1 file. Fixture sizes differ from the
+    49.4MB historical record; the equivalence tests prove the same
+    properties at any size."""
+    if len(sys.argv) > 1 and os.path.exists(sys.argv[1]):
+        return sys.argv[1]
+    staged = os.path.join(SCRATCH, "audit_copy.isaac")
+    if os.path.exists(staged):
+        return staged
+    import random
+    print("no v1 mind supplied; synthesizing a fixture "
+          "(pass a path as argv[1] to test a real mind)")
+    fx = isaac_mod.Isaac()
+    rng = random.Random(7)
+    words = [f"w{i}" for i in range(120)]
+    for _ in range(600):
+        a, b, c = rng.sample(words, 3)
+        fx.observe(isaac_mod.tokenize(f"{a} {b} {c} ."))
+    for x in range(12):
+        for y in range(12):
+            fx.observe(isaac_mod.tokenize(f"{x} + {y} = {x + y}"))
+    fx.consolidate()
+    path = os.path.join(SCRATCH, "fixture_v1.isaac")
+    with open(path, "wb") as fh:
+        pickle.dump(fx, fh, protocol=pickle.HIGHEST_PROTOCOL)
+    return path
+
+
+V1 = ensure_v1_mind()
 
 try:
     import numpy as np
