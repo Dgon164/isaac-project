@@ -4923,6 +4923,15 @@ class Isaac:
     # The THINK loop: recall → process → evaluate → repeat until stable.
     # Memory sends forward. Evaluation sends back. Loop until settled.
 
+    def _matvec(self, x):
+        """Table product gathering only the input's nonzero columns.
+        The encoded x has a handful of entries (median 5 measured), so
+        this equals the dense product while skipping its 99.96% zero
+        work: 11.3ms -> 0.096ms/query at CLOTH-120 scale (measured
+        2026-08-28, RUN_LEDGER)."""
+        nz = np.nonzero(x)[0]
+        return self._compiled["W_norm"][:, nz] @ x[nz]
+
     def _route(self, context, mode="lookup", target=None):
         """Stage 3 (ROUTE): single matmul pass. Returns (answer, confidence)."""
         x = self._encode(context)
@@ -4930,7 +4939,7 @@ class Isaac:
             if mode == "check":
                 return False, 0.0
             return None, 0.0
-        y = self._compiled["W_norm"] @ x
+        y = self._matvec(x)
         if mode == "check":
             if target not in self._compiled["didx"]:
                 return False, 0.0
@@ -5005,7 +5014,7 @@ class Isaac:
         if self._compiled:
             x = self._encode(context)
             if x is not None:
-                y = self._compiled["W_norm"] @ x
+                y = self._matvec(x)
                 if y.max() >= CONFIDENCE_THRESHOLD:
                     has_some_info = True
 
@@ -5184,7 +5193,7 @@ class Isaac:
         x = self._encode(context)
         if x is None:
             return []
-        y = self._compiled["W_norm"] @ x
+        y = self._matvec(x)
         order = y.argsort()[::-1][:max(want * 3, want)]
         out = []
         for i in order:

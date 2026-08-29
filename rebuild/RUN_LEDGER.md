@@ -84,6 +84,55 @@ all-core stress is therefore consistent with the hypothesis, not against it. Nam
 probe if the crash recurs: the same determinism stressor at 1-2 workers (max boost
 residency), plus the owner-run diagnostics below.
 
+## 2026-08-28 — the hardware direction (owner: "we have a 14900k and a 3090, use them")
+
+Measure-first on the real CLOTH-120 state (hw_measure, PYTHONHASHSEED=0):
+
+**CORRECTION to the 08-23/08-24 records (wrongs kept, per standing law):** the
+"superlinear consolidation" cost was misattributed. Teaching + consolidation for all
+120 passages = **8s total** (batch-6 consolidate profiled at 4.7s: _crystallize 1.8s +
+graph reads). The 300s/batch ladder is the **exams**: one check() = 95.6ms, ~90% of it
+the dense table product, with ~9.9 routes per check from the think loop's
+type-substitution retries; 1108 items x 4 options ≈ 424s per full exam. The teardown's
+F3 scale analysis (dense growth, memory arithmetic, coded 250M-cell halt) stands; only
+the cost's name was wrong.
+
+Measured state at 120 passages: W_norm (2554 x 82169) float32 = 839MB with **91,083
+nonzeros (density 0.00043 — 99.96% zeros)**; encoded query vectors carry a **median of
+5 nonzeros**.
+
+Product bench (real table, real query vectors, 100 queries, ms/query):
+| method | ms | speedup |
+|---|---|---|
+| numpy dense (was installed) | 11.272 | 1x |
+| numpy column-gather (sparse input) | 0.096 | **117x** |
+| scipy csr (W4 storage preview) | 0.062 | 182x |
+| torch CPU dense | 11.773 | ~1x |
+| torch CUDA dense, table resident on 3090 | 1.114 | 10x |
+| torch CUDA 4-option batch | 1.649 | — |
+
+**Hardware verdict, receipts attached:** at this scale and shape the 3090 LOSES to
+sparse CPU arithmetic by 12-18x (per-query transfer + launch overhead vs ~18k useful
+FLOPs) — the GPU stays benched until genuinely batched or dense workloads exist (arena
+sweeps; the net-decode/census lane, which is dense-matrix-shaped and is the 3090's real
+job). The 24 cores: gate rows parallelized (`run_gates.py --jobs`, fast gate 27.6s →
+16.0s, bounded by its longest row).
+
+**Engine change:** `_matvec()` column-gather installed at all three dense-product call
+sites (route, refusal-check, candidate scoring). Equivalence court (gather_equiv):
+292 real vectors, max |dense − gather| = 1.9e-06; whole-course exam picks IDENTICAL
+(962/1108 both arms); exam wall-clock **383.3s → 12.1s (31.6x)**.
+
+**Gate on the new engine: full `--slow` run 11/11 PASS in 58.0s total** —
+cloth_run_120 row 1,191s (08-23) → **57.8s (~20x)**, score floor held. Also one more
+clean full-length run of the crash-suspect workload (now 6 clean of 8 total).
+
+Still open, in order: csr/sparse STORAGE for the table (gather fixes time, not the
+839MB x2 memory wall or the 250M-cell coded halt — csr is measured at 182x with <1MB
+data and kills the halt; this is W4, now a small job); check_many() to stop recomputing
+the identical context per option (~4x on exams); _evaluate (8ms/check) and the think
+loop's 9.9-routes-per-check redundancy.
+
 Standing disposition for this crash class:
 - It is on the record as ENVIRONMENT-SUSPECT, not engine-logic; no code change is
   owed against it (the observe() trap stays).

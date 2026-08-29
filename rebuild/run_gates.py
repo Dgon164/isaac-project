@@ -1,7 +1,12 @@
 """
 THE GATE RUNNER — one command, one exit code.
 
-    python rebuild/run_gates.py [--slow]
+    python rebuild/run_gates.py [--slow] [--jobs N]
+
+--jobs N runs rows N at a time across cores (each row is its own
+process; every harness writes only to unique temp dirs, so rows are
+concurrency-safe). Default 1 = serial, identical output order either
+way. --jobs 0 picks a sensible width for this machine.
 
 Runs every verification harness and aggregates exit codes. Green is
 defined HERE, by exit code, not by reading stdout:
@@ -46,23 +51,50 @@ ROWS = [
 ]
 
 
+def run_row(name, cmd, env):
+    t0 = time.perf_counter()
+    r = subprocess.run(cmd, env=env, cwd=ROOT, capture_output=True,
+                       text=True, encoding="utf-8", errors="replace")
+    return name, r, time.perf_counter() - t0
+
+
 def main():
     slow = "--slow" in sys.argv
+    jobs = 1
+    if "--jobs" in sys.argv:
+        jobs = int(sys.argv[sys.argv.index("--jobs") + 1])
+        if jobs == 0:
+            jobs = min(len(ROWS), max(2, (os.cpu_count() or 8) // 3))
     env = dict(os.environ, PYTHONUTF8="1")
     print("=" * 64)
-    print("  GATES — exit code is the verdict")
+    print(f"  GATES — exit code is the verdict"
+          + (f"   (jobs={jobs})" if jobs > 1 else ""))
     print("=" * 64)
     outcomes = []
     t_all = time.perf_counter()
+    to_run = []
     for name, cmd, is_slow in ROWS:
         if is_slow and not slow:
             print(f"  {name:<24} SLOW-SKIPPED  (rerun with --slow)")
             outcomes.append((name, "SLOW-SKIPPED"))
             continue
-        t0 = time.perf_counter()
-        r = subprocess.run(cmd, env=env, cwd=ROOT, capture_output=True,
-                           text=True, encoding="utf-8", errors="replace")
-        dt = time.perf_counter() - t0
+        to_run.append((name, cmd))
+
+    results = {}
+    if jobs > 1:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=jobs) as pool:
+            futs = [pool.submit(run_row, n, c, env) for n, c in to_run]
+            for f in futs:
+                name, r, dt = f.result()
+                results[name] = (r, dt)
+    else:
+        for n, c in to_run:
+            name, r, dt = run_row(n, c, env)
+            results[name] = (r, dt)
+
+    for name, _ in to_run:
+        r, dt = results[name]
         if r.returncode == 0:
             verdict = "PASS"
         elif r.returncode == 77:
