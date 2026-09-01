@@ -60,7 +60,12 @@ for a in range(10):
         ans, _ = m.lookup([W[a], "plus", W[b], "="])
         native += ans == W[a + b]
 print(f"NATIVE: {native}/100 word problems (never taught in words)")
-check("native-0", native == 0)
+# HISTORY: 0/100 from 2026-08-23 (the measured inference gap this
+# probe exists to bridge) until 2026-08-30, when the S0 composition
+# road went into lookup() and closed the gap natively. The control
+# now asserts the CURE holds; the bridge remains the interop demo
+# (export -> solver -> two-tier verification) on top of it.
+check("native-100-composition-road", native == 100)
 
 # 3. HIS EXPERIENCE COMPILES OUT — mechanical translation of his own
 #    observed sequences; nothing is authored that he did not learn

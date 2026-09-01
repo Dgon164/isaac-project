@@ -5183,6 +5183,154 @@ class Isaac:
 
         return best_answer, best_conf
 
+    # ── THE COMPOSITION ROAD (2026-08-30, S0 Arm A won: 100/100
+    # forward + 20/20 reverse in probe form; engine port of
+    # rebuild/s0_composition_probe.py) ─────────────────────────────
+    # Bounded bidirectional search over HIS OWN stores: resolve
+    # tokens through the '=' road (certified against exact taught
+    # frames — the bare matrix volunteers junk), join the resolved
+    # pattern against taught fact frames by position (untaught
+    # tokens like 'plus' ride as wildcards — bridged by structure,
+    # never by name), map captured values back to words through the
+    # backward frontier. Hand-authored schema, declared: 1 encoding
+    # rule + 3 operators. Everything joined/mapped is his.
+
+    _COMPOSE_BUDGET = 1000
+    _COMPOSE_BACK_BUDGET = 200
+
+    def _compose_ensure(self):
+        """Caches (taught-frame set, resolve map, backward frontier)
+        keyed to the log length — any new observation rebuilds."""
+        n = len(self.observed_sequences)
+        if getattr(self, "_compose_at", -1) == n:
+            return
+        self._compose_at = n
+        self._compose_taught = {tuple(s) for s in self.observed_sequences}
+        self._compose_resolve = {}
+        back = {}
+        steps = 0
+        for c in sorted(s for s in list(self.net.doors)
+                        if "=" in self.net.doors.get(s, set())):
+            if steps >= self._COMPOSE_BACK_BUDGET:
+                break
+            steps += 1
+            v = self._compose_res(c)
+            if v is not None and v != c:
+                back.setdefault(v, set()).add(c)
+        self._compose_back = back
+        self._compose_poscache = {}
+
+    def _wild_structural(self, n, i):
+        """A wildcard may only consume position i of an n-length frame
+        if that position is CONSTANT across every taught n-length
+        frame (with at least two frames as corroboration). '+' at
+        position 1 of the sums family passes; an operand position
+        varies and fails — a wildcard there would silently assert an
+        identity ('zebra + 4 = 7' claims zebra=3; the parts court
+        caught exactly this confabulation before it shipped)."""
+        key = (n, i)
+        if key not in self._compose_poscache:
+            fam = [f for f in self._compose_taught if len(f) == n]
+            vals = {f[i] for f in fam}
+            self._compose_poscache[key] = (len(fam) >= 2
+                                           and len(vals) == 1)
+        return self._compose_poscache[key]
+
+    def _compose_res(self, tok):
+        """O1 RESOLVE: his own lookup([tok,'=']), certified against an
+        exact taught frame — window-guessed continuations refused."""
+        if tok in self._compose_resolve:
+            return self._compose_resolve[tok]
+        ans, _ = self._think([tok, "="], mode="lookup")
+        v = (ans if ans is not None
+             and (tok, "=", ans) in self._compose_taught else None)
+        self._compose_resolve[tok] = v
+        return v
+
+    def _compose_answer(self, context):
+        """The bounded search. Returns (answer, trace) or (None, why).
+        Engages only ask-shaped questions (trailing '=' or a WHAT
+        slot); everything else returns instantly."""
+        WILD, HOLE = ("*",), ("?",)
+        cells = []
+        for t in context:
+            if t == "WHAT":
+                cells.append(HOLE)
+            elif t in self.net.doors or t in self.net.preds:
+                cells.append(("tok", t))
+            else:
+                cells.append(WILD)
+        if not any(c is HOLE for c in cells):
+            if cells and cells[-1] == ("tok", "="):
+                cells.append(HOLE)
+            else:
+                return None, ["not ask-shaped"]
+        if sum(1 for c in cells if c is HOLE) != 1:
+            return None, ["needs exactly one unknown slot"]
+        self._compose_ensure()
+        from collections import deque as _dq
+        steps = 0
+        frontier = _dq([(tuple(cells), [])])
+        seen = {tuple(cells)}
+        hits = []
+        while frontier and steps < self._COMPOSE_BUDGET:
+            state, path = frontier.popleft()
+            for frame in self.observed_sequences:
+                if steps >= self._COMPOSE_BUDGET:
+                    break
+                steps += 1
+                if len(state) != len(frame):
+                    continue
+                cap = None
+                ok = True
+                for cell, ftok in zip(state, frame):
+                    if cell is WILD:
+                        continue
+                    if cell is HOLE:
+                        cap = ftok
+                        continue
+                    if cell[1] != ftok:
+                        ok = False
+                        break
+                if ok and cap is not None:
+                    wilds_ok = all(
+                        self._wild_structural(len(frame), i)
+                        for i, cell in enumerate(state) if cell is WILD)
+                    if wilds_ok:
+                        hits.append((cap, tuple(frame), list(path)))
+            for i, cell in enumerate(state):
+                if cell is WILD or cell is HOLE \
+                        or steps >= self._COMPOSE_BUDGET:
+                    continue
+                steps += 1
+                v = self._compose_res(cell[1])
+                if v is None or v == cell[1]:
+                    continue
+                nxt = state[:i] + (("tok", v),) + state[i + 1:]
+                if nxt not in seen:
+                    seen.add(nxt)
+                    frontier.append(
+                        (nxt, path + [f"{cell[1]} -[=]-> {v}"]))
+        found = {}
+        for cap, frame, path in hits:
+            words = self._compose_back.get(cap, set())
+            if len(words) == 1:
+                found.setdefault(next(iter(words)), (cap, frame, path))
+        # a captured token that maps to nothing may itself BE the
+        # answer form the asker wants (digit questions) — accept it
+        # when unambiguous and no word-mapping exists at all
+        if not found and len({c for c, _f, _p in hits}) == 1:
+            cap, frame, path = hits[0]
+            return cap, path + [f"join: {' '.join(frame)}",
+                                f"answer taken directly (no word map)"]
+        if len(found) == 1:
+            w, (cap, frame, path) = next(iter(found.items()))
+            return w, path + [f"join: {' '.join(frame)}",
+                              f"{cap} -[= back]-> {w}"]
+        if found:
+            return None, [f"ambiguous ({sorted(found)}) — refused"]
+        return None, ["no taught frame joins — refused"]
+
     def lookup(self, context, top_k=5):
         """Argmax over the output vector. 'What comes next?'
         Routes through the think loop — recall, process, evaluate.
@@ -5210,15 +5358,25 @@ class Isaac:
                 return ans, conf
         for tok in context:
             if tok not in self.net.doors and tok not in self.net.preds:
+                ans, trace = self._compose_answer(context)
+                if ans is not None:
+                    self._last_road = ("composition", trace)
+                    return ans, float(CONFIDENCE_THRESHOLD)
                 self.ask_file(list(context),
                               f"never-observed token: {tok}",
                               road="recall")
                 return None, 0.0
         ans, conf = self._think(context, mode="lookup")
         if ans is None:
+            cans, trace = self._compose_answer(context)
+            if cans is not None:
+                self._last_road = ("composition", trace)
+                return cans, float(CONFIDENCE_THRESHOLD)
             self.ask_file(list(context),
                           f"no frame matched (conf {conf:.2f})",
                           road="recall")
+        else:
+            self._last_road = ("recall", [])
         return ans, conf
 
     def check(self, context, target):

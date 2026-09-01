@@ -127,10 +127,11 @@ if __name__ == "__main__":
               f"retention(b1) {100 * ret_r / max(ret_t, 1):.0f}%  "
               f"| {st['nodes']} nodes, W {shape} "
               f"[{time.time() - t0:.0f}s]", flush=True)
-        if cells > CELL_CAP:
-            print(f"  STOPPED: dense-W wall ({cells / 1e6:.0f}M cells) "
-                  f"— the honest frontier; sparse substrate is the gate")
-            break
+        # (The dense-W stop lived here 07-23..08-30: the table was
+        # materialized dense and 250M cells was the honest RAM wall.
+        # The column-sparse table retired it — the logical shape no
+        # longer costs memory; CELL_CAP kept for the history.)
+        _ = CELL_CAP, cells
 
     fr, ft = exam(isaac, taught)
     print(f"\n  final: whole-course exam {fr}/{ft} "
