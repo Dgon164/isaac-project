@@ -51,6 +51,8 @@ ROWS = [
     ("ask_logic_court",        [PY, os.path.join(HERE, "ask_logic_court.py")], False),
     ("z3_law_scan",            [PY, os.path.join(HERE, "z3_law_scan.py")], False),
     ("s0_composition_probe",   [PY, os.path.join(HERE, "s0_composition_probe.py")], False),
+    ("binder_court",           [PY, os.path.join(HERE, "binder_court.py")], False),
+    ("playland_court",         [PY, os.path.join(HERE, "playland_court.py")], False),
     ("cloth_run_120",          [PY, os.path.join(HERE, "cloth_run.py"), "120"], True),
 ]
 

@@ -5538,6 +5538,98 @@ class Isaac:
         self._ensure_parts()
         return [a for a in self.asks if a["status"] == "open"]
 
+    # ── THE PLAYLAND (2026-08-30, owner charter) ────────────────
+    # Self-challenge sandbox: he builds scenarios from his own
+    # stores and plays against himself. THE QUARANTINE LAW: imagined
+    # content never enters the log, the net, or the facts layer as
+    # observed — G1/G2/G4 use read-only roads on self (their only
+    # exports are asks and road stats), G3 runs inside a THROWAWAY
+    # instance (quarantine by construction). See
+    # DESIGN_PLAYLAND_2026-08-30.md and the leak-probe court.
+
+    def play(self, mode=None, budget=10, rng_seed=None):
+        """One playland session. mode in g1/g2/g3/g4 or None = all.
+        Returns the session report; accumulates self._play_stats."""
+        import random as _random
+        import time as _time
+        rng = _random.Random(rng_seed)
+        self._ensure_parts()
+        if not hasattr(self, "_play_stats"):
+            self._play_stats = []
+        report = {"modes": {}, "asks_filed": 0}
+        n_asks0 = len(self.asks)
+        modes = [mode] if mode else ["g1", "g2", "g3", "g4"]
+        seqs = [s for s in self.observed_sequences
+                if len(s) >= 3 and "then" not in s]
+
+        for md in modes:
+            t0 = _time.perf_counter()
+            r = {"tried": 0, "solved": 0}
+            if md == "g1" and seqs:
+                # SELF-EXAM: blank the last token of lived sequences;
+                # his own store is the answer key. read-only.
+                for s in rng.sample(seqs, min(budget, len(seqs))):
+                    r["tried"] += 1
+                    ans, _c = self.lookup(list(s[:-1]))
+                    r["solved"] += (ans == s[-1])
+            elif md == "g2" and len(seqs) >= 2:
+                # WHAT-IF: swap endings across two lived sequences —
+                # a never-lived claim. check() is read-only; an
+                # unsupported novelty files an ask, never a fact.
+                # (Trailing punctuation is not an ending worth
+                # swapping — the court caught g2 doing zero work.)
+                cores = [list(s[:-1]) if s[-1] in ".!?" else list(s)
+                         for s in seqs]
+                cores = [c for c in cores if len(c) >= 3]
+                for _ in range(min(budget, max(0, len(cores) - 1))):
+                    a, b = rng.sample(cores, 2)
+                    novel = a[:-1] + [b[-1]]
+                    if novel in (a, b):
+                        continue
+                    r["tried"] += 1
+                    ok, conf = self.check(novel[:-1], novel[-1])
+                    if ok:
+                        r["solved"] += 1
+                    else:
+                        self.ask_file(novel, "what-if novelty "
+                                      "unsupported by current stores",
+                                      road="playland")
+            elif md == "g3":
+                # HIDDEN-RULE SELF-PLAY: plant a law in a THROWAWAY
+                # instance; its discovery module must find it. Only
+                # the hit/miss exports.
+                a, b = rng.randint(2, 9), rng.randint(1, 9)
+                sandbox = Isaac()
+                sandbox.wave_logging = False
+                X = [[float(i), float(rng.randint(0, 20))]
+                     for i in range(24)]
+                y = [a * row[0] + b for row in X]
+                try:
+                    f = sandbox.discover(np.array(X), np.array(y),
+                                         name="playland")
+                    got = (f or {}).get("verdict") == "UNDERSTOOD"
+                except Exception:
+                    got = False
+                r["tried"], r["solved"] = 1, int(got)
+                r["planted"] = f"y = {a}*x0 + {b}"
+                if not got:
+                    self.ask_file(["playland", "g3", f"{a}*x0+{b}"],
+                                  "hidden planted law not recovered",
+                                  road="playland")
+            elif md == "g4":
+                # STRANGER PLAY: a declared-imaginary thing. The
+                # honest outcome is a refusal (the boundary holds)
+                # plus a filed curiosity. read-only on self.
+                stranger = f"imag{rng.randint(1000, 9999)}"
+                r["tried"] = 1
+                ans, _c = self.lookup(["a", stranger, "is"])
+                r["solved"] = int(ans is None)   # refusal IS the pass
+            r["seconds"] = round(_time.perf_counter() - t0, 3)
+            report["modes"][md] = r
+        report["asks_filed"] = len(self.asks) - n_asks0
+        self._play_stats.append(report)
+        return report
+
     # ── ASK_LOGIC: the solver road (2026-08-30) ─────────────────
     # The engine (clingo) is a traveler who knows nothing: it gets
     # ground facts + admitted rules, derives everything that follows,

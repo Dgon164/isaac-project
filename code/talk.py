@@ -20,6 +20,9 @@ ASK if it ends with '?' or '='):
     grade good|marginal|bad    grade the last answer
     assess <action>      consequence check (proceed/caution/unknown)
     generate <word>      build a sentence around a concept
+    logic <pred> <args, ? for unknown>   the solver road (two-tier)
+    asks                 his open self-questions (refusals filed)
+    play                 one playland session (self-challenge)
     why                  receipt for the last answer
     status | save | quit
 """
@@ -161,6 +164,29 @@ def main():
             chain = m.generate(toks[0] if toks else rest)
             print(f"  {' '.join(chain)}   [road: generation — "
                   f"most-traveled doors]")
+        elif cmd == "logic":
+            parts = rest.split()
+            if len(parts) < 2:
+                print("logic <pred> <arg1> <arg2> ... (? = unknown)")
+                continue
+            args = [None if p == "?" else p for p in parts[1:]]
+            ans, tier, receipt = m.ask_logic(parts[0], args)
+            last = {"ctx": parts, "answer": str(ans), "receipt": receipt}
+            print(f"  {ans if ans else '(nothing derivable — ask filed)'}"
+                  f"   [road: solver, tier: {tier}, "
+                  f"{time.perf_counter()-t0:.2f}s — 'why' for legs]")
+        elif cmd == "asks":
+            open_asks = m.asks_open()
+            for a in open_asks[-10:]:
+                print(f"  #{a['id']} {' '.join(str(t) for t in a['question'])}"
+                      f"   ({a['reason']})")
+            print(f"  {len(open_asks)} open self-questions")
+        elif cmd == "play":
+            rep = m.play(budget=8)
+            for md, r in rep["modes"].items():
+                print(f"  {md}: {r['solved']}/{r['tried']}"
+                      f"  [{r['seconds']}s]")
+            print(f"  asks filed by play: {rep['asks_filed']}")
         elif cmd == "why":
             for ln in last["receipt"] or ["(no answer yet)"]:
                 print(f"  {ln}")
