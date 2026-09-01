@@ -1627,23 +1627,38 @@ class Isaac:
         fidx = {f: i for i, f in enumerate(frames)}
         didx = {d: i for i, d in enumerate(deltas)}
 
-        W = np.zeros((len(deltas), len(frames)), dtype=np.float32)
+        # COLUMN-SPARSE TABLE (2026-08-30). The dense W was 99.96%
+        # zeros at CLOTH-120 scale (91,083 counts rattling in 839MB
+        # x2) and was the 250M-cell memory halt. Per frame column we
+        # keep the delta rows, raw counts, and L1-normalized weights
+        # — same numbers, ~1MB, no dense views (RUN_LEDGER 08-28/30).
+        n_f = len(frames)
+        per_col = [[] for _ in range(n_f)]
         for (delta, frame), c in counts.items():
-            W[didx[delta], fidx[frame]] = c
-        col_sums = W.sum(axis=0, keepdims=True)
-        col_sums[col_sums == 0] = 1
-        W_norm = W / col_sums
+            per_col[fidx[frame]].append((didx[delta], c))
+        col_rows, col_counts, col_vals = [], [], []
+        nnz = 0
+        for entries in per_col:
+            entries.sort()
+            rows = np.array([r for r, _ in entries], dtype=np.int32)
+            cnts = np.array([v for _, v in entries], dtype=np.float32)
+            s = float(cnts.sum())
+            col_rows.append(rows)
+            col_counts.append(cnts)
+            col_vals.append(cnts / (s if s else 1.0))
+            nnz += len(entries)
 
         self._compiled = {
-            "W": W, "W_norm": W_norm,
+            "col_rows": col_rows, "col_counts": col_counts,
+            "col_vals": col_vals, "shape": (len(deltas), n_f),
             "frames": frames, "deltas": deltas,
             "fidx": fidx, "didx": didx,
         }
         self._compiled_up_to = len(self.observed_sequences)
         return {
-            "frames": len(frames), "deltas": len(deltas),
-            "nonzero": int((W != 0).sum()),
-            "matrix_shape": W.shape,
+            "frames": n_f, "deltas": len(deltas),
+            "nonzero": nnz,
+            "matrix_shape": (len(deltas), n_f),
         }
 
     def compile(self, max_context=7):
@@ -4924,13 +4939,15 @@ class Isaac:
     # Memory sends forward. Evaluation sends back. Loop until settled.
 
     def _matvec(self, x):
-        """Table product gathering only the input's nonzero columns.
-        The encoded x has a handful of entries (median 5 measured), so
-        this equals the dense product while skipping its 99.96% zero
-        work: 11.3ms -> 0.096ms/query at CLOTH-120 scale (measured
-        2026-08-28, RUN_LEDGER)."""
-        nz = np.nonzero(x)[0]
-        return self._compiled["W_norm"][:, nz] @ x[nz]
+        """Product against the column-sparse table: accumulate only
+        the input's nonzero columns (median 5 measured). Equals the
+        old dense product to float precision at ~0.1ms/query, with no
+        839MB dense views (measured 2026-08-28/30, RUN_LEDGER)."""
+        c = self._compiled
+        y = np.zeros(c["shape"][0], dtype=np.float32)
+        for j in np.nonzero(x)[0]:
+            y[c["col_rows"][j]] += c["col_vals"][j] * np.float32(x[j])
+        return y
 
     def _route(self, context, mode="lookup", target=None):
         """Stage 3 (ROUTE): single matmul pass. Returns (answer, confidence)."""
@@ -6246,7 +6263,7 @@ class Isaac:
             tags.update(t)
         doors = sum(len(t) for t in self.net.doors.values())
         compiled = bool(self._compiled)
-        matrix_shape = self._compiled["W"].shape if compiled else None
+        matrix_shape = self._compiled["shape"] if compiled else None
         dirty_seqs = len(self.observed_sequences) - self._compiled_up_to
         dirty_consolidation = len(self.observed_sequences) - self._consolidated_up_to
         return {
@@ -7114,6 +7131,19 @@ def test_spatial():
     return correct == 4
 
 
+def _same_compile(ca, cb):
+    """Machine-identical compile check on the column-sparse table
+    (raw counts compared, not just normalized weights)."""
+    return (ca is not None and cb is not None
+            and ca["frames"] == cb["frames"]
+            and ca["deltas"] == cb["deltas"]
+            and len(ca["col_rows"]) == len(cb["col_rows"])
+            and all(np.array_equal(r1, r2) for r1, r2
+                    in zip(ca["col_rows"], cb["col_rows"]))
+            and all(np.array_equal(v1, v2) for v1, v2
+                    in zip(ca["col_counts"], cb["col_counts"])))
+
+
 def test_boot():
     """The boot line: shapes run the mind, code only walks. Only the
     entry point is hard-coded — loop, pipeline, queue are net content."""
@@ -7145,13 +7175,10 @@ def test_boot():
     correct += ok
     print(f"  {'✓' if ok else '✗'}  pipeline lookup == direct lookup "
           f"-> {a1} (conf {c1:.1f} vs {c2:.1f})")
-    ok = (isaac._compiled is not None and control._compiled is not None
-          and np.array_equal(isaac._compiled["W"], control._compiled["W"])
-          and isaac._compiled["frames"] == control._compiled["frames"]
-          and isaac._compiled["deltas"] == control._compiled["deltas"])
+    ok = _same_compile(isaac._compiled, control._compiled)
     correct += ok
-    print(f"  {'✓' if ok else '✗'}  W matrices machine-identical "
-          f"(shape {isaac._compiled['W'].shape})")
+    print(f"  {'✓' if ok else '✗'}  compiled tables machine-identical "
+          f"(shape {isaac._compiled['shape']})")
     ok = (isaac.net.get_meta("job:1", "state") == "done"
           and isaac.net.get_meta("seg:1.0", "crystal") is not None
           and isaac.net.get_meta("seg:1.0", "assessment") is not None)
@@ -7174,9 +7201,7 @@ def test_boot():
         B.observe(s)
     A._ensure_compiled()
     B._ensure_compiled()
-    ok = (np.array_equal(A._compiled["W"], B._compiled["W"])
-          and A._compiled["frames"] == B._compiled["frames"]
-          and A._compiled["deltas"] == B._compiled["deltas"])
+    ok = _same_compile(A._compiled, B._compiled)
     correct += ok
     print(f"  {'✓' if ok else '✗'}  delta compile == one-shot compile "
           f"({len(A._compiled['frames'])} frames, machine-identical)")
