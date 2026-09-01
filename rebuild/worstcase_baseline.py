@@ -44,12 +44,11 @@ card = {}                    # area -> (able_line, numbers)
 # marker and stays out of FAILS; green prints XPASS and FAILS the run
 # so stale marks get removed.
 FAILS = []
-KNOWN_BUGS = {
-    # generation emits an untaught attribute claim: "the grinth
-    # eats moss" (alphabetical-successor bug, isaac.py:5577);
-    # florb and zim happen to generate truthful sentences today
-    "gen-truth-grinth",
-}
+KNOWN_BUGS = set()
+# (gen-truth-grinth was here 08-24..30: generation emitted "the
+# grinth eats moss" via an alphabetical successor pick. Fixed
+# 2026-08-30 — generate() now follows door counts; the truth check
+# passes on merit.)
 
 
 def check(name, ok):

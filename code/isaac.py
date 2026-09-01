@@ -5188,7 +5188,20 @@ class Isaac:
 
     def check(self, context, target):
         """Read a SPECIFIC cell in y. 'Is THIS claim true?'
-        Routes through the think loop — recall, process, evaluate."""
+        Routes through the think loop — recall, process, evaluate.
+        Stranger guard (2026-08-30, the worst-case writeup's filed
+        hole): a claim ABOUT a never-observed target, or over a
+        context with no known token at all, refuses. Strangers inside
+        a partly-known context are left to the think loop's designed
+        fallback (drop the stranger, ask the known tokens) — that is
+        generalization the persistence road depends on; the residual
+        risk of a population-filled answer for stranger subjects
+        stays a named record row (T1 frame-luck; boundary battery)."""
+        if target not in self.net.doors and target not in self.net.preds:
+            return False, 0.0
+        if context and not any(t in self.net.doors or t in self.net.preds
+                               for t in context):
+            return False, 0.0
         return self._think(context, mode="check", target=target)
 
     # ── SELECTION + FEEDBACK (owner design 2026-08-20) ──────────
@@ -5448,9 +5461,17 @@ class Isaac:
     # ── walking (net) ───────────────────────────────────────────
 
     def predict_next(self, context, tag="seq"):
-        """Convergence voting from context words. For language, not math."""
+        """Convergence voting from context words. For language, not math.
+        Stranger guard (2026-08-30): never-observed tokens cannot
+        vote (they are skipped, not a veto); no known voter at all
+        means an honest None."""
         if not context:
             return None
+        known = [t for t in context
+                 if t in self.net.doors or t in self.net.preds]
+        if not known:
+            return None
+        context = known
         votes = defaultdict(int)
         voters = defaultdict(list)
         for word in context:
@@ -5601,7 +5622,13 @@ class Isaac:
             nexts = {n for n in nexts if (current, n) not in self.lockouts}
             if not nexts:
                 break
-            best = sorted(nexts)[0]
+            # most-traveled door wins; sorted() first makes the
+            # tie-break deterministic. (Was sorted()[0] — an
+            # ALPHABETICAL pick that ignored the counts entirely:
+            # root cause of the false-blend generation bug, e.g.
+            # "the grinth eats moss" when the taught fact was seeds.)
+            best = max(sorted(nexts), key=lambda n:
+                       self.net.door_counts.get((current, n), 0))
             chain.append(best)
             visited.add(best)
             current = best
@@ -6067,8 +6094,14 @@ class Isaac:
 
     # ── computation ─────────────────────────────────────────────
 
-    def compute(self, a, op, b, memorize=True, verbose=True):
-        """The full loop: try → shrug → decompose → verify → memorize."""
+    def compute(self, a, op, b, memorize=False, verbose=True):
+        """The full loop: try → shrug → decompose → verify.
+        DECLARED BUILT-IN INSTRUMENT: the decomposition road is
+        place-value arithmetic in code, not learned recall — answers
+        from it are stamped "decomposed", and since 2026-08-30 they
+        are NOT memorized into the observed store by default
+        (self-computed results entering the raw log unlabeled was a
+        provenance leak; origin typing is the ledger build's job)."""
         context = [str(a), op, str(b), "="]
         answer, conf = self.lookup(context)
         if answer is not None and conf >= CONFIDENCE_THRESHOLD:
@@ -6084,9 +6117,11 @@ class Isaac:
         elif op == "+":
             result = _decompose_add(a, b, self, verbose)
         elif op == "-":
-            result = _decompose_add(a, -b, self, verbose)  # placeholder
-            if result is None:
-                result = a - b
+            # subtraction has no decomposition road yet — refuse.
+            # (The old placeholder ran _decompose_add(a, -b) whose
+            # digit pass takes abs(), returning a+|b| for untaught
+            # pairs — a wrong answer that was then memorized.)
+            result = None
         else:
             result = None
 
