@@ -814,6 +814,17 @@ class Isaac:
         self._whole_counts = defaultdict(int)   # tuple(seq) -> lived count
         self._idea_index = {}                   # tuple(seq) -> idea node
 
+        # ── THE FACTS LAYER (2026-08-30, three-layer ruling) ────
+        # log / net / facts kept separate on purpose: typed claims
+        # with origin stamps and pointers back to the log. 'ground'
+        # entries are fillings (parameter rows); 'rule' entries are
+        # universal structures — never exported as ground facts.
+        self.facts = []
+
+        # ── THE ASK QUEUE (2026-08-30) ──────────────────────────
+        # a refusal files a self-question instead of evaporating.
+        self.asks = []
+
     # ── observation ─────────────────────────────────────────────
 
     def observe(self, tokens):
@@ -5180,11 +5191,23 @@ class Isaac:
             n_ops = sum(1 for t in expr if t in ops)
             if "(" in expr or n_ops >= 2:
                 ans, conf, _steps = self.evaluate(context)
+                if ans is None:
+                    self.ask_file(list(context),
+                                  "reduction refused at an unanswerable "
+                                  "step", road="reduction")
                 return ans, conf
         for tok in context:
             if tok not in self.net.doors and tok not in self.net.preds:
+                self.ask_file(list(context),
+                              f"never-observed token: {tok}",
+                              road="recall")
                 return None, 0.0
-        return self._think(context, mode="lookup")
+        ans, conf = self._think(context, mode="lookup")
+        if ans is None:
+            self.ask_file(list(context),
+                          f"no frame matched (conf {conf:.2f})",
+                          road="recall")
+        return ans, conf
 
     def check(self, context, target):
         """Read a SPECIFIC cell in y. 'Is THIS claim true?'
@@ -5432,6 +5455,209 @@ class Isaac:
             min_conf = min(min_conf, conf)
             span = span[:best_i - 1] + [ans] + span[best_i + 2:]
         return span[0], (min_conf if min_conf != float("inf") else 0.0)
+
+    # ── THE FACTS LAYER + THE ASK QUEUE (2026-08-30) ────────────
+    # Owner ruling: three separate layers — the log (verbatim), the
+    # net (derived statistics), the facts (typed claims). Facts carry
+    # origin (extracted / certified / told / ...) and source pointers
+    # into the log. Asks are the SOAR lesson: the system's own
+    # stuck-points become its curriculum.
+
+    def _ensure_parts(self):
+        # bodies saved before 2026-08-30 lack these stores
+        if not hasattr(self, "facts"):
+            self.facts = []
+        if not hasattr(self, "asks"):
+            self.asks = []
+
+    def fact_add(self, pred, args, kind="ground", origin="extracted",
+                 sources=None, text=None):
+        self._ensure_parts()
+        fid = len(self.facts) + 1
+        self.facts.append(dict(
+            id=fid, kind=kind, pred=pred, args=list(args),
+            text=text or f"{pred}({','.join(str(a) for a in args)})",
+            origin=origin, sources=list(sources or []),
+            ts=len(self.observed_sequences)))
+        return fid
+
+    def facts_query(self, pred=None, origin=None, kind=None):
+        self._ensure_parts()
+        return [f for f in self.facts
+                if (pred is None or f["pred"] == pred)
+                and (origin is None or f["origin"] == origin)
+                and (kind is None or f["kind"] == kind)]
+
+    def facts_export(self, preds=None):
+        """Ground facts as a logic program, one 'pred(a,b).' per
+        line. Rules never export here — they enter solver programs
+        only through the admitted-rules road."""
+        self._ensure_parts()
+        lines = []
+        for f in self.facts:
+            if f["kind"] != "ground":
+                continue
+            if preds is not None and f["pred"] not in preds:
+                continue
+            lines.append(
+                f"{f['pred']}({','.join(str(a) for a in f['args'])}).")
+        return "\n".join(lines)
+
+    def ask_file(self, question, reason, road="refusal"):
+        """File a self-question. Identical open questions dedupe to
+        one ask; open count capped at 1000 (overflow counted, not
+        silently lost)."""
+        self._ensure_parts()
+        key = tuple(question)
+        for a in self.asks:
+            if a["status"] == "open" and tuple(a["question"]) == key:
+                return a["id"]
+        if sum(1 for a in self.asks if a["status"] == "open") >= 1000:
+            self._asks_dropped = getattr(self, "_asks_dropped", 0) + 1
+            return None
+        aid = len(self.asks) + 1
+        self.asks.append(dict(
+            id=aid, question=list(question), reason=reason, road=road,
+            status="open", answer=None,
+            ts=len(self.observed_sequences)))
+        return aid
+
+    def asks_open(self):
+        self._ensure_parts()
+        return [a for a in self.asks if a["status"] == "open"]
+
+    # ── ASK_LOGIC: the solver road (2026-08-30) ─────────────────
+    # The engine (clingo) is a traveler who knows nothing: it gets
+    # ground facts + admitted rules, derives everything that follows,
+    # and every conclusion is REPLAYED here by a tiny independent
+    # evaluator against the facts layer before it counts. Tiers:
+    # CERTIFIED (rule court-admitted + replay succeeds — may enter
+    # the facts layer, origin=certified, never the log) /
+    # REJECTED (replay fails) / ask (nothing derivable — the
+    # closed-world guard: unprovable is a question, never a "no").
+
+    def rule_admit(self, name, head_pred, head_vars, body,
+                   clingo_text, court=None):
+        """Admit one universal rule. body = [(pred, [vars...]), ...].
+        court = the validation receipt that earned admission (held-out
+        results); rules without a court are 'experimental' and their
+        conclusions cap at SOLVER-DERIVED."""
+        self._ensure_parts()
+        fid = self.fact_add(name, [], kind="rule",
+                            origin="admitted" if court else "experimental",
+                            text=clingo_text)
+        self.facts[fid - 1]["meta"] = dict(
+            head_pred=head_pred, head_vars=list(head_vars),
+            body=[(p, list(vs)) for p, vs in body], court=court)
+        return fid
+
+    def _replay(self, rule_meta, head_args):
+        """Independent replay checker: does the rule body fully ground
+        in the facts layer under the head's bindings? Shares no code
+        with the solver. Returns (ok, legs)."""
+        binding = dict(zip(rule_meta["head_vars"],
+                           [str(a) for a in head_args]))
+        ground = defaultdict(list)
+        for f in self.facts:
+            if f["kind"] == "ground":
+                ground[f["pred"]].append([str(a) for a in f["args"]])
+
+        def match(body, bind, legs):
+            if not body:
+                return True, legs
+            (pred, vs), rest = body[0], body[1:]
+            for args in ground[pred]:
+                if len(args) != len(vs):
+                    continue
+                nb = dict(bind)
+                ok = True
+                for v, a in zip(vs, args):
+                    if v in nb:
+                        if nb[v] != a:
+                            ok = False
+                            break
+                    else:
+                        nb[v] = a
+                if ok:
+                    good, out = match(rest, nb,
+                                      legs + [f"{pred}({','.join(args)})"])
+                    if good:
+                        return True, out
+            return False, legs
+        return match(rule_meta["body"], binding, [])
+
+    def ask_logic(self, head_pred, query_args):
+        """Ask the solver road: query_args is the head's argument list
+        with None for unknowns, e.g. ('word_sum', ['three','four',None]).
+        Returns (answers, tier, receipt)."""
+        self._ensure_parts()
+        rules = [f for f in self.facts if f["kind"] == "rule"
+                 and f.get("meta", {}).get("head_pred")]
+        try:
+            import clingo
+        except ImportError:
+            self.ask_file([head_pred] + [str(a) for a in query_args],
+                          "no solver installed", road="logic")
+            return [], "no-solver", ["clingo not installed — filed as ask"]
+        program = self.facts_export() + "\n" + \
+            "\n".join(f["text"] for f in rules)
+        ctl = clingo.Control(["--warn=none"])
+        ctl.add("base", [], program)
+        ctl.ground([("base", [])])
+        derived = []
+        ctl.solve(on_model=lambda mo: derived.extend(
+            [str(x) for x in s.arguments] for s in mo.symbols(atoms=True)
+            if s.name == head_pred))
+        want = [None if a is None else str(a) for a in query_args]
+        cands = [d for d in derived
+                 if len(d) == len(want)
+                 and all(w is None or w == a for w, a in zip(want, d))]
+        if not cands:
+            self.ask_file([head_pred] + [str(a) for a in query_args],
+                          "solver derived nothing — unprovable is a "
+                          "question, not a no", road="logic")
+            return [], "ask", [f"{len(derived)} {head_pred} atoms "
+                               f"derived; none matched the query"]
+        answers, receipt, tier = [], [], "CERTIFIED"
+        for c in cands:
+            verdict = None
+            for r in rules:
+                if r["meta"]["head_pred"] != head_pred:
+                    continue
+                ok, legs = self._replay(r["meta"], c)
+                if ok:
+                    verdict = ("admitted" if r["origin"] == "admitted"
+                               else "experimental", legs, r)
+                    break
+            if verdict is None:
+                receipt.append(f"REJECTED {head_pred}({','.join(c)}): "
+                               f"replay found no grounding in the facts")
+                continue
+            status, legs, rule = verdict
+            this_tier = ("CERTIFIED" if status == "admitted"
+                         else "SOLVER-DERIVED")
+            if this_tier == "SOLVER-DERIVED":
+                tier = "SOLVER-DERIVED"
+            answers.append(c)
+            receipt += [f"{head_pred}({','.join(c)}) [{this_tier}] legs:"] \
+                + [f"    v {leg}  (facts layer)" for leg in legs]
+            if this_tier == "CERTIFIED":
+                self.fact_add(head_pred, c, origin="certified",
+                              sources=[rule["id"]])
+        if not answers:
+            self.ask_file([head_pred] + [str(a) for a in query_args],
+                          "solver candidates all failed replay",
+                          road="logic")
+            return [], "rejected", receipt
+        return answers, tier, receipt
+
+    def ask_resolve(self, aid, answer, road):
+        self._ensure_parts()
+        for a in self.asks:
+            if a["id"] == aid:
+                a.update(status="resolved", answer=answer, road=road)
+                return a
+        return None
 
     def evaluate(self, tokens):
         """Evaluate a multi-step expression by pair reduction.

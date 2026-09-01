@@ -47,6 +47,10 @@ ROWS = [
     ("onefile_probe",          [PY, os.path.join(HERE, "onefile_probe.py")], False),
     ("onefile_install_court",  [PY, os.path.join(HERE, "onefile_install_court.py")], False),
     ("cloth_trivial_baseline", [PY, os.path.join(HERE, "cloth_trivial_baseline.py")], False),
+    ("parts_courts",           [PY, os.path.join(HERE, "parts_courts.py")], False),
+    ("ask_logic_court",        [PY, os.path.join(HERE, "ask_logic_court.py")], False),
+    ("z3_law_scan",            [PY, os.path.join(HERE, "z3_law_scan.py")], False),
+    ("s0_composition_probe",   [PY, os.path.join(HERE, "s0_composition_probe.py")], False),
     ("cloth_run_120",          [PY, os.path.join(HERE, "cloth_run.py"), "120"], True),
 ]
 
@@ -77,6 +81,10 @@ def main():
         if is_slow and not slow:
             print(f"  {name:<24} SLOW-SKIPPED  (rerun with --slow)")
             outcomes.append((name, "SLOW-SKIPPED"))
+            continue
+        if not os.path.exists(cmd[1]):
+            print(f"  {name:<24} SKIP          (file not built yet)")
+            outcomes.append((name, "SKIP"))
             continue
         to_run.append((name, cmd))
 
