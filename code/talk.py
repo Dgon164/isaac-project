@@ -38,6 +38,18 @@ from isaac import Isaac, tokenize  # noqa: E402
 DEFAULT_BODY = os.path.join(HERE, "..", "data", "minds", "talk.isaac")
 
 
+def _backup_existing(path):
+    """Supersession, never deletion (owner ruling 2026-09-01): an
+    existing body is deprecated by RENAME to a timestamped .backup —
+    old versions stay on disk, marked old, never removed."""
+    if os.path.exists(path):
+        import datetime
+        stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        os.replace(path, f"{path}.{stamp}.backup")
+        print(f"  (previous body deprecated -> "
+              f"{os.path.basename(path)}.{stamp}.backup)")
+
+
 def is_question(toks):
     """A question ends WITH '?' or '='; a statement carries its
     answer ('3 + 4 = 7' teaches, '3 + 4 =' asks)."""
@@ -105,6 +117,7 @@ def main():
         if cmd == "quit":
             os.makedirs(os.path.dirname(os.path.abspath(body)),
                         exist_ok=True)
+            _backup_existing(body)
             m.save(body)
             print(f"saved -> {body}")
             break
@@ -114,6 +127,7 @@ def main():
             path = rest or body
             os.makedirs(os.path.dirname(os.path.abspath(path)),
                         exist_ok=True)
+            _backup_existing(path)
             m.save(path)
             print(f"saved -> {path}")
         elif cmd == "read":
