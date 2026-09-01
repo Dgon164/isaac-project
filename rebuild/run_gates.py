@@ -53,6 +53,8 @@ ROWS = [
     ("s0_composition_probe",   [PY, os.path.join(HERE, "s0_composition_probe.py")], False),
     ("binder_court",           [PY, os.path.join(HERE, "binder_court.py")], False),
     ("playland_court",         [PY, os.path.join(HERE, "playland_court.py")], False),
+    ("worker_exam_probe",      [PY, os.path.join(HERE, "worker_exam_probe.py")], False),
+    ("ops_queue_probe",        [PY, os.path.join(HERE, "ops_queue_probe.py")], False),
     ("cloth_unseen",           [PY, os.path.join(HERE, "cloth_unseen.py")], False),
     ("cloth_run_120",          [PY, os.path.join(HERE, "cloth_run.py"), "120"], True),
 ]

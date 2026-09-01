@@ -142,3 +142,25 @@ Standing disposition for this crash class:
   Processor Diagnostic Tool and MemTest86 (XMP RAM is the other corruption source);
   the 14900KF is covered by Intel's extended warranty for this defect class if it
   fails diagnosis.
+
+## 2026-09-01 — workers (the dc database design, first rungs)
+
+First 1,000-passage attempt died to PC SLEEP at batch 34/50 (9.4h wall gap in the
+log; no crash — 38 min clean compute at 8x the old scale). Partial findings stand:
+logical table (5552 x 393823) = 2.2 BILLION cells running sparse (old halt: 250M);
+after-class ~69-75% at 1000-scale vs 82-92% at 120 (interference grows);
+batch-1 retention 92% -> 76% by batch 34 (the first forgetting-by-interference
+curve). Relaunched under a keep-awake wrapper.
+
+worker_exam_probe (1 writer-built frozen body, N reader processes, CLOTH 1108
+items, concurrent with the 1000-run): serial 33.7s; 4 workers 3.9x; 8 workers
+6.5x; 12 workers 7.0x — the July knee (8-12) reproduces; answers BIT-IDENTICAL
+at every width (the admissibility line: parallel reads may never change an
+answer; consolidation stays serial until the confluence machinery lands).
+
+ops_queue_probe (the dc vision run for real): mixed teach/ask queue, single
+writer + 8 readers over versioned frozen bodies, 2 refreezes. Ordering court:
+the ask after the teach sees the taught fact across a version bump; all
+answers equal the serial twin. Economics, honestly: at trivial per-ask cost
+the pool overhead LOSES (0.011s/op vs 0.001s serial) — workers pay off when
+per-ask work is real (see 7x above); restart cost amortizes over burst size.
