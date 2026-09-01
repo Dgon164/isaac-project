@@ -1656,20 +1656,32 @@ class Isaac:
         # keep the delta rows, raw counts, and L1-normalized weights
         # — same numbers, ~1MB, no dense views (RUN_LEDGER 08-28/30).
         n_f = len(frames)
-        per_col = [[] for _ in range(n_f)]
-        for (delta, frame), c in counts.items():
-            per_col[fidx[frame]].append((didx[delta], c))
+        nnz = len(counts)
+        # VECTORIZED BUILD (2026-09-01): the per-entry Python loop
+        # cost 3.4s per compile at 300-passage scale (profiled); one
+        # array pass + lexsort replaces it. Same arrays: (col,row)
+        # pairs are unique so the sort order is fully determined,
+        # and per-column sums run over the same float32 slices in
+        # the same row order as the old build.
+        a_cols = np.empty(nnz, dtype=np.int64)
+        a_rows = np.empty(nnz, dtype=np.int32)
+        a_vals = np.empty(nnz, dtype=np.float32)
+        for k, ((delta, frame), cnt) in enumerate(counts.items()):
+            a_cols[k] = fidx[frame]
+            a_rows[k] = didx[delta]
+            a_vals[k] = cnt
+        order = np.lexsort((a_rows, a_cols))
+        a_cols, a_rows, a_vals = a_cols[order], a_rows[order], a_vals[order]
+        col_starts = np.searchsorted(a_cols, np.arange(n_f))
+        col_ends = np.searchsorted(a_cols, np.arange(n_f), side="right")
         col_rows, col_counts, col_vals = [], [], []
-        nnz = 0
-        for entries in per_col:
-            entries.sort()
-            rows = np.array([r for r, _ in entries], dtype=np.int32)
-            cnts = np.array([v for _, v in entries], dtype=np.float32)
-            s = float(cnts.sum())
-            col_rows.append(rows)
-            col_counts.append(cnts)
-            col_vals.append(cnts / (s if s else 1.0))
-            nnz += len(entries)
+        for j in range(n_f):
+            r = a_rows[col_starts[j]:col_ends[j]]
+            v = a_vals[col_starts[j]:col_ends[j]]
+            s = float(v.sum())
+            col_rows.append(r)
+            col_counts.append(v)
+            col_vals.append(v / (s if s else 1.0))
 
         self._compiled = {
             "col_rows": col_rows, "col_counts": col_counts,
@@ -4917,7 +4929,12 @@ class Isaac:
         if not self._compiled:
             return None
         c = self._compiled
-        x = np.zeros(len(c["frames"]), dtype=np.float32)
+        # SPARSE ENCODE (2026-09-01): the input has ~5 live entries;
+        # building a dense frames-length vector and re-scanning it
+        # (np.zeros + x.sum + np.nonzero) was 60-70% of a check at
+        # 300-passage scale (42ms misses — profiled, RUN_LEDGER).
+        # x is now {column_index: weight}, same numbers.
+        x = {}
 
         # Direct frame matching
         frame = tuple(context)
@@ -4933,7 +4950,7 @@ class Isaac:
         # their type members. Activate ALL matches — let the matmul
         # resolve which type member is most relevant. Weight lower
         # than direct (8.0 vs 16.0) so direct always wins.
-        if x.sum() == 0 and self.types:
+        if not x and self.types:
             for i, token in enumerate(context):
                 type_doors = self.net.get_doors(token, tag="type")
                 for tname in type_doors:
@@ -4948,27 +4965,29 @@ class Isaac:
                         trial[i] = member
                         trial_frame = tuple(trial)
                         if trial_frame in c["fidx"]:
-                            x[c["fidx"][trial_frame]] += 8.0
+                            j = c["fidx"][trial_frame]
+                            x[j] = x.get(j, 0.0) + 8.0
                         # Try partial frames with substitution
                         for w in range(2, min(len(trial) + 1, 8)):
                             partial = tuple(trial[-w:])
                             if partial in c["fidx"] and partial != trial_frame:
-                                x[c["fidx"][partial]] += float(w) * 0.5
+                                j = c["fidx"][partial]
+                                x[j] = x.get(j, 0.0) + float(w) * 0.5
 
-        return x if x.sum() > 0 else None
+        return x if x else None
 
     # ── inference (matrix) ──────────────────────────────────────
     # The THINK loop: recall → process → evaluate → repeat until stable.
     # Memory sends forward. Evaluation sends back. Loop until settled.
 
     def _matvec(self, x):
-        """Product against the column-sparse table: accumulate only
-        the input's nonzero columns (median 5 measured). Equals the
-        old dense product to float precision at ~0.1ms/query, with no
-        839MB dense views (measured 2026-08-28/30, RUN_LEDGER)."""
+        """Product against the column-sparse table. x is the sparse
+        encode dict {column: weight}; columns accumulate in ascending
+        index order — the same order the old dense np.nonzero walk
+        used, so results match it bitwise."""
         c = self._compiled
         y = np.zeros(c["shape"][0], dtype=np.float32)
-        for j in np.nonzero(x)[0]:
+        for j in sorted(x):
             y[c["col_rows"][j]] += c["col_vals"][j] * np.float32(x[j])
         return y
 
