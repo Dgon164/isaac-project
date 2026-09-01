@@ -825,6 +825,16 @@ class Isaac:
         # a refusal files a self-question instead of evaporating.
         self.asks = []
 
+        # ── THE CORRELATION BINDER (2026-08-30, owner ruling) ───
+        # outputs and their world responses re-enter TOGETHER, paired
+        # by correlation (recurrence + a background-rate null), never
+        # by raw time adjacency. v1: window = next few observations.
+        self._acts_pending = []       # [{tokens, at}]
+        self._bind_counts = {}        # (act, input) -> co-occurrences
+        self._act_counts = {}         # act -> times performed
+        self._input_counts = {}       # input -> total appearances
+        self.bound_episodes = []      # [(act, input)] promoted pairs
+
     # ── observation ─────────────────────────────────────────────
 
     def observe(self, tokens):
@@ -832,6 +842,8 @@ class Isaac:
         immediate type-slotting for known categories."""
         if not tokens:
             return
+        if getattr(self, "_acts_pending", None) is not None:
+            self._binder_observe(tokens)   # correlation binder (08-30)
         self.starts.add(tokens[0])
         self.net.set_meta(tokens[0], "start", True)
         # ── SURPRISE (owner, 2026-07-25: "surprise is a better
@@ -5650,6 +5662,80 @@ class Isaac:
                           road="logic")
             return [], "rejected", receipt
         return answers, tier, receipt
+
+    # ── THE CORRELATION BINDER (2026-08-30) ─────────────────────
+    # "press switch and light on come in again together, not as
+    # separate." An act opens a window over the NEXT few
+    # observations; inputs inside it are candidate pairings; a pair
+    # binds only when it recurs AND beats the input's background
+    # rate (the null: an input that appears everywhere pairs with
+    # nothing). A bound pair re-enters the log as ONE fused episode
+    # (act + 'then' + input) and mints a binds-fact. Delay is
+    # whatever the window catches — learned per pair by recurrence,
+    # never a fixed timeout.
+
+    BIND_WINDOW = 3       # observations an act's window stays open
+    BIND_AT = 3           # recurrences before promotion
+    BIND_DOMINANCE = 2.0  # in-window rate must beat background x this
+
+    def _ensure_binder(self):
+        if not hasattr(self, "_acts_pending"):
+            self._acts_pending = []
+            self._bind_counts = {}
+            self._act_counts = {}
+            self._input_counts = {}
+            self.bound_episodes = []
+
+    def act_log(self, tokens):
+        """Record that HE did something; opens a correlation window."""
+        self._ensure_binder()
+        key = tuple(tokens)
+        self._act_counts[key] = self._act_counts.get(key, 0) + 1
+        self._acts_pending.append(
+            dict(tokens=key, at=len(self.observed_sequences),
+                 seen=set()))
+
+    def _binder_observe(self, tokens):
+        """Called from observe(): pair this input with open windows,
+        promote pairs that recur above background."""
+        self._ensure_binder()
+        ikey = tuple(tokens)
+        if "then" in ikey:
+            return                      # fused episodes don't re-bind
+        self._input_counts[ikey] = self._input_counts.get(ikey, 0) + 1
+        now = len(self.observed_sequences)
+        self._acts_pending = [a for a in self._acts_pending
+                              if now - a["at"] <= self.BIND_WINDOW]
+        for a in self._acts_pending:
+            pair = (a["tokens"], ikey)
+            if pair in self.bound_episodes:
+                continue
+            # one pairing per act INSTANCE per input kind — otherwise
+            # overlapping windows double-count and inflate the rate
+            # (caught by the binder court's background-null plant)
+            if ikey in a.get("seen", set()):
+                continue
+            a.setdefault("seen", set()).add(ikey)
+            n = self._bind_counts.get(pair, 0) + 1
+            self._bind_counts[pair] = n
+            if n < self.BIND_AT:
+                continue
+            # the null: how often does this input show up NOT after
+            # the act? an everywhere-input binds to nothing.
+            acts = self._act_counts.get(a["tokens"], 1)
+            in_rate = n / acts
+            background = ((self._input_counts[ikey] - n)
+                          / max(1, now - acts * self.BIND_WINDOW))
+            if in_rate > self.BIND_DOMINANCE * background \
+                    and in_rate >= 0.6:
+                self.bound_episodes.append(pair)
+                fused = list(a["tokens"]) + ["then"] + list(ikey)
+                self.observe(fused)
+                self.fact_add("binds",
+                              [" ".join(a["tokens"]), " ".join(ikey)],
+                              origin="bound",
+                              text=f"{' '.join(a['tokens'])} then "
+                                   f"{' '.join(ikey)}")
 
     def ask_resolve(self, aid, answer, road):
         self._ensure_parts()
