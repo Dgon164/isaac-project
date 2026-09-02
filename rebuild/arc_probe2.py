@@ -239,9 +239,10 @@ def run_set(name):
     return solved
 
 
-tr = run_set("training")
-ev = run_set("evaluation")
-print(f"\nTELEMETRY TOTAL: battery of {len(BATTERY)} inducers "
-      f"(5 grid + 6 object), 800 tasks examined, "
-      f"{len(tr) + len(ev)} solved, all solves exact-match on every "
-      f"test output, zero guesses possible by construction.")
+if __name__ == "__main__":
+    tr = run_set("training")
+    ev = run_set("evaluation")
+    print(f"\nTELEMETRY TOTAL: battery of {len(BATTERY)} inducers "
+          f"(5 grid + 6 object), 800 tasks examined, "
+          f"{len(tr) + len(ev)} solved, all solves exact-match on every "
+          f"test output, zero guesses possible by construction.")
