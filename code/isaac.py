@@ -5994,6 +5994,102 @@ class Isaac:
         return {"minted": minted, "templates": len(temps),
                 "refused": refused}
 
+    # ── RULES ABOUT RULES (2026-09-01, the level tower) ─────────
+    # The induced rules become comparands. Three level-2 finds, all
+    # courted extensionally: SHAPES (rules sharing a form with
+    # different parameters -> the form minted as a metarule; future
+    # induction tries shapes first and only solves parameters),
+    # IDENTITIES (two rules that are the same function -> the ledger
+    # dedupes itself), INVERSES (g undoes f -> backwards reasoning
+    # for free).
+
+    _META_RANGE = tuple(range(0, 25))
+
+    def _op_ext_eq(self, ca, cb):
+        return all(self._ind_apply(ca, x) == self._ind_apply(cb, x)
+                   for x in self._META_RANGE)
+
+    def _chain_shape(self, chain):
+        out = []
+        for n in chain:
+            out.append(n.split("(")[0] + "(#)" if "(" in n else n)
+        return tuple(out)
+
+    def meta_hunt(self):
+        """Level 2: hunt structure in the RULE ledger itself."""
+        self._ensure_parts()
+        rules = [(f["text"].split(" =")[0], list(f["args"]))
+                 for f in self.facts_query(pred="op_rule",
+                                           origin="induced")]
+        report = {"shapes": [], "identities": [], "inverses": []}
+        # CANONICALIZE FIRST — identity before comparison (the court
+        # caught mul_k(5)+inc and mul_k(3)+add_k(-2) counting as
+        # different shapes; inc IS add_k(1)). The canonical form of
+        # a primitive is DISCOVERED extensionally, never told:
+        canon = {}
+        for prim in self._IND_PRIMS:
+            for pf in [f"add_k({k})" for k in range(-9, 10)] + \
+                      [f"mul_k({k})" for k in range(-9, 10) if k]:
+                if self._op_ext_eq([prim], [pf]):
+                    canon[prim] = pf
+                    report["identities"].append((prim, pf))
+                    break
+        rules = [(name, [canon.get(n, n) for n in chain])
+                 for name, chain in rules]
+        # SHAPES: same chain-form, different parameters, seen >= 2
+        seen = {}
+        for name, chain in rules:
+            if any("(" in n for n in chain):
+                seen.setdefault(self._chain_shape(chain),
+                                []).append(name)
+        for shape, members in seen.items():
+            if len(members) >= 2 and not self.facts_query(
+                    pred="meta_shape", origin="induced"):
+                self.fact_add("meta_shape", list(shape), kind="rule",
+                              origin="induced",
+                              text=f"shape {' then '.join(shape)} "
+                                   f"(seen in {', '.join(members)})")
+                report["shapes"].append((shape, members))
+        # IDENTITIES + INVERSES over rules and primitives
+        pool = rules + [(p, [p]) for p in self._IND_PRIMS]
+        for i in range(len(pool)):
+            for j in range(len(pool)):
+                na, ca = pool[i]
+                nb, cb = pool[j]
+                if i < j and self._op_ext_eq(ca, cb):
+                    self.fact_add("op_identity", [na, nb],
+                                  kind="rule", origin="induced",
+                                  text=f"{na} == {nb}")
+                    report["identities"].append((na, nb))
+                if self._op_ext_eq(cb + ca, []):     # a(b(x)) == x
+                    self.fact_add("op_inverse", [na, nb],
+                                  kind="rule", origin="induced",
+                                  text=f"{na} undoes {nb}")
+                    report["inverses"].append((na, nb))
+        return report
+
+    def induce_op_shaped(self, pairs):
+        """Shape-first induction: minted metarules tried before any
+        search — only the parameters get solved. Returns
+        (chain, programs_tried)."""
+        self._ensure_parts()
+        tried = 0
+        for f in self.facts_query(pred="meta_shape",
+                                  origin="induced"):
+            shape = f["args"]
+            slots = [i for i, n in enumerate(shape) if "(#)" in n]
+            from itertools import product as _product
+            for ks in _product(range(-9, 10), repeat=len(slots)):
+                chain = list(shape)
+                for s, k in zip(slots, ks):
+                    chain[s] = chain[s].replace("(#)", f"({k})")
+                tried += 1
+                if all(self._ind_apply(chain, a) == b
+                       for a, b in pairs):
+                    return chain, tried
+        chain = self.induce_op(pairs)
+        return chain, tried
+
     # ── ASK_LOGIC: the solver road (2026-08-30) ─────────────────
     # The engine (clingo) is a traveler who knows nothing: it gets
     # ground facts + admitted rules, derives everything that follows,
