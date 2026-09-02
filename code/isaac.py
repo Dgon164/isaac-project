@@ -774,7 +774,13 @@ class _Enumerator:
 
 
 class Isaac:
-    def __init__(self):
+    def __init__(self, fast=False):
+        # EXPERIMENTAL FAST MODE (owner 2026-09-01: "go fast, break
+        # things... race to idle"): no consolidation, no substitution
+        # fallback (a miss refuses and files an ask), single-pass
+        # think, trimmed quick-compressed saves. The superseded-
+        # structure cull, live as a flag.
+        self.fast = fast
         self.net = Net()
         self.starts = set()
         self.types = {}
@@ -1706,6 +1712,13 @@ class Isaac:
 
         By default, scopes to dirty nodes — O(d×n) instead of O(n²).
         Pass full=True to force a complete re-crystallization."""
+        if getattr(self, "fast", False):
+            # fast mode: the type-former is retired from live duty
+            # (measured: -2.4 points on text, corrupts reasoning,
+            # 164s at 1000-passage scale — RUN_LEDGER 2026-09-01)
+            self._dirty_nodes.clear()
+            self._consolidated_up_to = len(self.observed_sequences)
+            return {"fast": "type-former skipped"}
         scope = None if full or not self._dirty_nodes else list(self._dirty_nodes)
         result = self._crystallize(tag=tag, min_shared=min_shared,
                                    verbose=verbose, scope=scope)
@@ -2211,6 +2224,57 @@ class Isaac:
     @staticmethod
     def _job_id(job):
         return job.get("job") if isinstance(job, dict) else job
+
+    # ── EXPERIMENTAL FAST BODY (2026-09-01, race-to-idle) ──────────
+    # Store the roots, derive the rest: the compiled table, the
+    # pair-counts, and every cache are rebuildable from the log, so
+    # they never touch disk. Quick compression (zlib-1) instead of
+    # LZMA: the classic save spent 5.1s compressing + 5.2s pickling
+    # derived stores. Write-then-swap kept.
+
+    _FAST_DERIVED = ("_compiled", "_pair_counts", "_type_profiles",
+                     "_compose_taught", "_compose_resolve",
+                     "_compose_back", "_compose_poscache")
+
+    def save_fast(self, path):
+        import os
+        import pickle
+        import zlib
+        aside = {}
+        for a in self._FAST_DERIVED:
+            if hasattr(self, a):
+                aside[a] = getattr(self, a)
+                setattr(self, a, None)
+        try:
+            blob = b"ISF1" + zlib.compress(
+                pickle.dumps(self, protocol=5), level=1)
+        finally:
+            for a, v in aside.items():
+                setattr(self, a, v)
+        tmp = path + ".writing"
+        with open(tmp, "wb") as f:
+            f.write(blob)
+        os.replace(tmp, path)
+        return len(blob)
+
+    @staticmethod
+    def load_fast(path):
+        import pickle
+        import zlib
+        blob = open(path, "rb").read()
+        assert blob[:4] == b"ISF1", "not a fast body"
+        m = pickle.loads(zlib.decompress(blob[4:]))
+        m._compiled = None
+        m._pair_counts = None
+        m._counts_up_to = 0
+        m._type_profiles = {}
+        # compile EAGERLY: the explicit road round-trips 1000/1000
+        # bit-perfect; the lazy compile-inside-first-check road
+        # measured 319/1000 answer identity (KNOWN-BUG, unexplained
+        # — 2026-09-01, race_to_idle investigation). Until that
+        # autopsy, fast bodies wake up compiled.
+        m._compile()
+        return m
 
     def ingest(self, content, kind="ingest"):
         """Take content in as a JOB on the spine — not straight into
@@ -4950,7 +5014,7 @@ class Isaac:
         # their type members. Activate ALL matches — let the matmul
         # resolve which type member is most relevant. Weight lower
         # than direct (8.0 vs 16.0) so direct always wins.
-        if not x and self.types:
+        if not x and self.types and not getattr(self, "fast", False):
             for i, token in enumerate(context):
                 type_doors = self.net.get_doors(token, tag="type")
                 for tname in type_doors:
@@ -5098,6 +5162,11 @@ class Isaac:
         return verdict
 
     def _think(self, context, mode="lookup", target=None, max_cycles=5):
+        if getattr(self, "fast", False):
+            # race-to-idle: one route, no retry strategies — a miss
+            # is a clean refusal (and lookup files the ask)
+            self._ensure_compiled()
+            return self._route(context, mode, target)
         """Stages 2/3/4 loop. Recall → Process → Evaluate → repeat.
 
         Memory sends knowledge forward to processing.
