@@ -119,27 +119,28 @@ INDUCERS = [("identity", induce_identity),
             ("transform", induce_transform),
             ("scale", induce_scale)]
 
-solved, by_rule, unsolved = [], {}, 0
-for path in sorted(glob(os.path.join(DIR, "*.json"))):
-    task = json.load(open(path))
-    tid = os.path.basename(path)[:-5]
-    got = None
-    for name, ind in INDUCERS:
-        fn = ind(task["train"])
-        if fn is not None and all(fn(t["input"]) == t["output"]
-                                  for t in task["test"]):
-            got = name
-            break
-    if got:
-        solved.append((tid, got))
-        by_rule[got] = by_rule.get(got, 0) + 1
-    else:
-        unsolved += 1
+if __name__ == "__main__":
+    solved, by_rule, unsolved = [], {}, 0
+    for path in sorted(glob(os.path.join(DIR, "*.json"))):
+        task = json.load(open(path))
+        tid = os.path.basename(path)[:-5]
+        got = None
+        for name, ind in INDUCERS:
+            fn = ind(task["train"])
+            if fn is not None and all(fn(t["input"]) == t["output"]
+                                      for t in task["test"]):
+                got = name
+                break
+        if got:
+            solved.append((tid, got))
+            by_rule[got] = by_rule.get(got, 0) + 1
+        else:
+            unsolved += 1
 
-print(f"ARC-AGI training set, first contact: "
-      f"{len(solved)}/400 tasks solved, {unsolved} filed as asks")
-for name, n in sorted(by_rule.items(), key=lambda x: -x[1]):
-    ids = [t for t, r in solved if r == name][:4]
-    print(f"  {name:10s} {n:3d}   e.g. {', '.join(ids)}")
-print("\n(view any task id at arcprize.org / the JSONs in "
-      "data/arc-agi/data/training)")
+    print(f"ARC-AGI training set, first contact: "
+          f"{len(solved)}/400 tasks solved, {unsolved} filed as asks")
+    for name, n in sorted(by_rule.items(), key=lambda x: -x[1]):
+        ids = [t for t, r in solved if r == name][:4]
+        print(f"  {name:10s} {n:3d}   e.g. {', '.join(ids)}")
+    print("\n(view any task id at arcprize.org / the JSONs in "
+          "data/arc-agi/data/training)")
