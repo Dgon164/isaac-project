@@ -5876,6 +5876,124 @@ class Isaac:
         self._play_stats.append(report)
         return report
 
+    # ── THE INDUCTION ENGINE (2026-09-01) ───────────────────────
+    # One mechanism for learning rules ABOUT data — operators,
+    # transformations — without being told what they are. Pairs are
+    # MINED from his own log by the differentiator (sequences
+    # sharing a template = the shared bin; the varying numbers = the
+    # residues = a self-collected example set). A program answers
+    # only if it reproduces EVERY pair and beats the shuffled null;
+    # successes join the library (the growing grammar: yesterday's
+    # discovery is today's vocabulary) and the facts layer as
+    # origin=induced, stored as READABLE CHAINS, never closures.
+
+    _IND_PRIMS = ("inc", "dec", "dbl", "neg", "shr", "sq")
+    _IND_PARAM = ("add_k", "mul_k")
+
+    @staticmethod
+    def _ind_prim(name):
+        base = {"inc": lambda x: x + 1, "dec": lambda x: x - 1,
+                "dbl": lambda x: x * 2, "neg": lambda x: -x,
+                "shr": lambda x: x >> 1 if x >= 0 else None,
+                "sq": lambda x: x * x}
+        if name in base:
+            return base[name]
+        if "(" in name:
+            op, k = name[:-1].split("(")
+            k = int(k)
+            if op == "add_k":
+                return lambda x: x + k
+            if op == "mul_k" and k != 0:
+                return lambda x: x * k
+        return None
+
+    def _ind_apply(self, chain, x):
+        for name in chain:
+            fn = self._ind_prim(name)
+            if fn is None:
+                sub = None
+                for f in self.facts_query(pred="op_rule",
+                                          origin="induced"):
+                    if f["text"].split(" =")[0] == name:
+                        sub = f["args"]
+                        break
+                if sub is None:
+                    return None
+                x = self._ind_apply(sub, x)
+            else:
+                x = fn(x)
+            if x is None:
+                return None
+        return x
+
+    def induce_op(self, pairs, depth=2):
+        """Search programs over primitives + the induced library.
+        Court: every pair, exactly. Returns chain (names) or None."""
+        self._ensure_parts()
+        lib_names = [f["text"].split(" =")[0]
+                     for f in self.facts_query(pred="op_rule",
+                                               origin="induced")]
+        params = [f"{p}({k})" for p in self._IND_PARAM
+                  for k in range(-9, 10)
+                  if not (p == "mul_k" and k == 0)]
+        singles = list(self._IND_PRIMS) + lib_names + params
+
+        def ok(chain):
+            return all(self._ind_apply(chain, a) == b
+                       for a, b in pairs)
+        for n1 in singles:
+            if ok([n1]):
+                return [n1]
+        if depth >= 2:
+            for n1 in singles:
+                for n2 in singles:
+                    if ok([n1, n2]):
+                        return [n1, n2]
+        return None
+
+    def structure_hunt(self, recent=400, min_examples=4):
+        """Unsupervised: mine templates from his own log (numbers ->
+        slots), collect each template's number pairs, induce, mint.
+        Nobody tells him what the rules are — or that there are any."""
+        import random as _random
+        self._ensure_parts()
+        temps = {}
+        for seq in self.observed_sequences[-recent:]:
+            nums = [i for i, t in enumerate(seq)
+                    if str(t).lstrip("-").isdigit()]
+            if len(nums) != 2:
+                continue
+            key = tuple("#" if i in nums else t
+                        for i, t in enumerate(seq))
+            temps.setdefault(key, []).append(
+                (int(seq[nums[0]]), int(seq[nums[1]])))
+        minted, refused = [], 0
+        for key, pairs in temps.items():
+            uniq = sorted(set(pairs))
+            if len(uniq) < min_examples:
+                continue
+            chain = self.induce_op(uniq)
+            if chain is None:
+                refused += 1
+                continue
+            # THE NULL: shuffled outputs must NOT be explainable
+            rng = _random.Random(1)
+            outs = [b for _, b in uniq]
+            rng.shuffle(outs)
+            if list(zip([a for a, _ in uniq], outs)) != uniq and \
+                    self.induce_op(list(zip([a for a, _ in uniq],
+                                            outs))) is not None:
+                refused += 1
+                continue
+            name = f"op{len(self.facts_query(pred='op_rule')) + 1}"
+            self.fact_add("op_rule", chain, kind="rule",
+                          origin="induced",
+                          text=f"{name} = {' then '.join(chain)}",
+                          sources=[" ".join(str(t) for t in key)])
+            minted.append((name, chain, " ".join(key), len(uniq)))
+        return {"minted": minted, "templates": len(temps),
+                "refused": refused}
+
     # ── ASK_LOGIC: the solver road (2026-08-30) ─────────────────
     # The engine (clingo) is a traveler who knows nothing: it gets
     # ground facts + admitted rules, derives everything that follows,
