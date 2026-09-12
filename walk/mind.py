@@ -203,13 +203,13 @@ def conditions(store, reached, qset):
     return named or cs
 
 
-def gate(store, it, reached, qset):
+def gate(store, it, conds):
     """load > capacity, one comparison per condition. a condition
     names what it tests (against); numbers compare, lists attack."""
     out = []
     if not isinstance(it.content, dict):
         return out
-    for c in conditions(store, reached, qset):
+    for c in conds:
         cc = c.content
         cap = it.content.get(cc["against"])
         if cap is None:
@@ -229,33 +229,34 @@ def gate(store, it, reached, qset):
 
 
 def field(store, reached, qset):
-    """the whole candidate field through every boundary reached:
-    what fails and why, what survives, ranked by cost then weight."""
-    conds = conditions(store, reached, qset)
-    if not conds:
-        return
-    tested = {c.content["against"] for c in conds}
-    rows = [store.get(n) for n in reached
-            if store.get(n).kind == "row" and store.get(n).truth != -1
-            and isinstance(store.get(n).content, dict)
-            and tested & set(store.get(n).content)]
-    if len(rows) < 2:
-        return
-    alive, dead = [], []
-    for r in rows:
-        f = [g for g in gate(store, r, reached, qset) if g.startswith("fails")]
-        (dead if f else alive).append((r, f))
-    print("  persistence: %d candidates, %d fail, %d survive"
-          % (len(rows), len(dead), len(alive)))
-    for r, f in dead:
-        print("    x %-16s %s" % (r.name, f[0][7:]))
-    def sec(r):
-        return (float(r.content.get("cost_per_kg", 9e9)),
-                float(r.content.get("density", 9e9)))
-    for r, _ in sorted(alive, key=lambda rf: sec(rf[0])):
-        print("    v %-16s cost %-5s density %s"
-              % (r.name, r.content.get("cost_per_kg", "?"),
-                 r.content.get("density", "?")))
+    """the candidate field, one run per context. a context is a whole:
+    all its boundaries apply together, never mixed with another's."""
+    by_ctx = {}
+    for c in conditions(store, reached, qset):
+        by_ctx.setdefault(c.content.get("context", ""), []).append(c)
+    for ctx, cs in sorted(by_ctx.items()):
+        tested = {c.content["against"] for c in cs}
+        rows = [store.get(n) for n in reached
+                if store.get(n).kind == "row" and store.get(n).truth != -1
+                and isinstance(store.get(n).content, dict)
+                and tested & set(store.get(n).content)]
+        if len(rows) < 2:
+            continue
+        alive, dead = [], []
+        for r in rows:
+            f = [g for g in gate(store, r, cs) if g.startswith("fails")]
+            (dead if f else alive).append((r, f))
+        print("  %s: %d candidates, %d fail, %d survive"
+              % (ctx or "persistence", len(rows), len(dead), len(alive)))
+        for r, f in dead:
+            print("    x %-16s %s" % (r.name, f[0][7:]))
+        def sec(r):
+            return (float(r.content.get("cost_per_kg", 9e9)),
+                    float(r.content.get("density", 9e9)))
+        for r, _ in sorted(alive, key=lambda rf: sec(rf[0])):
+            print("    v %-16s cost %-5s density %s"
+                  % (r.name, r.content.get("cost_per_kg", "?"),
+                     r.content.get("density", "?")))
 
 
 def props(store, reached, qset):
@@ -288,7 +289,7 @@ def show(store, answers, seeds, reached, qset):
         body = it.content if isinstance(it.content, str) else \
             ", ".join("%s %s" % kv for kv in it.content.items())
         print("  %d. [%s] %s" % (i + 1, it.tag, body))
-        for g in gate(store, it, reached, qset):
+        for g in gate(store, it, conditions(store, reached, qset)):
             print("       %s" % g)
     props(store, reached, qset)
     field(store, reached, qset)
