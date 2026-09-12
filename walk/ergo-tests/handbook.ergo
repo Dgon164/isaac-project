@@ -1,0 +1,81 @@
+// ============================================================
+// A handbook of relations. None of these were written for this
+// problem. Each one only says which quantities appear together
+// in some physical relationship, and which one it solves for.
+// ============================================================
+
+relates(thrust,              [chamber_pressure, throat_area, thrust_coefficient]).
+relates(chamber_pressure,    [gas_generation_rate, throat_area, characteristic_velocity]).
+relates(gas_generation_rate, [burn_rate, burning_surface_area, propellant_density]).
+relates(burn_rate,           [chamber_pressure, propellant_burn_exponent]).
+relates(hoop_stress,         [chamber_pressure, wall_radius, wall_thickness]).
+relates(throat_gas_temperature, [flame_temperature, expansion_ratio]).
+relates(wall_temperature,    [throat_gas_temperature, heat_transfer_coefficient, burn_duration, wall_thermal_mass]).
+relates(wall_thermal_mass,   [material_density, specific_heat, wall_volume]).
+relates(heat_transfer_coefficient, [throat_gas_temperature, gas_velocity, throat_diameter]).
+relates(strength_at_temperature, [yield_strength, wall_temperature, softening_temperature]).
+relates(erosion_rate,        [wall_temperature, melting_point, throat_gas_temperature]).
+relates(throat_area,         [throat_diameter]).
+
+// limits. a limit says a quantity must stay under another quantity.
+limit(wall_temperature,  melting_point,          melting).
+limit(hoop_stress,       strength_at_temperature, rupture).
+limit(erosion_rate,      max_erosion_rate,        throat_opens_up).
+
+// which quantities are properties you read off a material chart
+material_property(melting_point).
+material_property(yield_strength).
+material_property(softening_temperature).
+material_property(material_density).
+material_property(specific_heat).
+
+// which quantities come from the propellant spec sheet
+propellant_property(flame_temperature).
+propellant_property(characteristic_velocity).
+propellant_property(propellant_density).
+propellant_property(propellant_burn_exponent).
+
+// which are set by the builder
+geometry(throat_diameter).
+geometry(wall_thickness).
+geometry(wall_radius).
+geometry(burning_surface_area).
+geometry(expansion_ratio).
+geometry(wall_volume).
+geometry(burn_duration).
+
+// ============================================================
+// the only general rules. these say how to walk the handbook.
+// nothing here mentions thrust, nozzles, or any material.
+// ============================================================
+
+// X feeds Y if X appears in the relation that gives Y
+feeds(?X, ?Y) :- relates(?Y, ?L), ?X \in ?L.
+
+reaches(?X, ?Y) :- feeds(?X, ?Y).
+reaches(?X, ?Y) :- feeds(?Z, ?Y), reaches(?X, ?Z).
+
+// a quantity is capped if it, or anything it reaches, runs into a limit
+capped_by(?Q, ?Ceiling, ?Mode) :- limit(?Q, ?Ceiling, ?Mode).
+capped_by(?Q, ?Ceiling, ?Mode) :- reaches(?Limited, ?Q), limit(?Limited, ?Ceiling, ?Mode).
+
+// which material chart columns end up bearing on a quantity
+bears_on(?Prop, ?Q) :- material_property(?Prop), reaches(?Prop, ?Q).
+bears_on(?Prop, ?Q) :- material_property(?Prop), capped_by(?Q, ?Prop, ?_).
+bears_on(?Prop, ?Q) :- material_property(?Prop), capped_by(?Q, ?C, ?_), reaches(?Prop, ?C).
+
+// ============================================================
+// how a limit spreads. still nothing about rockets or materials.
+// if two quantities draw on the same upstream quantity, and one of
+// them runs into a limit, the other one is bounded through it.
+// ============================================================
+shares_upstream(?A, ?B, ?Shared) :- reaches(?Shared, ?A), reaches(?Shared, ?B), ?A \= ?B.
+
+bounded_through(?Q, ?Shared, ?Limited, ?Ceiling, ?Mode) :-
+    limit(?Limited, ?Ceiling, ?Mode),
+    shares_upstream(?Q, ?Limited, ?Shared).
+
+chart_column_bearing_on(?Prop, ?Q) :-
+    material_property(?Prop),
+    bounded_through(?Q, ?_, ?Limited, ?Ceiling, ?_),
+    (?Prop = ?Ceiling ; reaches(?Prop, ?Ceiling)).

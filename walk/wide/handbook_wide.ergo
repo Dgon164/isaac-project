@@ -1,0 +1,122 @@
+// ============================================================
+// A general handbook. Most of this has nothing to do with
+// rockets. Nothing here is arranged for the question.
+// ============================================================
+
+relates(current,              [voltage, resistance]).
+relates(resistance,           [resistivity, length, cross_section]).
+relates(image_distance,       [focal_length, object_distance]).
+relates(orbital_period,       [semi_major_axis, central_mass]).
+relates(beam_deflection,      [load, span, elastic_modulus, second_moment]).
+relates(reynolds_number,      [fluid_density, velocity, length, viscosity]).
+relates(drag_force,           [fluid_density, velocity, drag_coefficient, frontal_area]).
+relates(pressure,             [gas_density, gas_constant, gas_temperature]).
+relates(bernoulli_pressure,   [fluid_density, velocity, elevation]).
+relates(radiated_power,       [emissivity, surface_area, surface_temperature]).
+relates(conducted_heat,       [thermal_conductivity, area, temperature_gradient]).
+relates(convected_heat,       [heat_transfer_coefficient, area, gas_wall_delta_t]).
+relates(gas_wall_delta_t,     [flame_temperature, wall_temperature]).
+relates(thermal_diffusivity,  [thermal_conductivity, density, specific_heat]).
+relates(wall_temperature,     [convected_heat, thermal_diffusivity, burn_duration, conducted_heat]).
+relates(heat_transfer_coefficient, [chamber_pressure, throat_diameter, gas_viscosity]).
+relates(reaction_rate,        [activation_energy, surface_temperature, species_concentration]).
+relates(species_flux,         [diffusivity, species_concentration, boundary_thickness]).
+relates(recession_rate,       [species_flux, product_removal, density]).
+relates(product_removal,      [product_boiling_point, wall_temperature]).
+relates(thrust,               [chamber_pressure, throat_area, thrust_coefficient]).
+relates(throat_area,          [throat_diameter]).
+relates(chamber_pressure,     [gas_generation_rate, throat_area, characteristic_velocity]).
+relates(characteristic_velocity, [flame_temperature, mean_molecular_weight]).
+relates(gas_generation_rate,  [burn_rate, burning_surface_area, propellant_density]).
+relates(hoop_stress,          [chamber_pressure, wall_radius, wall_thickness]).
+relates(sound_speed,          [flame_temperature, mean_molecular_weight]).
+relates(magnetic_force,       [current, magnetic_field, conductor_length]).
+relates(capacitance,          [permittivity, plate_area, plate_separation]).
+
+// ---- what each quantity is measured in
+quantity(melting_point,temperature).       quantity(boiling_point,temperature).
+quantity(oxidation_onset,temperature).     quantity(wall_temperature,temperature).
+quantity(flame_temperature,temperature).   quantity(surface_temperature,temperature).
+quantity(product_boiling_point,temperature).
+quantity(yield_strength,stress).           quantity(hoop_stress,stress).
+quantity(chamber_pressure,stress).         quantity(pressure,stress).
+quantity(hardness,stress).
+quantity(recession_rate,speed).            quantity(max_recession_rate,speed).
+quantity(velocity,speed).                  quantity(sound_speed,speed).
+quantity(resistivity,resistivity).         quantity(cost_per_kg,money).
+quantity(density,density).                 quantity(fluid_density,density).
+quantity(thermal_conductivity,conductivity).
+quantity(specific_heat,heat_capacity).
+
+property_of_material(melting_point).       property_of_material(boiling_point).
+property_of_material(oxidation_onset).     property_of_material(yield_strength).
+property_of_material(hardness).            property_of_material(max_recession_rate).
+property_of_material(resistivity).         property_of_material(cost_per_kg).
+property_of_material(density).             property_of_material(thermal_conductivity).
+property_of_material(specific_heat).
+
+condition_of_run(wall_temperature).        condition_of_run(flame_temperature).
+condition_of_run(hoop_stress).             condition_of_run(chamber_pressure).
+condition_of_run(recession_rate).          condition_of_run(surface_temperature).
+
+// ---- general chemistry. many elements, many reactions.
+reacts(c,oxidiser,co).      reacts(al,oxidiser,al2o3).  reacts(fe,oxidiser,fe2o3).
+reacts(cu,oxidiser,cuo).    reacts(pb,oxidiser,pbo).    reacts(w,oxidiser,wo3).
+reacts(ti,oxidiser,tio2).   reacts(mg,oxidiser,mgo).    reacts(ni,oxidiser,nio).
+reacts(mo,oxidiser,moo3).   reacts(nb,oxidiser,nb2o5).  reacts(ta,oxidiser,ta2o5).
+reacts(si,oxidiser,sio2).   reacts(zr,oxidiser,zro2).   reacts(be,oxidiser,beo).
+reacts(zn,oxidiser,zno).    reacts(ca,oxidiser,cao).    reacts(h,oxidiser,h2o).
+reacts(fe,chloride,fecl3).  reacts(al,chloride,alcl3).  reacts(cu,chloride,cucl2).
+reacts(fe,water,fe3o4).     reacts(mg,water,mgoh2).     reacts(ca,water,caoh2).
+
+product_boils_at(co,82).        product_boils_at(al2o3,3250).  product_boils_at(fe2o3,1838).
+product_boils_at(cuo,2270).     product_boils_at(pbo,1750).    product_boils_at(wo3,1000).
+product_boils_at(tio2,3245).    product_boils_at(mgo,3873).    product_boils_at(nio,2228).
+product_boils_at(moo3,1428).    product_boils_at(nb2o5,1785).  product_boils_at(ta2o5,2145).
+product_boils_at(sio2,3220).    product_boils_at(zro2,4573).   product_boils_at(beo,4123).
+product_boils_at(zno,2633).     product_boils_at(cao,3120).    product_boils_at(h2o,373).
+product_boils_at(fecl3,588).    product_boils_at(alcl3,451).   product_boils_at(cucl2,1266).
+product_boils_at(fe3o4,2900).   product_boils_at(mgoh2,623).   product_boils_at(caoh2,853).
+
+// ---- exhaust compositions
+exhaust(black_powder,oxidiser,0.060).  exhaust(black_powder,water,0.100).
+exhaust(apcp,oxidiser,0.020).          exhaust(apcp,chloride,0.150).
+exhaust(apcp,water,0.200).
+exhaust(lox_rp1,oxidiser,0.002).       exhaust(lox_rp1,water,0.300).
+flame(black_powder,1700). flame(apcp,2900). flame(lox_rp1,3600).
+
+// ============================================================
+// GENERAL RULES ONLY
+// ============================================================
+feeds(?X,?Y)   :- relates(?Y,?L), ?X \in ?L.
+reaches(?X,?Y) :- feeds(?X,?Y).
+reaches(?X,?Y) :- feeds(?Z,?Y), reaches(?X,?Z).
+
+shares_upstream(?A,?B,?S) :- reaches(?S,?A), reaches(?S,?B), ?A \= ?B.
+
+// a condition passing a property of the same kind is a way to fail
+candidate_failure(?C,?P,?D) :-
+    quantity(?C,?D), quantity(?P,?D),
+    condition_of_run(?C), property_of_material(?P).
+
+// which of those ways can actually touch the quantity being asked about
+relevant_failure(?Goal,?C,?P) :-
+    candidate_failure(?C,?P,?_),
+    (reaches(?C,?Goal) ; shares_upstream(?Goal,?C,?_)).
+
+// which material chart columns therefore need reading
+needed_column(?Goal,?P) :- relevant_failure(?Goal,?C,?P).
+needed_column(?Goal,?P) :- property_of_material(?P), reaches(?P,?Goal).
+
+// chemistry: does the product leave or stay
+removed(?M,?Sp,?Pr,?T) :- ?M[made_of -> ?E], reacts(?E,?Sp,?Pr),
+                          product_boils_at(?Pr,?B), ?B < ?T.
+retained(?M,?Sp,?Pr,?T) :- ?M[made_of -> ?E], reacts(?E,?Sp,?Pr),
+                           product_boils_at(?Pr,?B), ?B >= ?T.
+eaten(?M,?Prop,?Pr,?T) :- exhaust(?Prop,?Sp,?_), removed(?M,?Sp,?Pr,?T).
+
+// what kind of term is this? decided by what the data says about it.
+term_kind(?T, derived_quantity)  :- relates(?T, ?_).
+term_kind(?T, run_condition)     :- condition_of_run(?T), \naf relates(?T,?_).
+term_kind(?T, material_property) :- property_of_material(?T).
+term_kind(?T, material)          :- ?T[made_of -> ?_].

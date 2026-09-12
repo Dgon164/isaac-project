@@ -1,0 +1,8 @@
+['materials.ergo', +'handbook_wide.ergo'].
+writeln('--- material columns needed for THRUST (of 11 available) ---')@\plg.
+needed_column(thrust,?P).
+writeln('--- eaten in APCP at 1500 K wall ---')@\plg.
+eaten(?M,apcp,?Pr,1500).
+writeln('--- protected in APCP at 1500 K ---')@\plg.
+retained(?M,oxidiser,?Pr,1500).
+\end

@@ -1,0 +1,7 @@
+ok so i tried a copper nozzle on my sugar motor last weekend and it held up fine, no erosion at all. the graphite one from before got chewed up pretty bad after two burns, throat opened up maybe half a mm.
+lead is a joke dont bother, it melts before the grain is even half done. aluminum did ok for one burn then the throat was visibly bigger.
+somebody on the forum said steel pipe couplings work if you drill them out, cheap as dirt, but they rust and you get one maybe two burns.
+the real trick is thermal conductivity. copper pulls heat away from the throat surface so it never gets hot enough to matter. thats why the copper one survived.
+for apcp its a different story, the exhaust has hcl in it and that eats aluminum and copper both. graphite is what everyone uses for apcp throats.
+oh and someone tried a cat litter nozzle (bentonite) rammed in, worked great for black powder, its what estes does. wouldnt try it on apcp tho.
+my casing is 3/4 emt conduit, holds 600 psi easy. sched 40 is overkill. paper tube with epoxy works for small stuff.

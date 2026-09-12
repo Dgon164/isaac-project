@@ -63,6 +63,7 @@ ROWS = [
     ("expert_probe",           [PY, os.path.join(HERE, "expert_probe.py")], False),
     ("proof_probe",            [PY, os.path.join(HERE, "proof_probe.py")], False),
     ("game_probe",             [PY, os.path.join(HERE, "game_probe.py")], False),
+    ("walk_court",             [PY, os.path.join(HERE, "walk_court.py")], False),
     ("cloth_unseen",           [PY, os.path.join(HERE, "cloth_unseen.py")], False),
     ("cloth_run_120",          [PY, os.path.join(HERE, "cloth_run.py"), "120"], True),
 ]

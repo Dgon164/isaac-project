@@ -164,3 +164,32 @@ the ask after the teach sees the taught fact across a version bump; all
 answers equal the serial twin. Economics, honestly: at trivial per-ask cost
 the pool overhead LOSES (0.011s/op vs 0.001s serial) — workers pay off when
 per-ask work is real (see 7x above); restart cost amortizes over burst size.
+
+## 2026-09-12 — the walk prototype comes home (walk/, walk_court)
+
+The 2026-09-12 claude.ai session built the reference-walk engine the owner's
+ARCHITECTURE.md describes — store of items (name/kind/content/truth/native/
+tag/refs) + depth-one walk + ask/return/reject/persist/rank cycle, ~200 lines
+(walk/engine/core.py), prose linker ~30 lines (linker.py), plus ErgoAI 3.0
+runs (walk/ergo-tests, walk/wide, receipts in walk/docs). Zip landed in
+walk/, three hardcoded sandbox paths made script-relative, nothing else
+touched.
+
+walk_court (new gate row, 0.1s): every documented number re-derived on this
+machine — rocket walk settles at 23 pulls, 9 persist / 7 rejected each with
+a stated reason; +50 noise items -> pulls 23 -> 23, persist identical, no
+noise reached; desk law (native set aside, negative relevance refuses,
+truth-0 present-not-for-this, truth never touched by relevance); forum post
+-> 114 items, copper touched by 4 sentences, walk from copper settles at 92
+pulls. Sabotage arm: wiring one noise item into the path trips the
+indifference check (court can fail). Mutation-verified: breaking the
+refusal law in core.py -> exact row red, exit 1; restored -> green.
+
+Full gate after adding the row: 27 passed, 0 failed, 2 skipped
+(cloth_run_120 slow-skipped, onefile_install_court), 26.6s at jobs=10.
+
+Ergo rows NOT courted here: ErgoAI not installed on this machine (51MB
+installer, bandwidth rule — owner's call). walk/docs/RESULTS.md,
+PROBE-RESULTS.md, EMIT-RESULTS.md carry those session receipts; the emitter
+loss table (ergo 0 lost / prolog 6 / rdf 7) is session-attested, not yet a
+gate row.

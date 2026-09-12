@@ -1,0 +1,111 @@
+// ============================================================
+// DATA ONLY. no limit is stated. no pair of quantities is
+// linked. every quantity carries what it is measured in, and
+// whether it is a property of a material or a condition of
+// the run.
+// ============================================================
+
+quantity(melting_point,        temperature).
+quantity(oxidation_onset,      temperature).
+quantity(softening_temperature,temperature).
+quantity(boiling_point,        temperature).
+quantity(wall_temperature,     temperature).
+quantity(flame_temperature,    temperature).
+quantity(yield_strength,       stress).
+quantity(compressive_strength, stress).
+quantity(hoop_stress,          stress).
+quantity(chamber_pressure,     stress).
+quantity(recession_rate,       speed).
+quantity(max_recession_rate,   speed).
+
+property_of_material(melting_point).
+property_of_material(oxidation_onset).
+property_of_material(softening_temperature).
+property_of_material(yield_strength).
+property_of_material(compressive_strength).
+property_of_material(max_recession_rate).
+
+condition_of_run(wall_temperature).
+condition_of_run(flame_temperature).
+condition_of_run(hoop_stress).
+condition_of_run(chamber_pressure).
+condition_of_run(recession_rate).
+
+// ---------------- material chart ----------------
+lead[melting_point -> 600].       lead[yield_strength -> 12].
+lead[oxidation_onset -> 700].     lead[made_of -> pb].
+aluminum[melting_point -> 933].   aluminum[yield_strength -> 276].
+aluminum[oxidation_onset -> 400]. aluminum[made_of -> al].
+steel[melting_point -> 1783].     steel[yield_strength -> 370].
+steel[oxidation_onset -> 800].    steel[made_of -> fe].
+copper[melting_point -> 1358].    copper[yield_strength -> 210].
+copper[oxidation_onset -> 500].   copper[made_of -> cu].
+carbon[melting_point -> 3900].    carbon[compressive_strength -> 70].
+carbon[oxidation_onset -> 700].   carbon[made_of -> c].
+tungsten[melting_point -> 3695].  tungsten[yield_strength -> 550].
+tungsten[oxidation_onset -> 800]. tungsten[made_of -> w].
+
+// ---------------- what is in the exhaust ----------------
+exhaust(black_powder, o_bearing, 0.060).
+exhaust(black_powder, h2o,       0.100).
+exhaust(apcp,         o_bearing, 0.020).
+exhaust(apcp,         hcl,       0.150).
+exhaust(apcp,         h2o,       0.200).
+exhaust(lox_rp1,      o_bearing, 0.002).
+exhaust(lox_rp1,      h2o,       0.300).
+
+// ---------------- reaction chart ----------------
+// element + species -> product
+reacts(c,  o_bearing, co).
+reacts(al, o_bearing, al2o3).
+reacts(fe, o_bearing, fe2o3).
+reacts(cu, o_bearing, cuo).
+reacts(pb, o_bearing, pbo).
+reacts(w,  o_bearing, wo3).
+
+// ---------------- product chart ----------------
+// where each product stops being a solid
+product_leaves_at(co,    82).       // gas at any wall temperature
+product_leaves_at(al2o3, 3250).
+product_leaves_at(fe2o3, 1838).
+product_leaves_at(cuo,   2270).
+product_leaves_at(pbo,   1750).
+product_leaves_at(wo3,   1000).     // volatilises early
+
+// ============================================================
+// GENERAL RULES. none of these mention rockets, nozzles,
+// melting, oxidation, or any material by name.
+// ============================================================
+
+// two quantities measured in the same thing can be compared.
+// if one is a property and one is a condition, the condition
+// running past the property is a candidate way to fail.
+candidate_failure(?Condition, ?Property, ?Dim) :-
+    quantity(?Condition, ?Dim),
+    quantity(?Property,  ?Dim),
+    condition_of_run(?Condition),
+    property_of_material(?Property).
+
+// a reaction removes material if its product is not solid at
+// the wall temperature. otherwise the product stays put.
+removes(?Mat, ?Species, ?Product, ?WallT) :-
+    ?Mat[made_of -> ?E],
+    reacts(?E, ?Species, ?Product),
+    product_leaves_at(?Product, ?Tb),
+    ?Tb < ?WallT.
+
+stays(?Mat, ?Species, ?Product, ?WallT) :-
+    ?Mat[made_of -> ?E],
+    reacts(?E, ?Species, ?Product),
+    product_leaves_at(?Product, ?Tb),
+    ?Tb >= ?WallT.
+
+// a material is attacked in a given exhaust if something in
+// that exhaust removes it
+attacked(?Mat, ?Prop, ?Species, ?Product, ?WallT) :-
+    exhaust(?Prop, ?Species, ?_),
+    removes(?Mat, ?Species, ?Product, ?WallT).
+
+protected(?Mat, ?Prop, ?Product, ?WallT) :-
+    exhaust(?Prop, ?Species, ?_),
+    stays(?Mat, ?Species, ?Product, ?WallT).
