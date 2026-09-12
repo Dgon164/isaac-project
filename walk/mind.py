@@ -72,6 +72,23 @@ def link_table(path, store):
     if old is not None:
         names += [r2 for r2 in old.refs if r2 not in names]
     store.put(Item(tname, "table", tag=os.path.basename(path), refs=names))
+    # every column is a spine too: the property points at every row
+    # carrying it, its words become terms, so "melting point" in a
+    # question reaches all materials through one item -- across tables,
+    # since a shared header lands in the same property.
+    for col in hdr[1:]:
+        crefs = list(names)
+        old = store.get(col)
+        if old is not None:
+            crefs += [r2 for r2 in old.refs if r2 not in crefs]
+        store.put(Item(col, "property", tag=os.path.basename(path),
+                       refs=crefs))
+        for w in terms(col.replace("_", " ")):
+            it = store.get(w)
+            if it is None:
+                store.put(Item(w, "term", tag=tname, refs=[col]))
+            elif col not in it.refs:
+                it.refs = tuple(it.refs) + (col,)
     return made
 
 
@@ -241,6 +258,27 @@ def field(store, reached, qset):
                  r.content.get("density", "?")))
 
 
+def props(store, reached, qset):
+    """a question naming a property compares everything through it."""
+    for n in reached:
+        it = store.get(n)
+        if it.kind != "property":
+            continue
+        if not set(terms(n.replace("_", " "))) & qset:
+            continue
+        vals = []
+        for rn in it.refs:
+            r = store.get(rn)
+            if r and isinstance(r.content, dict) and n in r.content:
+                vals.append((r.content[n], rn))
+        try:
+            vals.sort(key=lambda v: -float(v[0]))
+        except ValueError:
+            vals.sort(key=lambda v: str(v[0]))
+        print("  %s: %s" % (n, ", ".join("%s %s" % (rn, v)
+                                         for v, rn in vals)))
+
+
 def show(store, answers, seeds, reached, qset):
     if not answers:
         print("  nothing reached from %s -- fill more, or say it: no: <truth>"
@@ -252,6 +290,7 @@ def show(store, answers, seeds, reached, qset):
         print("  %d. [%s] %s" % (i + 1, it.tag, body))
         for g in gate(store, it, reached, qset):
             print("       %s" % g)
+    props(store, reached, qset)
     field(store, reached, qset)
     print("  (walked %d items from %s)" % (len(reached), ", ".join(seeds)))
 
