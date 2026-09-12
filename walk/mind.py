@@ -169,7 +169,28 @@ def compare_runs(store, prev, answers, question):
                    tag="lesson", refs=sorted(set(terms(question)))))
 
 
-def show(answers, seeds, reached):
+def gate(store, it, reached):
+    """load > capacity, the one comparison. melting point only -- wrong
+    on purpose (no oxidation, no conduction) until it earns more."""
+    out = []
+    mp = it.content.get("melting_point_k") if isinstance(it.content, dict) \
+        else None
+    if mp is None:
+        return out
+    for cn in reached:
+        c = store.get(cn)
+        v = c.content.get("value_k") if c and isinstance(c.content, dict) \
+            else None
+        if v is None:
+            continue
+        if float(v) > float(mp):
+            out.append("fails: %s %s > melting_point_k %s" % (cn, v, mp))
+        else:
+            out.append("holds: melting_point_k %s > %s %s" % (mp, cn, v))
+    return out
+
+
+def show(store, answers, seeds, reached):
     if not answers:
         print("  nothing reached from %s -- fill more, or say it: no: <truth>"
               % (seeds or "no known term"))
@@ -178,6 +199,8 @@ def show(answers, seeds, reached):
         body = it.content if isinstance(it.content, str) else \
             ", ".join("%s %s" % kv for kv in it.content.items())
         print("  %d. [%s] %s" % (i + 1, it.tag, body))
+        for g in gate(store, it, reached):
+            print("       %s" % g)
     print("  (walked %d items from %s)" % (len(reached), ", ".join(seeds)))
 
 
@@ -228,7 +251,7 @@ def main():
             return
         prev = find_prev(store, q)      # before this run leaves residue
         seeds, reached, answers = ask(store, q)   # always rerun, never reuse
-        show(answers, seeds, reached)
+        show(store, answers, seeds, reached)
         if prev and answers:
             compare_runs(store, prev, answers, q)
         if seeds:
