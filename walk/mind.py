@@ -149,43 +149,24 @@ def find_prev(store, question):
 
 
 def compare_runs(store, prev, answers, question):
-    """this was asked before: same answer, or what changed and why.
-    a changed answer is a lesson, and the lesson goes in the store."""
+    """asked before: say so. changed: the difference is the lesson."""
     pname, old = prev
     new = [n for n, _ in answers]
     if old and new and old[0] == new[0]:
-        print("  also the previous answer (%s) -- rerun agrees" % pname)
+        print("  (also a previous answer -- rerun agrees)")
         return
-    names = list(store.items)
-    pidx = names.index(pname)
-    changed = []
-    for n in old:
-        if n in new:
-            continue
-        it = store.get(n)
-        if it is None:
-            changed.append("%s gone from the store" % n)
-        elif it.truth == -1:
-            changed.append("%s dropped -- marked wrong since" % n)
-        else:
-            changed.append("%s no longer offered" % n)
-    for n in new:
-        if n in old:
-            continue
-        it = store.get(n)
-        if n in names and names.index(n) > pidx:
-            changed.append("%s added since (from %s)" % (n, it.tag))
-        else:
-            changed.append("%s resurfaced" % n)
-    print("  previously (%s) the answer was different:" % pname)
-    for c in changed:
-        print("    - " + c)
+    dropped = [n for n in old if n not in new]
+    added = [n for n in new if n not in old]
+    print("  changed since last time:")
+    if dropped:
+        print("    then, not now: " + ", ".join(dropped))
+    if added:
+        print("    now, not then: " + ", ".join(added))
+    text = "changed for '%s' -- then not now: %s; now not then: %s" % (
+        question, ", ".join(dropped) or "-", ", ".join(added) or "-")
     n_l = sum(1 for i in store.items.values() if i.tag == "lesson")
-    lname = "lesson_%03d" % n_l
-    text = "the answer to '%s' changed: %s" % (question, "; ".join(changed))
-    store.put(Item(lname, "sentence", content=text, tag="lesson",
-                   refs=sorted(set(terms(question))) + old + new + [pname]))
-    print("  lesson stored: %s" % lname)
+    store.put(Item("lesson_%03d" % n_l, "sentence", content=text,
+                   tag="lesson", refs=sorted(set(terms(question)))))
 
 
 def show(answers, seeds, reached):
