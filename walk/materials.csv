@@ -1,0 +1,13 @@
+material,melting_point_k,oxidation_onset_k,yield_strength_mpa,density,thermal_conductivity,cost_per_kg,made_of
+lead,600,700,12,11340,35,2.2,pb
+aluminum,933,400,276,2700,167,2.4,al
+steel,1783,800,370,7870,50,0.9,fe
+copper,1358,500,210,8960,400,9.0,cu
+titanium,1941,600,880,4500,22,35.0,ti
+nickel,1728,900,148,8900,91,20.0,ni
+tungsten,3695,800,550,19300,170,35.0,w
+graphite,3900,700,70,1800,100,15.0,c
+silicon_carbide,3003,1100,550,3200,120,25.0,si
+zirconia,2988,2000,200,6000,2,60.0,zr
+ptfe,600,570,23,2200,0.25,20.0,c
+nylon,533,520,80,1150,0.25,4.0,c
