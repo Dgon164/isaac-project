@@ -121,13 +121,71 @@ def residue(store, question, seeds, answers):
     now share a link a future walk can cross."""
     n_runs = sum(1 for i in store.items.values() if i.kind == "run")
     name = "run_%03d" % n_runs
-    store.put(Item(name, "run", content=question, tag="run",
+    content = {"q": question, "key": sorted(set(terms(question))),
+               "answers": [a for a, _ in answers]}
+    store.put(Item(name, "run", content=content, tag="run",
                    refs=list(seeds) + [a for a, _ in answers]))
     for a, _ in answers:
         it = store.get(a)
         if name not in it.refs:
             it.refs = tuple(it.refs) + (name,)
     return name
+
+
+def find_prev(store, question):
+    """the most recent run of this same question, by term set."""
+    key = sorted(set(terms(question)))
+    hit = None
+    for it in store.items.values():
+        if it.kind != "run":
+            continue
+        if isinstance(it.content, dict):
+            k, ans = it.content.get("key"), it.content.get("answers", [])
+        else:  # old-format run: question stored as a plain string
+            k, ans = sorted(set(terms(str(it.content)))), list(it.refs)
+        if k == key:
+            hit = (it.name, ans)
+    return hit
+
+
+def compare_runs(store, prev, answers, question):
+    """this was asked before: same answer, or what changed and why.
+    a changed answer is a lesson, and the lesson goes in the store."""
+    pname, old = prev
+    new = [n for n, _ in answers]
+    if old and new and old[0] == new[0]:
+        print("  also the previous answer (%s) -- rerun agrees" % pname)
+        return
+    names = list(store.items)
+    pidx = names.index(pname)
+    changed = []
+    for n in old:
+        if n in new:
+            continue
+        it = store.get(n)
+        if it is None:
+            changed.append("%s gone from the store" % n)
+        elif it.truth == -1:
+            changed.append("%s dropped -- marked wrong since" % n)
+        else:
+            changed.append("%s no longer offered" % n)
+    for n in new:
+        if n in old:
+            continue
+        it = store.get(n)
+        if n in names and names.index(n) > pidx:
+            changed.append("%s added since (from %s)" % (n, it.tag))
+        else:
+            changed.append("%s resurfaced" % n)
+    print("  previously (%s) the answer was different:" % pname)
+    for c in changed:
+        print("    - " + c)
+    n_l = sum(1 for i in store.items.values() if i.tag == "lesson")
+    lname = "lesson_%03d" % n_l
+    text = "the answer to '%s' changed: %s" % (question, "; ".join(changed))
+    store.put(Item(lname, "sentence", content=text, tag="lesson",
+                   refs=sorted(set(terms(question))) + old + new + [pname]))
+    print("  lesson stored: %s" % lname)
 
 
 def show(answers, seeds, reached):
@@ -187,8 +245,11 @@ def main():
             for n, it in last:
                 print("  %s <- refs %s" % (n, list(it.refs)[:8]))
             return
-        seeds, reached, answers = ask(store, q)
+        prev = find_prev(store, q)      # before this run leaves residue
+        seeds, reached, answers = ask(store, q)   # always rerun, never reuse
         show(answers, seeds, reached)
+        if prev and answers:
+            compare_runs(store, prev, answers, q)
         if seeds:
             residue(store, q, seeds, answers)
         last = answers
