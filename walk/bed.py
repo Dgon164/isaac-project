@@ -15,12 +15,16 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "engine"))
 from core import Store
 from linker import link
-from mind import ask
+from mind import ask, load_dictionary
 
 SQUAD = r"C:\Users\jtwee\Downloads\New folder (3)\intellon\train-v2.0.json"
 
 want = int(sys.argv[1]) if len(sys.argv) > 1 else 500
 show_misses = "-misses" in sys.argv
+if "-nodict" not in sys.argv:
+    import time as _t; _d0 = _t.time()
+    print("dictionary: %d linked words (%.1fs to load)"
+          % (load_dictionary(), _t.time() - _d0))
 
 data = json.load(open(SQUAD, encoding="utf-8"))["data"]
 asked = top1 = top3 = noseed = 0

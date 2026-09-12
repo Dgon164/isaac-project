@@ -20,6 +20,30 @@ from core import Item, Store
 from linker import link, terms
 
 STOREFILE = os.path.join(HERE, "store.json")
+DICTFILE = r"C:\Users\jtwee\Downloads\New folder (3)\intellon\wordnet_full.json"
+SYN = {}
+
+
+def load_dictionary(path=DICTFILE, cap=50):
+    """thesaurus + dictionary as one map: words sharing a sense are
+    synonyms; a word whose definition names t is a neighbor of t
+    ('fame: ...widely known and popular' makes fame a neighbor of
+    popular). capped: glue words relate to thousands and would drown
+    the question."""
+    entries = json.load(open(path, encoding="utf-8"))
+    sense, rel = {}, {}
+    for e in entries:
+        sense.setdefault(e["sense"], []).append(e["word"].lower())
+        w = e["word"].lower()
+        for t in terms(e.get("def", "")):
+            rel.setdefault(t, set()).add(w)
+    for ws in sense.values():
+        for w in ws:
+            if len(ws) > 1:
+                rel.setdefault(w, set()).update(x for x in ws if x != w)
+    SYN.clear()
+    SYN.update((t, s) for t, s in rel.items() if len(s) <= cap)
+    return len(SYN)
 
 
 # ---------------------------------------------------------------- persistence
@@ -122,22 +146,36 @@ def walk(store, seeds):
 
 def ask(store, question):
     qterms = [t for t in terms(question)]
-    seeds = [t for t in qterms if store.get(t)]
+    qset = set(qterms)
+    for t in qterms:                      # the dictionary widens the question
+        qset |= SYN.get(t, set())
+    seeds = [t for t in qterms if store.get(t)] + \
+            sorted(t for t in qset - set(qterms) if store.get(t))
     if not seeds:
         return seeds, set(), []
     reached = walk(store, seeds)
-    qset = set(qterms)
     cands = []
     for n in reached:
         it = store.get(n)
         if it.kind not in ("sentence", "row") or it.truth == -1 or it.native:
             continue
-        hit = len(qset & (set(it.refs) | {n}))
-        if hit:
-            human = 1 if it.tag == "human" else 0
-            cands.append((hit, human, -len(it.refs), n, it))
+        r = set(it.refs) | {n}
+        human = 1 if it.tag == "human" else 0
+        d = len(set(qterms) & r)          # the question's own words, present
+        if d:
+            cands.append((d, human, 0, -len(it.refs), n, it))
+            continue
+        # no direct word. pull the thesaurus and check the answer is
+        # there -- query it back toward the beginning. if it is not
+        # there either way, it is a tangent: rejected, not ranked.
+        back = set()
+        for w in r:
+            back |= SYN.get(w, set())
+        e = len(qset & r) + len(set(qterms) & back)
+        if e:
+            cands.append((0, human, e, -len(it.refs), n, it))
     cands.sort(reverse=True)
-    return seeds, reached, [(n, it) for _, _, _, n, it in cands[:3]]
+    return seeds, reached, [(n, it) for _, _, _, _, n, it in cands[:3]]
 
 
 def residue(store, question, seeds, answers):
