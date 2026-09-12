@@ -1,3 +1,5 @@
-condition,value_k,context
-apcp_flame_temperature,2900,apcp
-sugar_motor_flame_temperature,1600,sugar
+condition,value,against,context
+apcp_flame_temperature,2900,melting_point_k,apcp
+apcp_wall_stress_mpa,21,yield_strength_mpa,apcp
+apcp_exhaust_hcl,al cu,made_of,apcp
+sugar_motor_flame_temperature,1600,melting_point_k,sugar

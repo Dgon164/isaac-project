@@ -47,7 +47,9 @@ def link_table(path, store):
     import csv
     rows = [r for r in csv.reader(open(path, encoding="utf-8")) if r]
     hdr = [h.strip().lower() for h in rows[0]]
+    tname = os.path.splitext(os.path.basename(path))[0]
     made = 0
+    names = []
     for r in rows[1:]:
         name = r[0].strip().lower().replace(" ", "_")
         content = dict(zip(hdr[1:], (c.strip() for c in r[1:])))
@@ -57,7 +59,8 @@ def link_table(path, store):
         if old is not None:  # same name seen in prose: the row absorbs its links
             refs += [r2 for r2 in old.refs if r2 not in refs]
         store.put(Item(name, "row", content=content,
-                       tag=os.path.basename(path), refs=refs))
+                       tag=os.path.basename(path), refs=refs + [tname]))
+        names.append(name)
         for t in refs + [name]:
             it = store.get(t)
             if it is None:
@@ -65,6 +68,10 @@ def link_table(path, store):
             elif name not in it.refs and t != name:
                 it.refs = tuple(it.refs) + (name,)
         made += 1
+    old = store.get(tname)
+    if old is not None:
+        names += [r2 for r2 in old.refs if r2 not in names]
+    store.put(Item(tname, "table", tag=os.path.basename(path), refs=names))
     return made
 
 
@@ -169,28 +176,72 @@ def compare_runs(store, prev, answers, question):
                    tag="lesson", refs=sorted(set(terms(question)))))
 
 
-def gate(store, it, reached):
-    """load > capacity, the one comparison. melting point only -- wrong
-    on purpose (no oxidation, no conduction) until it earns more."""
+def conditions(store, reached, qset):
+    """conditions the walk reached. if the question names a context,
+    only that context's conditions fire; otherwise all of them do."""
+    cs = [store.get(n) for n in reached
+          if isinstance(getattr(store.get(n), "content", None), dict)
+          and "against" in store.get(n).content]
+    named = [c for c in cs if c.content.get("context") in qset]
+    return named or cs
+
+
+def gate(store, it, reached, qset):
+    """load > capacity, one comparison per condition. a condition
+    names what it tests (against); numbers compare, lists attack."""
     out = []
-    mp = it.content.get("melting_point_k") if isinstance(it.content, dict) \
-        else None
-    if mp is None:
+    if not isinstance(it.content, dict):
         return out
-    for cn in reached:
-        c = store.get(cn)
-        v = c.content.get("value_k") if c and isinstance(c.content, dict) \
-            else None
-        if v is None:
+    for c in conditions(store, reached, qset):
+        cc = c.content
+        cap = it.content.get(cc["against"])
+        if cap is None:
             continue
-        if float(v) > float(mp):
-            out.append("fails: %s %s > melting_point_k %s" % (cn, v, mp))
-        else:
-            out.append("holds: melting_point_k %s > %s %s" % (mp, cn, v))
+        v = cc["value"]
+        try:
+            if float(v) > float(cap):
+                out.append("fails: %s %s > %s %s"
+                           % (c.name, v, cc["against"], cap))
+            else:
+                out.append("holds: %s %s > %s %s"
+                           % (cc["against"], cap, c.name, v))
+        except ValueError:  # not numbers: an attack list
+            if str(cap).strip() in str(v).split():
+                out.append("fails: %s attacks %s" % (c.name, cap))
     return out
 
 
-def show(store, answers, seeds, reached):
+def field(store, reached, qset):
+    """the whole candidate field through every boundary reached:
+    what fails and why, what survives, ranked by cost then weight."""
+    conds = conditions(store, reached, qset)
+    if not conds:
+        return
+    tested = {c.content["against"] for c in conds}
+    rows = [store.get(n) for n in reached
+            if store.get(n).kind == "row" and store.get(n).truth != -1
+            and isinstance(store.get(n).content, dict)
+            and tested & set(store.get(n).content)]
+    if len(rows) < 2:
+        return
+    alive, dead = [], []
+    for r in rows:
+        f = [g for g in gate(store, r, reached, qset) if g.startswith("fails")]
+        (dead if f else alive).append((r, f))
+    print("  persistence: %d candidates, %d fail, %d survive"
+          % (len(rows), len(dead), len(alive)))
+    for r, f in dead:
+        print("    x %-16s %s" % (r.name, f[0][7:]))
+    def sec(r):
+        return (float(r.content.get("cost_per_kg", 9e9)),
+                float(r.content.get("density", 9e9)))
+    for r, _ in sorted(alive, key=lambda rf: sec(rf[0])):
+        print("    v %-16s cost %-5s density %s"
+              % (r.name, r.content.get("cost_per_kg", "?"),
+                 r.content.get("density", "?")))
+
+
+def show(store, answers, seeds, reached, qset):
     if not answers:
         print("  nothing reached from %s -- fill more, or say it: no: <truth>"
               % (seeds or "no known term"))
@@ -199,8 +250,9 @@ def show(store, answers, seeds, reached):
         body = it.content if isinstance(it.content, str) else \
             ", ".join("%s %s" % kv for kv in it.content.items())
         print("  %d. [%s] %s" % (i + 1, it.tag, body))
-        for g in gate(store, it, reached):
+        for g in gate(store, it, reached, qset):
             print("       %s" % g)
+    field(store, reached, qset)
     print("  (walked %d items from %s)" % (len(reached), ", ".join(seeds)))
 
 
@@ -251,7 +303,7 @@ def main():
             return
         prev = find_prev(store, q)      # before this run leaves residue
         seeds, reached, answers = ask(store, q)   # always rerun, never reuse
-        show(store, answers, seeds, reached)
+        show(store, answers, seeds, reached, set(terms(q)))
         if prev and answers:
             compare_runs(store, prev, answers, q)
         if seeds:
