@@ -145,14 +145,16 @@ def walk(store, seeds):
 
 
 def ask(store, question):
-    qterms = [t for t in terms(question)]
-    qset = set(qterms)
-    for t in qterms:                      # the dictionary widens the question
-        qset |= SYN.get(t, set())
-    seeds = [t for t in qterms if store.get(t)] + \
-            sorted(t for t in qset - set(qterms) if store.get(t))
+    """one bag of words: the question's own words plus their thesaurus
+    pull. overlap with the bag is the score, own words count first.
+    nothing in the bag = a tangent = not an answer. that is all."""
+    own = set(terms(question))
+    bag = set(own)
+    for t in own:
+        bag |= SYN.get(t, set())
+    seeds = sorted(t for t in bag if store.get(t))
     if not seeds:
-        return seeds, set(), []
+        return [], set(), []
     reached = walk(store, seeds)
     cands = []
     for n in reached:
@@ -160,22 +162,10 @@ def ask(store, question):
         if it.kind not in ("sentence", "row") or it.truth == -1 or it.native:
             continue
         r = set(it.refs) | {n}
-        human = 1 if it.tag == "human" else 0
-        d = len(set(qterms) & r)          # the question's own words, present
-        if d:
-            cands.append((d, human, 0, -len(it.refs), n, it))
-            continue
-        # no direct word. pull the thesaurus and check the answer is
-        # there -- query it back toward the beginning. if it is not
-        # there either way, it is a tangent: rejected, not ranked.
-        back = set()
-        for w in r:
-            back |= SYN.get(w, set())
-        e = len(qset & r) + len(set(qterms) & back)
-        if e:
-            cands.append((0, human, e, -len(it.refs), n, it))
+        if bag & r:
+            cands.append(((len(own & r), len(bag & r)), n))
     cands.sort(reverse=True)
-    return seeds, reached, [(n, it) for _, _, _, _, n, it in cands[:3]]
+    return seeds, reached, [(n, store.get(n)) for _, n in cands[:3]]
 
 
 def residue(store, question, seeds, answers):
