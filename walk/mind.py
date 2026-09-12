@@ -129,19 +129,18 @@ def fill(path, store):
 # ---------------------------------------------------------------- the ask
 def walk(store, seeds):
     """depth one per step, nothing pulled twice, settles on its own."""
-    open_, resolved = list(seeds), set()
-    while open_:
-        name = open_.pop(0)
-        if name in resolved:
-            continue
-        resolved.add(name)
-        it = store.get(name)
+    open_, seen = list(seeds), set(seeds)
+    i = 0
+    while i < len(open_):
+        it = store.get(open_[i])
+        i += 1
         if it is None:
             continue
         for r in it.refs:
-            if r not in resolved and r not in open_ and store.get(r):
+            if r not in seen and store.get(r):
+                seen.add(r)
                 open_.append(r)
-    return resolved
+    return seen
 
 
 def ask(store, question):
