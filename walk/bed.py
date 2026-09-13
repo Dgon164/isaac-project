@@ -19,7 +19,9 @@ from core import Store
 from linker import link
 from mind import ask, load_dictionary
 
-SQUAD = r"C:\Users\jtwee\Downloads\New folder (3)\intellon\train-v2.0.json"
+SQUAD = os.environ.get(
+    "ISAAC_SQUAD",
+    r"C:\Users\jtwee\Downloads\New folder (3)\intellon\train-v2.0.json")
 
 
 def init():

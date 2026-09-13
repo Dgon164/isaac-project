@@ -18,9 +18,11 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "engine"))
 from core import Store, Item
 from linker import link, terms
-from mind import ask, residue, load_dictionary
+from mind import ask, score_all, clean_win, residue, load_dictionary
 
-SQUAD = r"C:\Users\jtwee\Downloads\New folder (3)\intellon\train-v2.0.json"
+SQUAD = os.environ.get(
+    "ISAAC_SQUAD",
+    r"C:\Users\jtwee\Downloads\New folder (3)\intellon\train-v2.0.json")
 want = int(sys.argv[1]) if len(sys.argv) > 1 else 1000
 shuffle = "-shuffle" in sys.argv
 rng = random.Random(7)
@@ -36,13 +38,14 @@ t0 = time.time()
 
 def attempt(store, arm, qas, loop=False):
     for q, key in qas:
-        seeds, _, answers = ask(store, q)
+        seeds, _, cands = score_all(store, q)
+        answers = [(n, store.get(n)) for _, n in cands[:3]]
         got = [str(it.content).lower() for _, it in answers]
         if got and key in got[0]:
             t1[arm] += 1; t3[arm] += 1
         elif any(key in g for g in got):
             t3[arm] += 1
-        if loop and seeds:
+        if loop and seeds and clean_win(cands):
             residue(store, q, seeds, answers)
 
 for art in data:

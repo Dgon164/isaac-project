@@ -6,7 +6,9 @@
 
 Type a question, he walks the store and answers with the path.
 Runs leave residue: every ask becomes an item pointing at what it
-touched, so answers that appeared together grow a link. Corrections:
+touched and pointed at by the question's words, so a later question
+reaches what an earlier one found, and its words count in the score.
+Corrections:
     no: <the truth>     marks the last top answer wrong, stores yours
     why                 how the last answer was reached
     quit                saves store.json
@@ -20,7 +22,9 @@ from core import Item, Store
 from linker import link, terms
 
 STOREFILE = os.path.join(HERE, "store.json")
-DICTFILE = r"C:\Users\jtwee\Downloads\New folder (3)\intellon\wordnet_full.json"
+DICTFILE = os.environ.get(
+    "ISAAC_DICT",
+    r"C:\Users\jtwee\Downloads\New folder (3)\intellon\wordnet_full.json")
 LIBFILE = os.path.join(HERE, "library.json")
 SYN = {}
 
@@ -161,6 +165,13 @@ def ask(store, question):
     """one bag of words: the question's own words plus their thesaurus
     pull. overlap with the bag is the score, own words count first.
     nothing in the bag = a tangent = not an answer. that is all."""
+    seeds, reached, cands = score_all(store, question)
+    return seeds, reached, [(n, store.get(n)) for _, n in cands[:3]]
+
+
+def score_all(store, question):
+    """the scored field, best first. ask() takes the top three; a probe
+    that wants the gap between first and second takes the list."""
     own = set(terms(question))
     bag = set(own)
     for t in own:
@@ -175,10 +186,30 @@ def ask(store, question):
         if it.kind not in ("sentence", "row") or it.truth == -1 or it.native:
             continue
         r = set(it.refs) | {n}
-        if bag & r:
-            cands.append(((len(own & r), len(bag & r)), n))
+        earned = set()
+        for x in it.refs:          # words the runs brought: a question
+            run = store.get(x)     # this item answered names it too
+            if run is not None and run.kind == "run":
+                earned |= set(run.content.get("key", ()))
+        if bag & (r | earned):
+            hit = own & r
+            rare = sum(1.0 / len(store.get(t).refs) for t in hit
+                       if store.get(t) and store.get(t).refs)
+            cands.append(((len(hit), rare, len(bag & (r | earned))), n))
     cands.sort(reverse=True)
-    return seeds, reached, [(n, store.get(n)) for _, n in cands[:3]]
+    return seeds, reached, cands
+
+
+def clean_win(cands, gap=1):
+    """is the winner clear of the runner-up, by that many own words?
+    measured on squad: tied fields are right 20% of the time, own +1
+    68%, own +2 92%, own +3 95%. a run that was not clear is a guess,
+    and banking a guess teaches the store the guess."""
+    if not cands:
+        return False
+    if len(cands) < 2:
+        return True
+    return cands[0][0][0] - cands[1][0][0] >= gap
 
 
 def residue(store, question, seeds, answers):
@@ -193,6 +224,12 @@ def residue(store, question, seeds, answers):
     for a, _ in answers:
         it = store.get(a)
         if name not in it.refs:
+            it.refs = tuple(it.refs) + (name,)
+    for t in content["key"]:   # the question's words now reach the run,
+        it = store.get(t)      # and through it the answers it found --
+        if it is None:         # including words the store had never seen
+            store.put(Item(t, "term", tag="run", refs=[name]))
+        elif name not in it.refs:
             it.refs = tuple(it.refs) + (name,)
     return name
 
@@ -402,11 +439,12 @@ def main():
                   % (len(runs), changed))
             return
         prev = find_prev(store, q)      # before this run leaves residue
-        seeds, reached, answers = ask(store, q)   # always rerun, never reuse
+        seeds, reached, cands = score_all(store, q)   # always rerun
+        answers = [(n, store.get(n)) for _, n in cands[:3]]
         show(store, answers, seeds, reached, set(terms(q)))
         if prev and answers:
             compare_runs(store, prev, answers, q)
-        if seeds:
+        if seeds and clean_win(cands):  # a tied field is not a lesson
             residue(store, q, seeds, answers)
         last = answers
 
