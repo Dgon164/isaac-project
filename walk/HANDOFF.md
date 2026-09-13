@@ -1,4 +1,13 @@
-# The walk — handoff, 2026-09-12, updated 2026-09-13
+# The walk — handoff, 2026-09-12, updated 2026-09-13 (twice)
+
+> ## ⛔ FOR THE NEXT SESSION (local, on the owner's machine)
+> This box ran on ONE 1 GHz core in a cloud container -- nothing that
+> follows is your machine. The owner has a C version and the corpora
+> on his own disk; NEITHER is in any repo, and this session never saw
+> them. First: `git pull origin record-repair`, then find the C version
+> before touching anything speed-related; it may supersede walk/ for
+> the engine core. Second: run the one unfinished court below with
+> `-jobs 12` (two minutes for you; hours here).
 
 Read `docs/ARCHITECTURE.md` first (the owner's spec). This file is
 what got built against it, what the numbers actually say, and where
@@ -41,6 +50,9 @@ All in `walk/`, branch `record-repair`, pushed through 06ca481.
                       fewer words, shares nothing, no path, not stored
     pairs.py          the general lesson in the graded runs: mine half
                       the articles, test as a thesaurus on the other half
+    tools.py          THE TOOLS HE BUILDS HIMSELF: learn / court
+    tools.json        what he built (committed, 53 KB): his thesaurus,
+                      3000 pairs; his kinds table
     library.json      built dictionary (11MB, gitignored, auto-builds)
     store.json        his persistent store (gitignored)
 
@@ -295,7 +307,63 @@ installed 127k-word WordNet.** The dictionary is worth 0.3 points; his
 own record is worth 0.8 and climbing. Learn the thesaurus from
 feedback; the installed one was never doing much.
 
-## The four directions the owner named (09-12)
+## His own tools (owner 09-13: "have him build his own thesaurus,
+## and dictionary, and reference tables") -- BUILT, court UNFINISHED
+
+Three tools, none installed, all mined from his own record or read
+off the text he was given. `mind.py` loads `walk/tools.json` first
+and only falls back to wordnet when he has built nothing
+(`load_dictionary(wordnet=True)` forces the installed one, for
+comparison).
+
+    THESAURUS   from graded runs: (question word the article never
+                used -> word in the right sentence), kept when the two
+                keep each other's company across articles. 3000 pairs.
+    DICTIONARY  from reading, per store, no feedback: the words of the
+                text that keep each other's company across its own
+                sentences (read_dictionary; kept on the store; bag
+                expansion uses it).
+    KINDS       from graded runs: the question's kind word against what
+                the right sentence carried, as log odds vs what he
+                picked wrongly. Learned table (rows = kind, cols = what
+                the sentence carries):
+
+                          year   number   name   percent   money
+                when      1.02    0.87    0.34   -0.20    -0.03
+                how much  0.55    0.78    0.17    1.27     1.64
+                how many  0.48    0.72    0.22    0.50     1.03
+                who       0.46    0.38    0.41   -0.15    -0.04
+                where     0.41    0.35    0.41   -0.24     0.00
+
+                It came out the way a person would write it, and nobody
+                wrote it. In the score it decides among candidates
+                sharing the same number of question words, before
+                rarity (score tuple: own, fit, rare, bag).
+
+The court (learn on 221 articles, test on the other 221 which never
+contributed anything) got ONE arm done before this box ran out of
+patience:
+
+    wordnet (installed)          62.7%   126 s serial
+    his thesaurus                pairs.py measured 63.2% (3000 pairs)
+    his thesaurus + kinds        UNMEASURED
+    nothing                      62.4% (pairs.py)
+    his kinds alone              UNMEASURED
+    his dictionary from reading  UNMEASURED
+    all three of his             UNMEASURED
+
+RUN THIS FIRST (tools.json is committed; no relearn needed):
+
+    python walk/tools.py court 999999 -jobs 12
+
+If kinds hurts, drop `fit` from the score tuple in score_all (one
+line) -- the table is still a good reference item to keep. If the
+reading dictionary helps, it costs nothing and needs no feedback: it
+is the strongest "he builds his own" result available, because it
+needs no keys at all.
+
+## The four directions the owner named (09-12), where they stand
+
 
 His words: *"perhaps we should explore a complex domain mastery. or
 even slightly related domain mastery? we also need to figure out how

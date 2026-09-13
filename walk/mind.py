@@ -25,20 +25,92 @@ from core import Item, Store
 from linker import link, terms
 
 STOREFILE = os.path.join(HERE, "store.json")
+TOOLSFILE = os.path.join(HERE, "tools.json")   # the tools he built himself
 DICTFILE = os.environ.get(
     "ISAAC_DICT",
     r"C:\Users\jtwee\Downloads\New folder (3)\intellon\wordnet_full.json")
 LIBFILE = os.path.join(HERE, "library.json")
-SYN = {}
+SYN = {}          # word -> words: his thesaurus (or wordnet, on request)
+KINDS = {}        # question kind -> {what the right sentence carries: log odds}
+FEATS = ("year", "number", "name", "percent", "money")
+KIND_WORDS = ("who", "when", "where", "how many", "how much", "how",
+              "what", "which", "why")
+FEAT = {}         # sentence text -> its features, read once
 
 
-def load_dictionary(path=DICTFILE, cap=50, wide=False, rebuild=False):
-    """thesaurus + dictionary as one map: words sharing a sense are
+def kind(question):
+    """the question's kind word, read off its opening."""
+    q = question.lower().strip()
+    for k in KIND_WORDS:
+        if q.startswith(k) or (" " + k + " ") in q[:40]:
+            return k
+    return "other"
+
+
+def feats(text):
+    """what a sentence carries -- a year, a number, a name, a percent,
+    money -- read off it with no parser."""
+    t = str(text)
+    f = FEAT.get(t)
+    if f is None:
+        f = FEAT[t] = {
+            "year": bool(re.search(r"\b(1[0-9]{3}|20[0-9]{2})\b", t)),
+            "number": bool(re.search(r"\d", t)),
+            "name": bool(re.search(r"\b[A-Z][a-z]+", t[1:])),
+            "percent": "%" in t or "percent" in t.lower(),
+            "money": bool(re.search(r"[$\u00a3\u20ac]|\bmillion\b|\bbillion\b", t))}
+    return f
+
+
+def read_dictionary(store, cap=8):
+    """a dictionary built from reading: the words of this store that
+    keep each other's company across its sentences. nothing installed;
+    it comes out of the text he was given. kept on the store."""
+    sents = [set(it.refs) for it in store.items.values()
+             if it.kind == "sentence"]
+    c1, c2 = {}, {}
+    for ws in sents:
+        ws = [w for w in ws if store.get(w) and store.get(w).kind == "term"]
+        for a in ws:
+            c1[a] = c1.get(a, 0) + 1
+        for i, a in enumerate(ws):
+            for b in ws[i + 1:]:
+                k = (a, b) if a < b else (b, a)
+                c2[k] = c2.get(k, 0) + 1
+    best = {}
+    for (a, b), c in c2.items():
+        if c < 2:
+            continue
+        sc = c * c / float(c1[a] * c1[b])
+        best.setdefault(a, []).append((sc, b))
+        best.setdefault(b, []).append((sc, a))
+    store.dictionary = {w: {b for _, b in sorted(v, reverse=True)[:cap]}
+                        for w, v in best.items()}
+    return len(store.dictionary)
+
+
+def load_tools(path=TOOLSFILE):
+    """his own thesaurus and kinds table, built by tools.py learn."""
+    d = json.load(open(path, encoding="utf-8"))
+    SYN.clear(); KINDS.clear()
+    SYN.update((k, set(v)) for k, v in d.get("thesaurus", {}).items())
+    KINDS.update(d.get("kinds", {}))
+    return len(SYN)
+
+
+def load_dictionary(path=DICTFILE, cap=50, wide=False, rebuild=False,
+                    wordnet=False):
+    """his own tools first (walk/tools.json, built by tools.py learn);
+    wordnet only when asked for, or when he has built nothing yet.
+
+    wordnet: thesaurus + dictionary as one map: words sharing a sense are
     synonyms; a word whose definition names t is a neighbor of t
     ('fame: ...widely known and popular' makes fame a neighbor of
     popular). wide also mines example sentences and antonyms. capped:
     glue words relate to thousands and would drown the question.
     Built once into library.json and loaded from there after."""
+    if not wordnet and os.path.exists(TOOLSFILE):
+        return load_tools()
     if os.path.exists(LIBFILE) and not rebuild:
         SYN.clear()
         SYN.update((k, set(v)) for k, v in
@@ -177,13 +249,17 @@ def score_all(store, question):
     that wants the gap between first and second takes the list."""
     own = set(terms(question))
     bag = set(own)
+    read = getattr(store, "dictionary", None)   # built from reading
     for t in own:
         bag |= SYN.get(t, set())
+        if read:
+            bag |= read.get(t, set())
     seeds = sorted(t for t in bag if store.get(t))
     if not seeds:
         return [], set(), []
     reached = walk(store, seeds)
     ctx = context(question)
+    row = KINDS.get(kind(question)) if KINDS else None
     cands = []
     for n in reached:
         it = store.get(n)
@@ -201,7 +277,11 @@ def score_all(store, question):
             hit = own & r
             rare = sum(1.0 / len(store.get(t).refs) for t in hit
                        if store.get(t) and store.get(t).refs)
-            cands.append(((len(hit), rare, len(bag & (r | earned))), n))
+            fit = 0.0                  # does it carry the kind of answer
+            if row and it.kind == "sentence":   # the question asks for
+                f = feats(it.content)
+                fit = round(sum(w for k, w in row.items() if f.get(k)), 2)
+            cands.append(((len(hit), fit, rare, len(bag & (r | earned))), n))
     cands.sort(reverse=True)
     return seeds, reached, cands
 
@@ -503,8 +583,11 @@ def main():
         args = args[:i] + args[i + 2:]
     store = load_store()
     print("store: %d items" % len(store.items))
-    if os.path.exists(LIBFILE) or os.path.exists(DICTFILE):
-        print("library: %d linked words" % load_dictionary())
+    if os.path.exists(TOOLSFILE):
+        print("his tools: %d words in his thesaurus, kinds for %s"
+              % (load_tools(), ", ".join(sorted(KINDS)) or "nothing yet"))
+    elif os.path.exists(LIBFILE) or os.path.exists(DICTFILE):
+        print("library (wordnet): %d linked words" % load_dictionary())
     for path in args:
         fill(path, store)
 
