@@ -31,7 +31,8 @@ sys.path.insert(0, os.path.join(HERE, "engine"))
 from core import Store
 from linker import link, terms
 import mind
-from mind import score_all, diagnose, kind, feats, FEATS, read_dictionary
+from mind import (score_all, diagnose, kind, feats, FEATS, read_dictionary,
+                  TOOLSETS, use, select, context_at, load_tools)
 
 SQUAD = os.environ.get(
     "ISAAC_SQUAD",
@@ -118,51 +119,109 @@ def learn(arts):
     return thesaurus, kinds, len(pairs), n_k
 
 
+# ------------------------------------------------- the record, the selector
+def record_one(art):
+    """every toolset on every question of one article: right or not, filed
+    under the context at each level. this is his record."""
+    store = fill(art)
+    qs = questions(art)
+    rec = {}
+    for name in TOOLSETS:
+        use(name)
+        for q, key in qs:
+            _, _, cands = score_all(store, q)
+            right = bool(cands) and \
+                key.lower() in str(store.get(cands[0][1]).content).lower()
+            for lv in (1, 2):
+                c = rec.setdefault((lv, context_at(lv, store, q), name), [0, 0])
+                c[0] += int(right)
+                c[1] += 1
+    return rec
+
+
+def build_selector(records):
+    """the tool for choosing tools. one builder for every level: for each
+    context, how often each toolset was right. the count is the reason he
+    gives when he picks."""
+    table = {}
+    for rec in records:
+        for (lv, ctx, name), (r, a) in rec.items():
+            c = table.setdefault(str(lv), {}).setdefault(ctx, {}) \
+                     .setdefault(name, [0, 0])
+            c[0] += r
+            c[1] += a
+    return table
+
+
+def init_tools(thesaurus, kinds):
+    mind.SYN.clear(); mind.KINDS.clear(); mind.SELECTOR.clear()
+    mind.SYN.update((k, set(v)) for k, v in thesaurus.items())
+    mind.KINDS.update(kinds)
+
+
+def record(arts, thesaurus, kinds, jobs=1):
+    if jobs > 1:
+        from multiprocessing import Pool
+        with Pool(jobs, initializer=init_tools,
+                  initargs=(thesaurus, kinds)) as pool:
+            recs = pool.map(record_one, arts)
+    else:
+        init_tools(thesaurus, kinds)
+        recs = [record_one(a) for a in arts]
+    return build_selector(recs)
+
+
 # ------------------------------------------------------------- the court
 ARM = {}
 
 
-def arm(thes, use_kinds, reading):
-    """set the tools for this arm -- in this process and, through the
-    pool initializer, in every worker (windows spawns, nothing carries)."""
-    mind.SYN.clear(); mind.KINDS.clear()
-    tools = json.load(open(TOOLS, encoding="utf-8"))
-    if thes == "wordnet":
-        mind.load_dictionary(wordnet=True)
-    elif thes == "his":
-        mind.SYN.update((k, set(v)) for k, v in tools["thesaurus"].items())
-    if use_kinds:
-        mind.KINDS.update(tools["kinds"])
-    ARM.update(thes=thes, kinds=use_kinds, reading=reading)
+def arm(name, his_level=None):
+    """this process and every worker (windows spawns, nothing carries):
+    his tools loaded, then one fixed toolset, or his own choice up to a
+    level."""
+    load_tools()
+    ARM.clear()
+    ARM.update(name=name, his=his_level)
+    if name:
+        use(name)
 
 
 def bench_one(art):
     store = fill(art)
-    if ARM.get("reading"):
-        read_dictionary(store)
     asked = top1 = 0
+    picks = {}
     for q, key in questions(art):
+        if ARM.get("his"):
+            name, _ = select(store, q, ARM["his"])
+            use(name)
+            picks[name] = picks.get(name, 0) + 1
         _, _, cands = score_all(store, q)
         asked += 1
         if cands and key.lower() in str(store.get(cands[0][1]).content).lower():
             top1 += 1
-    return asked, top1
+    return asked, top1, picks
 
 
 def bench(arts, jobs=1):
     if jobs > 1:
         from multiprocessing import Pool
-        with Pool(jobs, initializer=arm, initargs=(ARM["thes"], ARM["kinds"],
-                                                   ARM["reading"])) as pool:
+        with Pool(jobs, initializer=arm,
+                  initargs=(ARM.get("name"), ARM.get("his"))) as pool:
             res = pool.map(bench_one, arts)
     else:
         res = [bench_one(a) for a in arts]
-    return sum(r[0] for r in res), sum(r[1] for r in res)
+    picks = {}
+    for r in res:
+        for n, c in r[2].items():
+            picks[n] = picks.get(n, 0) + c
+    return sum(r[0] for r in res), sum(r[1] for r in res), picks
 
 
 def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else "court"
     want = int(sys.argv[2]) if len(sys.argv) > 2 else 5000
+    jobs = int(sys.argv[sys.argv.index("-jobs") + 1]) \
+        if "-jobs" in sys.argv else 1
     data = json.load(open(SQUAD, encoding="utf-8"))["data"]
     learn_arts, exam = split(data, want)
 
@@ -170,7 +229,10 @@ def main():
         mind.SYN.clear(); mind.KINDS.clear()       # nothing installed
         t0 = time.time()
         thesaurus, kinds, n_pairs, n_k = learn(learn_arts)
-        json.dump({"thesaurus": thesaurus, "kinds": kinds},
+        t1 = time.time()
+        selector = record(learn_arts, thesaurus, kinds, jobs)
+        json.dump({"thesaurus": thesaurus, "kinds": kinds,
+                   "selector": selector},
                   open(TOOLS, "w", encoding="utf-8"), indent=1)
         print("learned from %d articles in %.0fs: %d pairs seen, %d kept "
               "into the thesaurus; kinds table over %s"
@@ -181,25 +243,36 @@ def main():
         print("  %-9s" % "" + "".join("%9s" % f for f in FEATS))
         for k, row in sorted(kinds.items()):
             print("  %-9s" % k + "".join("%9.2f" % row[f] for f in FEATS))
+        print("his selector, built in %.0fs from every toolset on every "
+              "graded question (%d toolsets):" % (time.time() - t1,
+                                                   len(TOOLSETS)))
+        print("  level 1, by kind:      his pick                 right   "
+              "   next best")
+        for ctx, table in sorted(selector["1"].items()):
+            ranked = sorted(((r, n) for n, (r, a) in table.items()),
+                            reverse=True)
+            (r1, n1), (r2, n2) = ranked[0], ranked[1]
+            print("  %-9s %-28s %5d/%-5d  %-28s %5d"
+                  % (ctx, n1, r1, table[n1][1], n2, r2))
+        print("  level 2, kind / words known: %d contexts"
+              % len(selector["2"]))
         return
 
-    arms = [("wordnet (installed)", "wordnet", False),
-            ("his thesaurus", "his", False),
-            ("his thesaurus + his kinds", "his", True),
-            ("nothing", "none", False),
-            ("his kinds alone", "none", True),
-            ("his dictionary from reading, alone", "none", False, True),
-            ("all three of his", "his", True, True),
-            ("his thesaurus + his reading", "his", False, True)]
-    jobs = int(sys.argv[sys.argv.index("-jobs") + 1]) \
-        if "-jobs" in sys.argv else 1
+    rows = [(name, name, None) for name in TOOLSETS] + [
+        ("HIS CHOICE, level 1 (by kind)", None, 1),
+        ("HIS CHOICE, level 2 over 1 (kind / words known)", None, 2)]
     print("the other %d articles, never learned from:" % len(exam))
-    for label, thes, use_kinds, *reading in arms:
-        arm(thes, use_kinds, bool(reading and reading[0]))
+    for label, name, his in rows:
+        arm(name, his)
         t0 = time.time()
-        asked, top1 = bench(exam, jobs)
-        print("  %-28s top1 %5d / %d (%.1f%%)   %.0fs"
+        asked, top1, picks = bench(exam, jobs)
+        print("  %-48s top1 %5d / %d (%.1f%%)   %.0fs"
               % (label, top1, asked, 100.0 * top1 / asked, time.time() - t0))
+        if picks:
+            tot = float(sum(picks.values()))
+            print("      he picked: " + ", ".join(
+                "%s %.0f%%" % (n, 100 * c / tot) for n, c in
+                sorted(picks.items(), key=lambda x: -x[1])[:5]))
 
 
 if __name__ == "__main__":

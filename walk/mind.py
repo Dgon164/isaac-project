@@ -38,6 +38,81 @@ KIND_WORDS = ("who", "when", "where", "how many", "how much", "how",
 FEAT = {}         # sentence text -> its features, read once
 
 
+# ------------------------------------------------------- the tools as switches
+# every tool he has is a switch; a toolset is one setting of the switches.
+# which setting to use is HIS call, from his own record (SELECTOR, built by
+# tools.py learn): for each context, how often each toolset was right.
+def toolsets():
+    out = {}
+    for thes in (False, True):
+        for reading in (False, True):
+            for kinds in ("off", "second", "first"):
+                parts = [p for p, on in (("thes", thes), ("reading", reading))
+                         if on]
+                if kinds != "off":
+                    parts.append("kinds-" + kinds)
+                out["+".join(parts) or "none"] = {
+                    "thes": thes, "reading": reading, "kinds": kinds}
+    return out
+
+
+TOOLSETS = toolsets()
+DEFAULT = "thes+kinds-second"
+TOOLSET = dict(TOOLSETS[DEFAULT])   # what is switched on right now
+SELECTOR = {}                       # level -> context -> toolset -> [right, asked]
+MIN_RECORD = 20                     # fewer graded questions than this = no record
+
+
+def use(name):
+    TOOLSET.clear()
+    TOOLSET.update(TOOLSETS[name])
+    return name
+
+
+def context_at(level, store, question):
+    """what a record is filed under. level 1: the kind of question.
+    level 2: the kind, and how many of its words the store knows. one
+    builder makes every level; only this key changes."""
+    k = kind(question)
+    if level == 1:
+        return k
+    known = sum(1 for t in set(terms(question)) if store.get(t))
+    return "%s/%d" % (k, min(known, 4))
+
+
+def select(store, question, max_level=None):
+    """his choice of toolset for this question, and the reason. the finest
+    level with a record for this context decides; the reason is the count
+    for his pick against the runner-up. no record -> the default."""
+    for lv in sorted(SELECTOR, reverse=True):
+        if max_level and lv > max_level:
+            continue
+        ctx = context_at(lv, store, question)
+        table = SELECTOR[lv].get(ctx)
+        if not table:
+            continue
+        ranked = sorted(((r / float(a), r, name)
+                         for name, (r, a) in table.items() if a >= MIN_RECORD),
+                        reverse=True)
+        if not ranked:
+            continue
+        _, r, name = ranked[0]
+        why = "level %d, %s: %s right %d/%d" % (lv, ctx, name, r, table[name][1])
+        if len(ranked) > 1:
+            why += " vs %s %d/%d" % (ranked[1][2], ranked[1][1],
+                                     table[ranked[1][2]][1])
+        return name, why
+    return DEFAULT, "no record for this question; default " + DEFAULT
+
+
+def ask_selected(store, question, max_level=None):
+    """he picks the tools, then answers. the why comes back with it."""
+    name, why = select(store, question, max_level)
+    use(name)
+    seeds, reached, cands = score_all(store, question)
+    return seeds, reached, cands, why
+
+
 def kind(question):
     """the question's kind word, read off its opening."""
     q = question.lower().strip()
@@ -92,9 +167,10 @@ def read_dictionary(store, cap=8):
 def load_tools(path=TOOLSFILE):
     """his own thesaurus and kinds table, built by tools.py learn."""
     d = json.load(open(path, encoding="utf-8"))
-    SYN.clear(); KINDS.clear()
+    SYN.clear(); KINDS.clear(); SELECTOR.clear()
     SYN.update((k, set(v)) for k, v in d.get("thesaurus", {}).items())
     KINDS.update(d.get("kinds", {}))
+    SELECTOR.update((int(k), v) for k, v in d.get("selector", {}).items())
     return len(SYN)
 
 
@@ -249,9 +325,14 @@ def score_all(store, question):
     that wants the gap between first and second takes the list."""
     own = set(terms(question))
     bag = set(own)
-    read = getattr(store, "dictionary", None)   # built from reading
+    read = None
+    if TOOLSET["reading"]:                  # his dictionary from reading
+        if getattr(store, "dictionary", None) is None:
+            read_dictionary(store)
+        read = store.dictionary
     for t in own:
-        bag |= SYN.get(t, set())
+        if TOOLSET["thes"]:
+            bag |= SYN.get(t, set())
         if read:
             bag |= read.get(t, set())
     seeds = sorted(t for t in bag if store.get(t))
@@ -259,7 +340,7 @@ def score_all(store, question):
         return [], set(), []
     reached = walk(store, seeds)
     ctx = context(question)
-    row = KINDS.get(kind(question)) if KINDS else None
+    row = KINDS.get(kind(question)) if KINDS and TOOLSET["kinds"] != "off"         else None
     cands = []
     for n in reached:
         it = store.get(n)
@@ -281,7 +362,9 @@ def score_all(store, question):
             if row and it.kind == "sentence":   # the question asks for
                 f = feats(it.content)
                 fit = round(sum(w for k, w in row.items() if f.get(k)), 2)
-            cands.append(((len(hit), rare, fit, len(bag & (r | earned))), n))
+            bagc = len(bag & (r | earned))
+            key = (len(hit), fit, rare, bagc) if TOOLSET["kinds"] == "first"                 else (len(hit), rare, fit, bagc)
+            cands.append((key, n))
     cands.sort(reverse=True)
     return seeds, reached, cands
 
@@ -586,6 +669,9 @@ def main():
     if os.path.exists(TOOLSFILE):
         print("his tools: %d words in his thesaurus, kinds for %s"
               % (load_tools(), ", ".join(sorted(KINDS)) or "nothing yet"))
+        print("his selector: %s" % (", ".join(
+            "level %d over %d contexts" % (lv, len(t))
+            for lv, t in sorted(SELECTOR.items())) or "no record yet"))
     elif os.path.exists(LIBFILE) or os.path.exists(DICTFILE):
         print("library (wordnet): %d linked words" % load_dictionary())
     for path in args:
@@ -622,7 +708,8 @@ def main():
                   % (len(runs), changed))
             return
         prev = find_prev(store, q)      # before this run leaves residue
-        seeds, reached, cands = score_all(store, q)   # always rerun
+        seeds, reached, cands, why = ask_selected(store, q)  # his tools; rerun
+        print("  tools: %s" % why)
         answers = [(n, store.get(n)) for _, n in cands[:3]]
         show(store, answers, seeds, reached, set(terms(q)))
         if prev and answers:

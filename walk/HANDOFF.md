@@ -1,4 +1,4 @@
-# The walk — handoff, 2026-09-12, updated 2026-09-13 (three times)
+# The walk — handoff, 2026-09-12, updated 2026-09-13 (four times)
 
 > ## 2026-09-13, on the owner's PC (TurtlePC, 32 threads) -- READ THIS BOX FIRST
 > **There is no C version.** Searched every branch of this repo, Documents,
@@ -65,6 +65,28 @@
 >
 > Not rerun: the 440-in-one-store run (2.4h in python). The Go bench
 > fills one store per article; pooling needs overlap.py ported too.
+>
+> **HE PICKS HIS OWN TOOLS NOW (owner ruling, same day: "we dont design
+> him, we discover him and he discovers himself").** Every tool is a
+> switch (thesaurus / reading dictionary / kinds off-second-first = 12
+> toolsets). `tools.py learn` runs all 12 on every graded question of his
+> half and files right/wrong under the context: level 1 = question kind,
+> level 2 = kind + how many question words the store knows. That table is
+> the SELECTOR, saved in tools.json; `mind.select()` reads it and answers
+> with the reason (his pick's count vs the runner-up). mind.py prints
+> `tools: level 1, when: thes+kinds-second right 2288/3279 vs ...` on
+> every answer. Court on the held-out half (all 12 fixed + his choice):
+>
+>     best fixed (thes+kinds-second)   63.5   26425
+>     HIS CHOICE, level 1              63.5   26427   thes 69%, thes+kinds-second 24%
+>     HIS CHOICE, level 2 over 1       63.5   26410   (the first small dip)
+>     none                             62.4
+>
+> He picks thes alone for what/how/where/other and thes+kinds for
+> when/which/who/why, from counts, not from me. Level 2 is his "confused
+> nuance" layer: more contexts, thinner records, 17 answers worse. Do not
+> revert it; feed it. The hand-set default (thes+kinds-second) only
+> applies when he has no record for a question.
 
 > ## ⛔ FOR THE NEXT SESSION (local, on the owner's machine)
 > *(09-13: done. The C version does not exist; the court ran. See the box above.)*
