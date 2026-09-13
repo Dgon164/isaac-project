@@ -4442,48 +4442,144 @@
      2154,
      3279
     ],
+    "att-second": [
+     2097,
+     3279
+    ],
+    "att-first": [
+     2006,
+     3279
+    ],
     "kinds-second": [
      2266,
+     3279
+    ],
+    "kinds-second+att-second": [
+     2217,
+     3279
+    ],
+    "kinds-second+att-first": [
+     2127,
      3279
     ],
     "kinds-first": [
      2264,
      3279
     ],
+    "kinds-first+att-second": [
+     2216,
+     3279
+    ],
+    "kinds-first+att-first": [
+     2127,
+     3279
+    ],
     "reading": [
      2152,
+     3279
+    ],
+    "reading+att-second": [
+     2093,
+     3279
+    ],
+    "reading+att-first": [
+     2004,
      3279
     ],
     "reading+kinds-second": [
      2257,
      3279
     ],
+    "reading+kinds-second+att-second": [
+     2209,
+     3279
+    ],
+    "reading+kinds-second+att-first": [
+     2118,
+     3279
+    ],
     "reading+kinds-first": [
      2253,
+     3279
+    ],
+    "reading+kinds-first+att-second": [
+     2207,
+     3279
+    ],
+    "reading+kinds-first+att-first": [
+     2117,
      3279
     ],
     "thes": [
      2213,
      3279
     ],
+    "thes+att-second": [
+     2159,
+     3279
+    ],
+    "thes+att-first": [
+     2066,
+     3279
+    ],
     "thes+kinds-second": [
      2288,
+     3279
+    ],
+    "thes+kinds-second+att-second": [
+     2242,
+     3279
+    ],
+    "thes+kinds-second+att-first": [
+     2152,
      3279
     ],
     "thes+kinds-first": [
      2288,
      3279
     ],
+    "thes+kinds-first+att-second": [
+     2242,
+     3279
+    ],
+    "thes+kinds-first+att-first": [
+     2153,
+     3279
+    ],
     "thes+reading": [
      2181,
+     3279
+    ],
+    "thes+reading+att-second": [
+     2122,
+     3279
+    ],
+    "thes+reading+att-first": [
+     2033,
      3279
     ],
     "thes+reading+kinds-second": [
      2263,
      3279
     ],
+    "thes+reading+kinds-second+att-second": [
+     2213,
+     3279
+    ],
+    "thes+reading+kinds-second+att-first": [
+     2122,
+     3279
+    ],
     "thes+reading+kinds-first": [
      2259,
+     3279
+    ],
+    "thes+reading+kinds-first+att-second": [
+     2212,
+     3279
+    ],
+    "thes+reading+kinds-first+att-first": [
+     2122,
      3279
     ]
    },
@@ -4492,48 +4588,144 @@
      13988,
      22433
     ],
+    "att-second": [
+     13487,
+     22433
+    ],
+    "att-first": [
+     12709,
+     22433
+    ],
     "kinds-second": [
      14103,
+     22433
+    ],
+    "kinds-second+att-second": [
+     13627,
+     22433
+    ],
+    "kinds-second+att-first": [
+     12861,
      22433
     ],
     "kinds-first": [
      13453,
      22433
     ],
+    "kinds-first+att-second": [
+     13331,
+     22433
+    ],
+    "kinds-first+att-first": [
+     12570,
+     22433
+    ],
     "reading": [
      14061,
+     22433
+    ],
+    "reading+att-second": [
+     13579,
+     22433
+    ],
+    "reading+att-first": [
+     12816,
      22433
     ],
     "reading+kinds-second": [
      14146,
      22433
     ],
+    "reading+kinds-second+att-second": [
+     13683,
+     22433
+    ],
+    "reading+kinds-second+att-first": [
+     12924,
+     22433
+    ],
     "reading+kinds-first": [
      13500,
+     22433
+    ],
+    "reading+kinds-first+att-second": [
+     13392,
+     22433
+    ],
+    "reading+kinds-first+att-first": [
+     12638,
      22433
     ],
     "thes": [
      14282,
      22433
     ],
+    "thes+att-second": [
+     13809,
+     22433
+    ],
+    "thes+att-first": [
+     13037,
+     22433
+    ],
     "thes+kinds-second": [
      14213,
+     22433
+    ],
+    "thes+kinds-second+att-second": [
+     13754,
+     22433
+    ],
+    "thes+kinds-second+att-first": [
+     12990,
      22433
     ],
     "thes+kinds-first": [
      13569,
      22433
     ],
+    "thes+kinds-first+att-second": [
+     13464,
+     22433
+    ],
+    "thes+kinds-first+att-first": [
+     12706,
+     22433
+    ],
     "thes+reading": [
      14198,
+     22433
+    ],
+    "thes+reading+att-second": [
+     13721,
+     22433
+    ],
+    "thes+reading+att-first": [
+     12957,
      22433
     ],
     "thes+reading+kinds-second": [
      14185,
      22433
     ],
+    "thes+reading+kinds-second+att-second": [
+     13719,
+     22433
+    ],
+    "thes+reading+kinds-second+att-first": [
+     12959,
+     22433
+    ],
     "thes+reading+kinds-first": [
      13536,
+     22433
+    ],
+    "thes+reading+kinds-first+att-second": [
+     13428,
+     22433
+    ],
+    "thes+reading+kinds-first+att-first": [
+     12673,
      22433
     ]
    },
@@ -4542,48 +4734,144 @@
      1918,
      2837
     ],
+    "att-second": [
+     1864,
+     2837
+    ],
+    "att-first": [
+     1717,
+     2837
+    ],
     "kinds-second": [
      1938,
+     2837
+    ],
+    "kinds-second+att-second": [
+     1879,
+     2837
+    ],
+    "kinds-second+att-first": [
+     1735,
      2837
     ],
     "kinds-first": [
      1850,
      2837
     ],
+    "kinds-first+att-second": [
+     1840,
+     2837
+    ],
+    "kinds-first+att-first": [
+     1698,
+     2837
+    ],
     "reading": [
      1934,
+     2837
+    ],
+    "reading+att-second": [
+     1883,
+     2837
+    ],
+    "reading+att-first": [
+     1738,
      2837
     ],
     "reading+kinds-second": [
      1940,
      2837
     ],
+    "reading+kinds-second+att-second": [
+     1886,
+     2837
+    ],
+    "reading+kinds-second+att-first": [
+     1743,
+     2837
+    ],
     "reading+kinds-first": [
      1852,
+     2837
+    ],
+    "reading+kinds-first+att-second": [
+     1847,
+     2837
+    ],
+    "reading+kinds-first+att-first": [
+     1707,
      2837
     ],
     "thes": [
      1939,
      2837
     ],
+    "thes+att-second": [
+     1889,
+     2837
+    ],
+    "thes+att-first": [
+     1742,
+     2837
+    ],
     "thes+kinds-second": [
      1944,
+     2837
+    ],
+    "thes+kinds-second+att-second": [
+     1885,
+     2837
+    ],
+    "thes+kinds-second+att-first": [
+     1742,
      2837
     ],
     "thes+kinds-first": [
      1859,
      2837
     ],
+    "thes+kinds-first+att-second": [
+     1848,
+     2837
+    ],
+    "thes+kinds-first+att-first": [
+     1707,
+     2837
+    ],
     "thes+reading": [
      1939,
+     2837
+    ],
+    "thes+reading+att-second": [
+     1890,
+     2837
+    ],
+    "thes+reading+att-first": [
+     1745,
      2837
     ],
     "thes+reading+kinds-second": [
      1943,
      2837
     ],
+    "thes+reading+kinds-second+att-second": [
+     1887,
+     2837
+    ],
+    "thes+reading+kinds-second+att-first": [
+     1744,
+     2837
+    ],
     "thes+reading+kinds-first": [
      1857,
+     2837
+    ],
+    "thes+reading+kinds-first+att-second": [
+     1849,
+     2837
+    ],
+    "thes+reading+kinds-first+att-first": [
+     1709,
      2837
     ]
    },
@@ -4592,48 +4880,144 @@
      3156,
      4810
     ],
+    "att-second": [
+     3059,
+     4810
+    ],
+    "att-first": [
+     2935,
+     4810
+    ],
     "kinds-second": [
      3199,
+     4810
+    ],
+    "kinds-second+att-second": [
+     3102,
+     4810
+    ],
+    "kinds-second+att-first": [
+     2981,
      4810
     ],
     "kinds-first": [
      3091,
      4810
     ],
+    "kinds-first+att-second": [
+     3055,
+     4810
+    ],
+    "kinds-first+att-first": [
+     2936,
+     4810
+    ],
     "reading": [
      3173,
+     4810
+    ],
+    "reading+att-second": [
+     3089,
+     4810
+    ],
+    "reading+att-first": [
+     2970,
      4810
     ],
     "reading+kinds-second": [
      3192,
      4810
     ],
+    "reading+kinds-second+att-second": [
+     3110,
+     4810
+    ],
+    "reading+kinds-second+att-first": [
+     2990,
+     4810
+    ],
     "reading+kinds-first": [
      3093,
+     4810
+    ],
+    "reading+kinds-first+att-second": [
+     3062,
+     4810
+    ],
+    "reading+kinds-first+att-first": [
+     2944,
      4810
     ],
     "thes": [
      3202,
      4810
     ],
+    "thes+att-second": [
+     3108,
+     4810
+    ],
+    "thes+att-first": [
+     2983,
+     4810
+    ],
     "thes+kinds-second": [
      3212,
+     4810
+    ],
+    "thes+kinds-second+att-second": [
+     3118,
+     4810
+    ],
+    "thes+kinds-second+att-first": [
+     2997,
      4810
     ],
     "thes+kinds-first": [
      3108,
      4810
     ],
+    "thes+kinds-first+att-second": [
+     3073,
+     4810
+    ],
+    "thes+kinds-first+att-first": [
+     2954,
+     4810
+    ],
     "thes+reading": [
      3189,
+     4810
+    ],
+    "thes+reading+att-second": [
+     3104,
+     4810
+    ],
+    "thes+reading+att-first": [
+     2984,
      4810
     ],
     "thes+reading+kinds-second": [
      3199,
      4810
     ],
+    "thes+reading+kinds-second+att-second": [
+     3117,
+     4810
+    ],
+    "thes+reading+kinds-second+att-first": [
+     2997,
+     4810
+    ],
     "thes+reading+kinds-first": [
      3100,
+     4810
+    ],
+    "thes+reading+kinds-first+att-second": [
+     3069,
+     4810
+    ],
+    "thes+reading+kinds-first+att-first": [
+     2951,
      4810
     ]
    },
@@ -4642,48 +5026,144 @@
      1643,
      2508
     ],
+    "att-second": [
+     1553,
+     2508
+    ],
+    "att-first": [
+     1467,
+     2508
+    ],
     "kinds-second": [
      1688,
+     2508
+    ],
+    "kinds-second+att-second": [
+     1606,
+     2508
+    ],
+    "kinds-second+att-first": [
+     1523,
      2508
     ],
     "kinds-first": [
      1617,
      2508
     ],
+    "kinds-first+att-second": [
+     1587,
+     2508
+    ],
+    "kinds-first+att-first": [
+     1504,
+     2508
+    ],
     "reading": [
      1661,
+     2508
+    ],
+    "reading+att-second": [
+     1581,
+     2508
+    ],
+    "reading+att-first": [
+     1493,
      2508
     ],
     "reading+kinds-second": [
      1693,
      2508
     ],
+    "reading+kinds-second+att-second": [
+     1614,
+     2508
+    ],
+    "reading+kinds-second+att-first": [
+     1529,
+     2508
+    ],
     "reading+kinds-first": [
      1620,
+     2508
+    ],
+    "reading+kinds-first+att-second": [
+     1593,
+     2508
+    ],
+    "reading+kinds-first+att-first": [
+     1508,
      2508
     ],
     "thes": [
      1659,
      2508
     ],
+    "thes+att-second": [
+     1569,
+     2508
+    ],
+    "thes+att-first": [
+     1483,
+     2508
+    ],
     "thes+kinds-second": [
      1688,
+     2508
+    ],
+    "thes+kinds-second+att-second": [
+     1607,
+     2508
+    ],
+    "thes+kinds-second+att-first": [
+     1524,
      2508
     ],
     "thes+kinds-first": [
      1615,
      2508
     ],
+    "thes+kinds-first+att-second": [
+     1586,
+     2508
+    ],
+    "thes+kinds-first+att-first": [
+     1503,
+     2508
+    ],
     "thes+reading": [
      1664,
+     2508
+    ],
+    "thes+reading+att-second": [
+     1584,
+     2508
+    ],
+    "thes+reading+att-first": [
+     1496,
      2508
     ],
     "thes+reading+kinds-second": [
      1694,
      2508
     ],
+    "thes+reading+kinds-second+att-second": [
+     1614,
+     2508
+    ],
+    "thes+reading+kinds-second+att-first": [
+     1529,
+     2508
+    ],
     "thes+reading+kinds-first": [
      1620,
+     2508
+    ],
+    "thes+reading+kinds-first+att-second": [
+     1593,
+     2508
+    ],
+    "thes+reading+kinds-first+att-first": [
+     1508,
      2508
     ]
    },
@@ -4692,48 +5172,144 @@
      3797,
      5101
     ],
+    "att-second": [
+     3714,
+     5101
+    ],
+    "att-first": [
+     3407,
+     5101
+    ],
     "kinds-second": [
      3803,
+     5101
+    ],
+    "kinds-second+att-second": [
+     3722,
+     5101
+    ],
+    "kinds-second+att-first": [
+     3417,
      5101
     ],
     "kinds-first": [
      3683,
      5101
     ],
+    "kinds-first+att-second": [
+     3660,
+     5101
+    ],
+    "kinds-first+att-first": [
+     3355,
+     5101
+    ],
     "reading": [
      3802,
+     5101
+    ],
+    "reading+att-second": [
+     3713,
+     5101
+    ],
+    "reading+att-first": [
+     3412,
      5101
     ],
     "reading+kinds-second": [
      3811,
      5101
     ],
+    "reading+kinds-second+att-second": [
+     3724,
+     5101
+    ],
+    "reading+kinds-second+att-first": [
+     3423,
+     5101
+    ],
     "reading+kinds-first": [
      3692,
+     5101
+    ],
+    "reading+kinds-first+att-second": [
+     3663,
+     5101
+    ],
+    "reading+kinds-first+att-first": [
+     3362,
      5101
     ],
     "thes": [
      3822,
      5101
     ],
+    "thes+att-second": [
+     3736,
+     5101
+    ],
+    "thes+att-first": [
+     3429,
+     5101
+    ],
     "thes+kinds-second": [
      3814,
+     5101
+    ],
+    "thes+kinds-second+att-second": [
+     3731,
+     5101
+    ],
+    "thes+kinds-second+att-first": [
+     3426,
      5101
     ],
     "thes+kinds-first": [
      3690,
      5101
     ],
+    "thes+kinds-first+att-second": [
+     3666,
+     5101
+    ],
+    "thes+kinds-first+att-first": [
+     3361,
+     5101
+    ],
     "thes+reading": [
      3810,
+     5101
+    ],
+    "thes+reading+att-second": [
+     3720,
+     5101
+    ],
+    "thes+reading+att-first": [
+     3418,
      5101
     ],
     "thes+reading+kinds-second": [
      3814,
      5101
     ],
+    "thes+reading+kinds-second+att-second": [
+     3728,
+     5101
+    ],
+    "thes+reading+kinds-second+att-first": [
+     3426,
+     5101
+    ],
     "thes+reading+kinds-first": [
      3696,
+     5101
+    ],
+    "thes+reading+kinds-first+att-second": [
+     3668,
+     5101
+    ],
+    "thes+reading+kinds-first+att-first": [
+     3366,
      5101
     ]
    },
@@ -4742,48 +5318,144 @@
      781,
      1398
     ],
+    "att-second": [
+     742,
+     1398
+    ],
+    "att-first": [
+     686,
+     1398
+    ],
     "kinds-second": [
      786,
+     1398
+    ],
+    "kinds-second+att-second": [
+     750,
+     1398
+    ],
+    "kinds-second+att-first": [
+     692,
      1398
     ],
     "kinds-first": [
      742,
      1398
     ],
+    "kinds-first+att-second": [
+     731,
+     1398
+    ],
+    "kinds-first+att-first": [
+     676,
+     1398
+    ],
     "reading": [
      789,
+     1398
+    ],
+    "reading+att-second": [
+     754,
+     1398
+    ],
+    "reading+att-first": [
+     696,
      1398
     ],
     "reading+kinds-second": [
      791,
      1398
     ],
+    "reading+kinds-second+att-second": [
+     755,
+     1398
+    ],
+    "reading+kinds-second+att-first": [
+     697,
+     1398
+    ],
     "reading+kinds-first": [
      747,
+     1398
+    ],
+    "reading+kinds-first+att-second": [
+     737,
+     1398
+    ],
+    "reading+kinds-first+att-first": [
+     682,
      1398
     ],
     "thes": [
      800,
      1398
     ],
+    "thes+att-second": [
+     763,
+     1398
+    ],
+    "thes+att-first": [
+     706,
+     1398
+    ],
     "thes+kinds-second": [
      793,
+     1398
+    ],
+    "thes+kinds-second+att-second": [
+     756,
+     1398
+    ],
+    "thes+kinds-second+att-first": [
+     698,
      1398
     ],
     "thes+kinds-first": [
      749,
      1398
     ],
+    "thes+kinds-first+att-second": [
+     738,
+     1398
+    ],
+    "thes+kinds-first+att-first": [
+     683,
+     1398
+    ],
     "thes+reading": [
      798,
+     1398
+    ],
+    "thes+reading+att-second": [
+     761,
+     1398
+    ],
+    "thes+reading+att-first": [
+     704,
      1398
     ],
     "thes+reading+kinds-second": [
      794,
      1398
     ],
+    "thes+reading+kinds-second+att-second": [
+     758,
+     1398
+    ],
+    "thes+reading+kinds-second+att-first": [
+     700,
+     1398
+    ],
     "thes+reading+kinds-first": [
      750,
+     1398
+    ],
+    "thes+reading+kinds-first+att-second": [
+     740,
+     1398
+    ],
+    "thes+reading+kinds-first+att-first": [
+     685,
      1398
     ]
    },
@@ -4792,48 +5464,144 @@
      1136,
      1833
     ],
+    "att-second": [
+     1099,
+     1833
+    ],
+    "att-first": [
+     1034,
+     1833
+    ],
     "kinds-second": [
      1145,
+     1833
+    ],
+    "kinds-second+att-second": [
+     1110,
+     1833
+    ],
+    "kinds-second+att-first": [
+     1043,
      1833
     ],
     "kinds-first": [
      1094,
      1833
     ],
+    "kinds-first+att-second": [
+     1086,
+     1833
+    ],
+    "kinds-first+att-first": [
+     1019,
+     1833
+    ],
     "reading": [
      1147,
+     1833
+    ],
+    "reading+att-second": [
+     1116,
+     1833
+    ],
+    "reading+att-first": [
+     1049,
      1833
     ],
     "reading+kinds-second": [
      1157,
      1833
     ],
+    "reading+kinds-second+att-second": [
+     1126,
+     1833
+    ],
+    "reading+kinds-second+att-first": [
+     1058,
+     1833
+    ],
     "reading+kinds-first": [
      1105,
+     1833
+    ],
+    "reading+kinds-first+att-second": [
+     1101,
+     1833
+    ],
+    "reading+kinds-first+att-first": [
+     1033,
      1833
     ],
     "thes": [
      1172,
      1833
     ],
+    "thes+att-second": [
+     1139,
+     1833
+    ],
+    "thes+att-first": [
+     1074,
+     1833
+    ],
     "thes+kinds-second": [
      1167,
+     1833
+    ],
+    "thes+kinds-second+att-second": [
+     1132,
+     1833
+    ],
+    "thes+kinds-second+att-first": [
+     1065,
      1833
     ],
     "thes+kinds-first": [
      1114,
      1833
     ],
+    "thes+kinds-first+att-second": [
+     1107,
+     1833
+    ],
+    "thes+kinds-first+att-first": [
+     1040,
+     1833
+    ],
     "thes+reading": [
      1165,
+     1833
+    ],
+    "thes+reading+att-second": [
+     1133,
+     1833
+    ],
+    "thes+reading+att-first": [
+     1066,
      1833
     ],
     "thes+reading+kinds-second": [
      1167,
      1833
     ],
+    "thes+reading+kinds-second+att-second": [
+     1135,
+     1833
+    ],
+    "thes+reading+kinds-second+att-first": [
+     1067,
+     1833
+    ],
     "thes+reading+kinds-first": [
      1114,
+     1833
+    ],
+    "thes+reading+kinds-first+att-second": [
+     1109,
+     1833
+    ],
+    "thes+reading+kinds-first+att-first": [
+     1041,
      1833
     ]
    },
@@ -4842,48 +5610,144 @@
      317,
      524
     ],
+    "att-second": [
+     303,
+     524
+    ],
+    "att-first": [
+     283,
+     524
+    ],
     "kinds-second": [
      335,
+     524
+    ],
+    "kinds-second+att-second": [
+     326,
+     524
+    ],
+    "kinds-second+att-first": [
+     308,
      524
     ],
     "kinds-first": [
      335,
      524
     ],
+    "kinds-first+att-second": [
+     326,
+     524
+    ],
+    "kinds-first+att-first": [
+     308,
+     524
+    ],
     "reading": [
      317,
+     524
+    ],
+    "reading+att-second": [
+     306,
+     524
+    ],
+    "reading+att-first": [
+     287,
      524
     ],
     "reading+kinds-second": [
      333,
      524
     ],
+    "reading+kinds-second+att-second": [
+     323,
+     524
+    ],
+    "reading+kinds-second+att-first": [
+     305,
+     524
+    ],
     "reading+kinds-first": [
      332,
+     524
+    ],
+    "reading+kinds-first+att-second": [
+     322,
+     524
+    ],
+    "reading+kinds-first+att-first": [
+     304,
      524
     ],
     "thes": [
      322,
      524
     ],
+    "thes+att-second": [
+     311,
+     524
+    ],
+    "thes+att-first": [
+     292,
+     524
+    ],
     "thes+kinds-second": [
      335,
+     524
+    ],
+    "thes+kinds-second+att-second": [
+     326,
+     524
+    ],
+    "thes+kinds-second+att-first": [
+     308,
      524
     ],
     "thes+kinds-first": [
      336,
      524
     ],
+    "thes+kinds-first+att-second": [
+     327,
+     524
+    ],
+    "thes+kinds-first+att-first": [
+     309,
+     524
+    ],
     "thes+reading": [
      320,
+     524
+    ],
+    "thes+reading+att-second": [
+     308,
+     524
+    ],
+    "thes+reading+att-first": [
+     289,
      524
     ],
     "thes+reading+kinds-second": [
      335,
      524
     ],
+    "thes+reading+kinds-second+att-second": [
+     325,
+     524
+    ],
+    "thes+reading+kinds-second+att-first": [
+     307,
+     524
+    ],
     "thes+reading+kinds-first": [
      334,
+     524
+    ],
+    "thes+reading+kinds-first+att-second": [
+     324,
+     524
+    ],
+    "thes+reading+kinds-first+att-first": [
+     306,
      524
     ]
    },
@@ -4892,48 +5756,144 @@
      289,
      476
     ],
+    "att-second": [
+     283,
+     476
+    ],
+    "att-first": [
+     266,
+     476
+    ],
     "kinds-second": [
      294,
+     476
+    ],
+    "kinds-second+att-second": [
+     290,
+     476
+    ],
+    "kinds-second+att-first": [
+     273,
      476
     ],
     "kinds-first": [
      273,
      476
     ],
+    "kinds-first+att-second": [
+     277,
+     476
+    ],
+    "kinds-first+att-first": [
+     260,
+     476
+    ],
     "reading": [
      288,
+     476
+    ],
+    "reading+att-second": [
+     285,
+     476
+    ],
+    "reading+att-first": [
+     268,
      476
     ],
     "reading+kinds-second": [
      294,
      476
     ],
+    "reading+kinds-second+att-second": [
+     290,
+     476
+    ],
+    "reading+kinds-second+att-first": [
+     273,
+     476
+    ],
     "reading+kinds-first": [
      274,
+     476
+    ],
+    "reading+kinds-first+att-second": [
+     278,
+     476
+    ],
+    "reading+kinds-first+att-first": [
+     261,
      476
     ],
     "thes": [
      297,
      476
     ],
+    "thes+att-second": [
+     291,
+     476
+    ],
+    "thes+att-first": [
+     275,
+     476
+    ],
     "thes+kinds-second": [
      297,
+     476
+    ],
+    "thes+kinds-second+att-second": [
+     293,
+     476
+    ],
+    "thes+kinds-second+att-first": [
+     277,
      476
     ],
     "thes+kinds-first": [
      275,
      476
     ],
+    "thes+kinds-first+att-second": [
+     279,
+     476
+    ],
+    "thes+kinds-first+att-first": [
+     263,
+     476
+    ],
     "thes+reading": [
      289,
+     476
+    ],
+    "thes+reading+att-second": [
+     286,
+     476
+    ],
+    "thes+reading+att-first": [
+     269,
      476
     ],
     "thes+reading+kinds-second": [
      296,
      476
     ],
+    "thes+reading+kinds-second+att-second": [
+     292,
+     476
+    ],
+    "thes+reading+kinds-second+att-first": [
+     275,
+     476
+    ],
     "thes+reading+kinds-first": [
      276,
+     476
+    ],
+    "thes+reading+kinds-first+att-second": [
+     280,
+     476
+    ],
+    "thes+reading+kinds-first+att-first": [
+     263,
      476
     ]
    }
@@ -4944,48 +5904,144 @@
      1427,
      1970
     ],
+    "att-second": [
+     1382,
+     1970
+    ],
+    "att-first": [
+     1297,
+     1970
+    ],
     "kinds-second": [
      1458,
+     1970
+    ],
+    "kinds-second+att-second": [
+     1416,
+     1970
+    ],
+    "kinds-second+att-first": [
+     1333,
      1970
     ],
     "kinds-first": [
      1455,
      1970
     ],
+    "kinds-first+att-second": [
+     1414,
+     1970
+    ],
+    "kinds-first+att-first": [
+     1332,
+     1970
+    ],
     "reading": [
      1424,
+     1970
+    ],
+    "reading+att-second": [
+     1381,
+     1970
+    ],
+    "reading+att-first": [
+     1296,
      1970
     ],
     "reading+kinds-second": [
      1454,
      1970
     ],
+    "reading+kinds-second+att-second": [
+     1414,
+     1970
+    ],
+    "reading+kinds-second+att-first": [
+     1330,
+     1970
+    ],
     "reading+kinds-first": [
      1449,
+     1970
+    ],
+    "reading+kinds-first+att-second": [
+     1410,
+     1970
+    ],
+    "reading+kinds-first+att-first": [
+     1327,
      1970
     ],
     "thes": [
      1446,
      1970
     ],
+    "thes+att-second": [
+     1403,
+     1970
+    ],
+    "thes+att-first": [
+     1316,
+     1970
+    ],
     "thes+kinds-second": [
      1464,
+     1970
+    ],
+    "thes+kinds-second+att-second": [
+     1423,
+     1970
+    ],
+    "thes+kinds-second+att-first": [
+     1339,
      1970
     ],
     "thes+kinds-first": [
      1462,
      1970
     ],
+    "thes+kinds-first+att-second": [
+     1421,
+     1970
+    ],
+    "thes+kinds-first+att-first": [
+     1338,
+     1970
+    ],
     "thes+reading": [
      1429,
+     1970
+    ],
+    "thes+reading+att-second": [
+     1386,
+     1970
+    ],
+    "thes+reading+att-first": [
+     1301,
      1970
     ],
     "thes+reading+kinds-second": [
      1454,
      1970
     ],
+    "thes+reading+kinds-second+att-second": [
+     1414,
+     1970
+    ],
+    "thes+reading+kinds-second+att-first": [
+     1330,
+     1970
+    ],
     "thes+reading+kinds-first": [
      1450,
+     1970
+    ],
+    "thes+reading+kinds-first+att-second": [
+     1411,
+     1970
+    ],
+    "thes+reading+kinds-first+att-first": [
+     1328,
      1970
     ]
    },
@@ -4994,11 +6050,35 @@
      226,
      429
     ],
+    "att-second": [
+     223,
+     429
+    ],
+    "att-first": [
+     223,
+     429
+    ],
     "kinds-second": [
      258,
      429
     ],
+    "kinds-second+att-second": [
+     255,
+     429
+    ],
+    "kinds-second+att-first": [
+     255,
+     429
+    ],
     "kinds-first": [
+     253,
+     429
+    ],
+    "kinds-first+att-second": [
+     253,
+     429
+    ],
+    "kinds-first+att-first": [
      253,
      429
     ],
@@ -5006,36 +6086,108 @@
      228,
      429
     ],
+    "reading+att-second": [
+     222,
+     429
+    ],
+    "reading+att-first": [
+     222,
+     429
+    ],
     "reading+kinds-second": [
      258,
+     429
+    ],
+    "reading+kinds-second+att-second": [
+     254,
+     429
+    ],
+    "reading+kinds-second+att-first": [
+     254,
      429
     ],
     "reading+kinds-first": [
      253,
      429
     ],
+    "reading+kinds-first+att-second": [
+     252,
+     429
+    ],
+    "reading+kinds-first+att-first": [
+     252,
+     429
+    ],
     "thes": [
      237,
+     429
+    ],
+    "thes+att-second": [
+     236,
+     429
+    ],
+    "thes+att-first": [
+     236,
      429
     ],
     "thes+kinds-second": [
      259,
      429
     ],
+    "thes+kinds-second+att-second": [
+     258,
+     429
+    ],
+    "thes+kinds-second+att-first": [
+     258,
+     429
+    ],
     "thes+kinds-first": [
      255,
+     429
+    ],
+    "thes+kinds-first+att-second": [
+     257,
+     429
+    ],
+    "thes+kinds-first+att-first": [
+     257,
      429
     ],
     "thes+reading": [
      238,
      429
     ],
+    "thes+reading+att-second": [
+     233,
+     429
+    ],
+    "thes+reading+att-first": [
+     233,
+     429
+    ],
     "thes+reading+kinds-second": [
      260,
      429
     ],
+    "thes+reading+kinds-second+att-second": [
+     256,
+     429
+    ],
+    "thes+reading+kinds-second+att-first": [
+     256,
+     429
+    ],
     "thes+reading+kinds-first": [
      255,
+     429
+    ],
+    "thes+reading+kinds-first+att-second": [
+     254,
+     429
+    ],
+    "thes+reading+kinds-first+att-first": [
+     254,
      429
     ]
    },
@@ -5044,48 +6196,144 @@
      993,
      2227
     ],
+    "att-second": [
+     965,
+     2227
+    ],
+    "att-first": [
+     965,
+     2227
+    ],
     "kinds-second": [
      1039,
+     2227
+    ],
+    "kinds-second+att-second": [
+     1016,
+     2227
+    ],
+    "kinds-second+att-first": [
+     1016,
      2227
     ],
     "kinds-first": [
      970,
      2227
     ],
+    "kinds-first+att-second": [
+     980,
+     2227
+    ],
+    "kinds-first+att-first": [
+     980,
+     2227
+    ],
     "reading": [
      1039,
+     2227
+    ],
+    "reading+att-second": [
+     1008,
+     2227
+    ],
+    "reading+att-first": [
+     1008,
      2227
     ],
     "reading+kinds-second": [
      1058,
      2227
     ],
+    "reading+kinds-second+att-second": [
+     1037,
+     2227
+    ],
+    "reading+kinds-second+att-first": [
+     1037,
+     2227
+    ],
     "reading+kinds-first": [
      984,
+     2227
+    ],
+    "reading+kinds-first+att-second": [
+     1000,
+     2227
+    ],
+    "reading+kinds-first+att-first": [
+     1000,
      2227
     ],
     "thes": [
      1083,
      2227
     ],
+    "thes+att-second": [
+     1061,
+     2227
+    ],
+    "thes+att-first": [
+     1061,
+     2227
+    ],
     "thes+kinds-second": [
      1063,
+     2227
+    ],
+    "thes+kinds-second+att-second": [
+     1046,
+     2227
+    ],
+    "thes+kinds-second+att-first": [
+     1046,
      2227
     ],
     "thes+kinds-first": [
      997,
      2227
     ],
+    "thes+kinds-first+att-second": [
+     1009,
+     2227
+    ],
+    "thes+kinds-first+att-first": [
+     1009,
+     2227
+    ],
     "thes+reading": [
      1080,
+     2227
+    ],
+    "thes+reading+att-second": [
+     1052,
+     2227
+    ],
+    "thes+reading+att-first": [
+     1052,
      2227
     ],
     "thes+reading+kinds-second": [
      1070,
      2227
     ],
+    "thes+reading+kinds-second+att-second": [
+     1050,
+     2227
+    ],
+    "thes+reading+kinds-second+att-first": [
+     1050,
+     2227
+    ],
     "thes+reading+kinds-first": [
      998,
+     2227
+    ],
+    "thes+reading+kinds-first+att-second": [
+     1013,
+     2227
+    ],
+    "thes+reading+kinds-first+att-first": [
+     1013,
      2227
     ]
    },
@@ -5094,48 +6342,144 @@
      1598,
      2194
     ],
+    "att-second": [
+     1551,
+     2194
+    ],
+    "att-first": [
+     1410,
+     2194
+    ],
     "kinds-second": [
      1604,
+     2194
+    ],
+    "kinds-second+att-second": [
+     1555,
+     2194
+    ],
+    "kinds-second+att-first": [
+     1417,
      2194
     ],
     "kinds-first": [
      1542,
      2194
     ],
+    "kinds-first+att-second": [
+     1528,
+     2194
+    ],
+    "kinds-first+att-first": [
+     1392,
+     2194
+    ],
     "reading": [
      1589,
+     2194
+    ],
+    "reading+att-second": [
+     1547,
+     2194
+    ],
+    "reading+att-first": [
+     1408,
      2194
     ],
     "reading+kinds-second": [
      1597,
      2194
     ],
+    "reading+kinds-second+att-second": [
+     1553,
+     2194
+    ],
+    "reading+kinds-second+att-first": [
+     1415,
+     2194
+    ],
     "reading+kinds-first": [
      1536,
+     2194
+    ],
+    "reading+kinds-first+att-second": [
+     1526,
+     2194
+    ],
+    "reading+kinds-first+att-first": [
+     1391,
      2194
     ],
     "thes": [
      1602,
      2194
     ],
+    "thes+att-second": [
+     1556,
+     2194
+    ],
+    "thes+att-first": [
+     1415,
+     2194
+    ],
     "thes+kinds-second": [
      1607,
+     2194
+    ],
+    "thes+kinds-second+att-second": [
+     1557,
+     2194
+    ],
+    "thes+kinds-second+att-first": [
+     1420,
      2194
     ],
     "thes+kinds-first": [
      1546,
      2194
     ],
+    "thes+kinds-first+att-second": [
+     1531,
+     2194
+    ],
+    "thes+kinds-first+att-first": [
+     1396,
+     2194
+    ],
     "thes+reading": [
      1590,
+     2194
+    ],
+    "thes+reading+att-second": [
+     1549,
+     2194
+    ],
+    "thes+reading+att-first": [
+     1410,
      2194
     ],
     "thes+reading+kinds-second": [
      1599,
      2194
     ],
+    "thes+reading+kinds-second+att-second": [
+     1553,
+     2194
+    ],
+    "thes+reading+kinds-second+att-first": [
+     1415,
+     2194
+    ],
     "thes+reading+kinds-first": [
      1538,
+     2194
+    ],
+    "thes+reading+kinds-first+att-second": [
+     1526,
+     2194
+    ],
+    "thes+reading+kinds-first+att-first": [
+     1391,
      2194
     ]
    },
@@ -5144,48 +6488,144 @@
      2447,
      4322
     ],
+    "att-second": [
+     2365,
+     4322
+    ],
+    "att-first": [
+     2317,
+     4322
+    ],
     "kinds-second": [
      2475,
+     4322
+    ],
+    "kinds-second+att-second": [
+     2395,
+     4322
+    ],
+    "kinds-second+att-first": [
+     2350,
      4322
     ],
     "kinds-first": [
      2336,
      4322
     ],
+    "kinds-first+att-second": [
+     2322,
+     4322
+    ],
+    "kinds-first+att-first": [
+     2277,
+     4322
+    ],
     "reading": [
      2467,
+     4322
+    ],
+    "reading+att-second": [
+     2396,
+     4322
+    ],
+    "reading+att-first": [
+     2350,
      4322
     ],
     "reading+kinds-second": [
      2489,
      4322
     ],
+    "reading+kinds-second+att-second": [
+     2413,
+     4322
+    ],
+    "reading+kinds-second+att-first": [
+     2369,
+     4322
+    ],
     "reading+kinds-first": [
      2353,
+     4322
+    ],
+    "reading+kinds-first+att-second": [
+     2341,
+     4322
+    ],
+    "reading+kinds-first+att-first": [
+     2297,
      4322
     ],
     "thes": [
      2529,
      4322
     ],
+    "thes+att-second": [
+     2445,
+     4322
+    ],
+    "thes+att-first": [
+     2396,
+     4322
+    ],
     "thes+kinds-second": [
      2513,
+     4322
+    ],
+    "thes+kinds-second+att-second": [
+     2435,
+     4322
+    ],
+    "thes+kinds-second+att-first": [
+     2389,
      4322
     ],
     "thes+kinds-first": [
      2373,
      4322
     ],
+    "thes+kinds-first+att-second": [
+     2366,
+     4322
+    ],
+    "thes+kinds-first+att-first": [
+     2320,
+     4322
+    ],
     "thes+reading": [
      2491,
+     4322
+    ],
+    "thes+reading+att-second": [
+     2413,
+     4322
+    ],
+    "thes+reading+att-first": [
+     2365,
      4322
     ],
     "thes+reading+kinds-second": [
      2498,
      4322
     ],
+    "thes+reading+kinds-second+att-second": [
+     2419,
+     4322
+    ],
+    "thes+reading+kinds-second+att-first": [
+     2374,
+     4322
+    ],
     "thes+reading+kinds-first": [
      2360,
+     4322
+    ],
+    "thes+reading+kinds-first+att-second": [
+     2348,
+     4322
+    ],
+    "thes+reading+kinds-first+att-first": [
+     2303,
      4322
     ]
    },
@@ -5194,48 +6634,144 @@
      10271,
      15082
     ],
+    "att-second": [
+     9880,
+     15082
+    ],
+    "att-first": [
+     9150,
+     15082
+    ],
     "kinds-second": [
      10294,
+     15082
+    ],
+    "kinds-second+att-second": [
+     9921,
+     15082
+    ],
+    "kinds-second+att-first": [
+     9200,
      15082
     ],
     "kinds-first": [
      9852,
      15082
     ],
+    "kinds-first+att-second": [
+     9734,
+     15082
+    ],
+    "kinds-first+att-first": [
+     9018,
+     15082
+    ],
     "reading": [
      10264,
+     15082
+    ],
+    "reading+att-second": [
+     9884,
+     15082
+    ],
+    "reading+att-first": [
+     9167,
      15082
     ],
     "reading+kinds-second": [
      10304,
      15082
     ],
+    "reading+kinds-second+att-second": [
+     9938,
+     15082
+    ],
+    "reading+kinds-second+att-first": [
+     9223,
+     15082
+    ],
     "reading+kinds-first": [
      9868,
+     15082
+    ],
+    "reading+kinds-first+att-second": [
+     9756,
+     15082
+    ],
+    "reading+kinds-first+att-first": [
+     9046,
      15082
     ],
     "thes": [
      10334,
      15082
     ],
+    "thes+att-second": [
+     9967,
+     15082
+    ],
+    "thes+att-first": [
+     9244,
+     15082
+    ],
     "thes+kinds-second": [
      10321,
+     15082
+    ],
+    "thes+kinds-second+att-second": [
+     9957,
+     15082
+    ],
+    "thes+kinds-second+att-first": [
+     9239,
      15082
     ],
     "thes+kinds-first": [
      9883,
      15082
     ],
+    "thes+kinds-first+att-second": [
+     9773,
+     15082
+    ],
+    "thes+kinds-first+att-first": [
+     9061,
+     15082
+    ],
     "thes+reading": [
      10295,
+     15082
+    ],
+    "thes+reading+att-second": [
+     9924,
+     15082
+    ],
+    "thes+reading+att-first": [
+     9208,
      15082
     ],
     "thes+reading+kinds-second": [
      10305,
      15082
     ],
+    "thes+reading+kinds-second+att-second": [
+     9938,
+     15082
+    ],
+    "thes+reading+kinds-second+att-first": [
+     9223,
+     15082
+    ],
     "thes+reading+kinds-first": [
      9866,
+     15082
+    ],
+    "thes+reading+kinds-first+att-second": [
+     9755,
+     15082
+    ],
+    "thes+reading+kinds-first+att-first": [
+     9045,
      15082
     ]
    },
@@ -5244,48 +6780,144 @@
      2007,
      2849
     ],
+    "att-second": [
+     1947,
+     2849
+    ],
+    "att-first": [
+     1837,
+     2849
+    ],
     "kinds-second": [
      2005,
+     2849
+    ],
+    "kinds-second+att-second": [
+     1946,
+     2849
+    ],
+    "kinds-second+att-first": [
+     1838,
      2849
     ],
     "kinds-first": [
      1950,
      2849
     ],
+    "kinds-first+att-second": [
+     1922,
+     2849
+    ],
+    "kinds-first+att-first": [
+     1816,
+     2849
+    ],
     "reading": [
      2000,
+     2849
+    ],
+    "reading+att-second": [
+     1949,
+     2849
+    ],
+    "reading+att-first": [
+     1843,
      2849
     ],
     "reading+kinds-second": [
      2000,
      2849
     ],
+    "reading+kinds-second+att-second": [
+     1949,
+     2849
+    ],
+    "reading+kinds-second+att-first": [
+     1842,
+     2849
+    ],
     "reading+kinds-first": [
      1948,
+     2849
+    ],
+    "reading+kinds-first+att-second": [
+     1923,
+     2849
+    ],
+    "reading+kinds-first+att-first": [
+     1818,
      2849
     ],
     "thes": [
      2015,
      2849
     ],
+    "thes+att-second": [
+     1957,
+     2849
+    ],
+    "thes+att-first": [
+     1846,
+     2849
+    ],
     "thes+kinds-second": [
      2006,
+     2849
+    ],
+    "thes+kinds-second+att-second": [
+     1948,
+     2849
+    ],
+    "thes+kinds-second+att-first": [
+     1840,
      2849
     ],
     "thes+kinds-first": [
      1951,
      2849
     ],
+    "thes+kinds-first+att-second": [
+     1924,
+     2849
+    ],
+    "thes+kinds-first+att-first": [
+     1818,
+     2849
+    ],
     "thes+reading": [
      2003,
+     2849
+    ],
+    "thes+reading+att-second": [
+     1952,
+     2849
+    ],
+    "thes+reading+att-first": [
+     1845,
      2849
     ],
     "thes+reading+kinds-second": [
      2002,
      2849
     ],
+    "thes+reading+kinds-second+att-second": [
+     1951,
+     2849
+    ],
+    "thes+reading+kinds-second+att-first": [
+     1844,
+     2849
+    ],
     "thes+reading+kinds-first": [
      1950,
+     2849
+    ],
+    "thes+reading+kinds-first+att-second": [
+     1925,
+     2849
+    ],
+    "thes+reading+kinds-first+att-first": [
+     1820,
      2849
     ]
    },
@@ -5294,48 +6926,144 @@
      482,
      785
     ],
+    "att-second": [
+     473,
+     785
+    ],
+    "att-first": [
+     467,
+     785
+    ],
     "kinds-second": [
      516,
+     785
+    ],
+    "kinds-second+att-second": [
+     512,
+     785
+    ],
+    "kinds-second+att-first": [
+     505,
      785
     ],
     "kinds-first": [
      522,
      785
     ],
+    "kinds-first+att-second": [
+     515,
+     785
+    ],
+    "kinds-first+att-first": [
+     508,
+     785
+    ],
     "reading": [
      480,
+     785
+    ],
+    "reading+att-second": [
+     470,
+     785
+    ],
+    "reading+att-first": [
+     466,
      785
     ],
     "reading+kinds-second": [
      510,
      785
     ],
+    "reading+kinds-second+att-second": [
+     506,
+     785
+    ],
+    "reading+kinds-second+att-first": [
+     499,
+     785
+    ],
     "reading+kinds-first": [
      516,
+     785
+    ],
+    "reading+kinds-first+att-second": [
+     510,
+     785
+    ],
+    "reading+kinds-first+att-first": [
+     503,
      785
     ],
     "thes": [
      499,
      785
     ],
+    "thes+att-second": [
+     489,
+     785
+    ],
+    "thes+att-first": [
+     483,
+     785
+    ],
     "thes+kinds-second": [
      523,
+     785
+    ],
+    "thes+kinds-second+att-second": [
+     519,
+     785
+    ],
+    "thes+kinds-second+att-first": [
+     513,
      785
     ],
     "thes+kinds-first": [
      529,
      785
     ],
+    "thes+kinds-first+att-second": [
+     522,
+     785
+    ],
+    "thes+kinds-first+att-first": [
+     516,
+     785
+    ],
     "thes+reading": [
      488,
+     785
+    ],
+    "thes+reading+att-second": [
+     477,
+     785
+    ],
+    "thes+reading+att-first": [
+     473,
      785
     ],
     "thes+reading+kinds-second": [
      511,
      785
     ],
+    "thes+reading+kinds-second+att-second": [
+     505,
+     785
+    ],
+    "thes+reading+kinds-second+att-first": [
+     498,
+     785
+    ],
     "thes+reading+kinds-first": [
      516,
+     785
+    ],
+    "thes+reading+kinds-first+att-second": [
+     509,
+     785
+    ],
+    "thes+reading+kinds-first+att-first": [
+     502,
      785
     ]
    },
@@ -5344,48 +7072,144 @@
      1205,
      1742
     ],
+    "att-second": [
+     1144,
+     1742
+    ],
+    "att-first": [
+     1064,
+     1742
+    ],
     "kinds-second": [
      1223,
+     1742
+    ],
+    "kinds-second+att-second": [
+     1163,
+     1742
+    ],
+    "kinds-second+att-first": [
+     1086,
      1742
     ],
     "kinds-first": [
      1179,
      1742
     ],
+    "kinds-first+att-second": [
+     1160,
+     1742
+    ],
+    "kinds-first+att-first": [
+     1083,
+     1742
+    ],
     "reading": [
      1215,
+     1742
+    ],
+    "reading+att-second": [
+     1159,
+     1742
+    ],
+    "reading+att-first": [
+     1078,
      1742
     ],
     "reading+kinds-second": [
      1223,
      1742
     ],
+    "reading+kinds-second+att-second": [
+     1167,
+     1742
+    ],
+    "reading+kinds-second+att-first": [
+     1089,
+     1742
+    ],
     "reading+kinds-first": [
      1178,
+     1742
+    ],
+    "reading+kinds-first+att-second": [
+     1162,
+     1742
+    ],
+    "reading+kinds-first+att-first": [
+     1084,
      1742
     ],
     "thes": [
      1215,
      1742
     ],
+    "thes+att-second": [
+     1152,
+     1742
+    ],
+    "thes+att-first": [
+     1072,
+     1742
+    ],
     "thes+kinds-second": [
      1223,
+     1742
+    ],
+    "thes+kinds-second+att-second": [
+     1164,
+     1742
+    ],
+    "thes+kinds-second+att-first": [
+     1087,
      1742
     ],
     "thes+kinds-first": [
      1178,
      1742
     ],
+    "thes+kinds-first+att-second": [
+     1160,
+     1742
+    ],
+    "thes+kinds-first+att-first": [
+     1083,
+     1742
+    ],
     "thes+reading": [
      1217,
+     1742
+    ],
+    "thes+reading+att-second": [
+     1160,
+     1742
+    ],
+    "thes+reading+att-first": [
+     1079,
      1742
     ],
     "thes+reading+kinds-second": [
      1224,
      1742
     ],
+    "thes+reading+kinds-second+att-second": [
+     1167,
+     1742
+    ],
+    "thes+reading+kinds-second+att-first": [
+     1089,
+     1742
+    ],
     "thes+reading+kinds-first": [
      1178,
+     1742
+    ],
+    "thes+reading+kinds-first+att-second": [
+     1162,
+     1742
+    ],
+    "thes+reading+kinds-first+att-first": [
+     1084,
      1742
     ]
    },
@@ -5394,47 +7218,143 @@
      60,
      159
     ],
+    "att-second": [
+     58,
+     159
+    ],
+    "att-first": [
+     58,
+     159
+    ],
     "kinds-second": [
      61,
+     159
+    ],
+    "kinds-second+att-second": [
+     59,
+     159
+    ],
+    "kinds-second+att-first": [
+     59,
      159
     ],
     "kinds-first": [
      55,
      159
     ],
+    "kinds-first+att-second": [
+     56,
+     159
+    ],
+    "kinds-first+att-first": [
+     56,
+     159
+    ],
     "reading": [
      69,
+     159
+    ],
+    "reading+att-second": [
+     68,
+     159
+    ],
+    "reading+att-first": [
+     68,
      159
     ],
     "reading+kinds-second": [
      65,
      159
     ],
+    "reading+kinds-second+att-second": [
+     63,
+     159
+    ],
+    "reading+kinds-second+att-first": [
+     63,
+     159
+    ],
     "reading+kinds-first": [
      59,
+     159
+    ],
+    "reading+kinds-first+att-second": [
+     60,
+     159
+    ],
+    "reading+kinds-first+att-first": [
+     60,
      159
     ],
     "thes": [
      64,
      159
     ],
+    "thes+att-second": [
+     65,
+     159
+    ],
+    "thes+att-first": [
+     65,
+     159
+    ],
     "thes+kinds-second": [
      62,
+     159
+    ],
+    "thes+kinds-second+att-second": [
+     61,
+     159
+    ],
+    "thes+kinds-second+att-first": [
+     61,
      159
     ],
     "thes+kinds-first": [
      57,
      159
     ],
+    "thes+kinds-first+att-second": [
+     58,
+     159
+    ],
+    "thes+kinds-first+att-first": [
+     58,
+     159
+    ],
     "thes+reading": [
      69,
+     159
+    ],
+    "thes+reading+att-second": [
+     68,
+     159
+    ],
+    "thes+reading+att-first": [
+     68,
      159
     ],
     "thes+reading+kinds-second": [
      65,
      159
     ],
+    "thes+reading+kinds-second+att-second": [
+     63,
+     159
+    ],
+    "thes+reading+kinds-second+att-first": [
+     63,
+     159
+    ],
     "thes+reading+kinds-first": [
+     60,
+     159
+    ],
+    "thes+reading+kinds-first+att-second": [
+     60,
+     159
+    ],
+    "thes+reading+kinds-first+att-first": [
      60,
      159
     ]
@@ -5444,11 +7364,35 @@
      350,
      662
     ],
+    "att-second": [
+     338,
+     662
+    ],
+    "att-first": [
+     338,
+     662
+    ],
     "kinds-second": [
      371,
      662
     ],
+    "kinds-second+att-second": [
+     360,
+     662
+    ],
+    "kinds-second+att-first": [
+     360,
+     662
+    ],
     "kinds-first": [
+     347,
+     662
+    ],
+    "kinds-first+att-second": [
+     347,
+     662
+    ],
+    "kinds-first+att-first": [
      347,
      662
     ],
@@ -5456,23 +7400,71 @@
      361,
      662
     ],
+    "reading+att-second": [
+     352,
+     662
+    ],
+    "reading+att-first": [
+     352,
+     662
+    ],
     "reading+kinds-second": [
      377,
+     662
+    ],
+    "reading+kinds-second+att-second": [
+     369,
+     662
+    ],
+    "reading+kinds-second+att-first": [
+     369,
      662
     ],
     "reading+kinds-first": [
      358,
      662
     ],
+    "reading+kinds-first+att-second": [
+     357,
+     662
+    ],
+    "reading+kinds-first+att-first": [
+     357,
+     662
+    ],
     "thes": [
      367,
+     662
+    ],
+    "thes+att-second": [
+     356,
+     662
+    ],
+    "thes+att-first": [
+     356,
      662
     ],
     "thes+kinds-second": [
      379,
      662
     ],
+    "thes+kinds-second+att-second": [
+     370,
+     662
+    ],
+    "thes+kinds-second+att-first": [
+     370,
+     662
+    ],
     "thes+kinds-first": [
+     359,
+     662
+    ],
+    "thes+kinds-first+att-second": [
+     359,
+     662
+    ],
+    "thes+kinds-first+att-first": [
      359,
      662
     ],
@@ -5480,12 +7472,36 @@
      367,
      662
     ],
+    "thes+reading+att-second": [
+     357,
+     662
+    ],
+    "thes+reading+att-first": [
+     357,
+     662
+    ],
     "thes+reading+kinds-second": [
      380,
      662
     ],
+    "thes+reading+kinds-second+att-second": [
+     372,
+     662
+    ],
+    "thes+reading+kinds-second+att-first": [
+     372,
+     662
+    ],
     "thes+reading+kinds-first": [
      361,
+     662
+    ],
+    "thes+reading+kinds-first+att-second": [
+     360,
+     662
+    ],
+    "thes+reading+kinds-first+att-first": [
+     360,
      662
     ]
    },
@@ -5494,7 +7510,23 @@
      277,
      742
     ],
+    "att-second": [
+     277,
+     742
+    ],
+    "att-first": [
+     277,
+     742
+    ],
     "kinds-second": [
+     295,
+     742
+    ],
+    "kinds-second+att-second": [
+     295,
+     742
+    ],
+    "kinds-second+att-first": [
      295,
      742
     ],
@@ -5502,7 +7534,23 @@
      295,
      742
     ],
+    "kinds-first+att-second": [
+     295,
+     742
+    ],
+    "kinds-first+att-first": [
+     295,
+     742
+    ],
     "reading": [
+     291,
+     742
+    ],
+    "reading+att-second": [
+     291,
+     742
+    ],
+    "reading+att-first": [
      291,
      742
     ],
@@ -5510,7 +7558,23 @@
      295,
      742
     ],
+    "reading+kinds-second+att-second": [
+     295,
+     742
+    ],
+    "reading+kinds-second+att-first": [
+     295,
+     742
+    ],
     "reading+kinds-first": [
+     295,
+     742
+    ],
+    "reading+kinds-first+att-second": [
+     295,
+     742
+    ],
+    "reading+kinds-first+att-first": [
      295,
      742
     ],
@@ -5518,7 +7582,23 @@
      328,
      742
     ],
+    "thes+att-second": [
+     328,
+     742
+    ],
+    "thes+att-first": [
+     328,
+     742
+    ],
     "thes+kinds-second": [
+     311,
+     742
+    ],
+    "thes+kinds-second+att-second": [
+     311,
+     742
+    ],
+    "thes+kinds-second+att-first": [
      311,
      742
     ],
@@ -5526,7 +7606,23 @@
      311,
      742
     ],
+    "thes+kinds-first+att-second": [
+     311,
+     742
+    ],
+    "thes+kinds-first+att-first": [
+     311,
+     742
+    ],
     "thes+reading": [
+     324,
+     742
+    ],
+    "thes+reading+att-second": [
+     324,
+     742
+    ],
+    "thes+reading+att-first": [
      324,
      742
     ],
@@ -5534,7 +7630,23 @@
      307,
      742
     ],
+    "thes+reading+kinds-second+att-second": [
+     307,
+     742
+    ],
+    "thes+reading+kinds-second+att-first": [
+     307,
+     742
+    ],
     "thes+reading+kinds-first": [
+     307,
+     742
+    ],
+    "thes+reading+kinds-first+att-second": [
+     307,
+     742
+    ],
+    "thes+reading+kinds-first+att-first": [
      307,
      742
     ]
@@ -5544,48 +7656,144 @@
      3319,
      4268
     ],
+    "att-second": [
+     3253,
+     4268
+    ],
+    "att-first": [
+     2951,
+     4268
+    ],
     "kinds-second": [
      3317,
+     4268
+    ],
+    "kinds-second+att-second": [
+     3252,
+     4268
+    ],
+    "kinds-second+att-first": [
+     2953,
      4268
     ],
     "kinds-first": [
      3235,
      4268
     ],
+    "kinds-first+att-second": [
+     3212,
+     4268
+    ],
+    "kinds-first+att-first": [
+     2913,
+     4268
+    ],
     "reading": [
      3316,
+     4268
+    ],
+    "reading+att-second": [
+     3245,
+     4268
+    ],
+    "reading+att-first": [
+     2950,
      4268
     ],
     "reading+kinds-second": [
      3323,
      4268
     ],
+    "reading+kinds-second+att-second": [
+     3253,
+     4268
+    ],
+    "reading+kinds-second+att-first": [
+     2958,
+     4268
+    ],
     "reading+kinds-first": [
      3241,
+     4268
+    ],
+    "reading+kinds-first+att-second": [
+     3213,
+     4268
+    ],
+    "reading+kinds-first+att-first": [
+     2918,
      4268
     ],
     "thes": [
      3331,
      4268
     ],
+    "thes+att-second": [
+     3262,
+     4268
+    ],
+    "thes+att-first": [
+     2960,
+     4268
+    ],
     "thes+kinds-second": [
      3323,
+     4268
+    ],
+    "thes+kinds-second+att-second": [
+     3256,
+     4268
+    ],
+    "thes+kinds-second+att-first": [
+     2957,
      4268
     ],
     "thes+kinds-first": [
      3239,
      4268
     ],
+    "thes+kinds-first+att-second": [
+     3215,
+     4268
+    ],
+    "thes+kinds-first+att-first": [
+     2916,
+     4268
+    ],
     "thes+reading": [
      3320,
+     4268
+    ],
+    "thes+reading+att-second": [
+     3249,
+     4268
+    ],
+    "thes+reading+att-first": [
+     2953,
      4268
     ],
     "thes+reading+kinds-second": [
      3325,
      4268
     ],
+    "thes+reading+kinds-second+att-second": [
+     3256,
+     4268
+    ],
+    "thes+reading+kinds-second+att-first": [
+     2960,
+     4268
+    ],
     "thes+reading+kinds-first": [
      3243,
+     4268
+    ],
+    "thes+reading+kinds-first+att-second": [
+     3216,
+     4268
+    ],
+    "thes+reading+kinds-first+att-first": [
+     2920,
      4268
     ]
    },
@@ -5594,48 +7802,144 @@
      253,
      448
     ],
+    "att-second": [
+     248,
+     448
+    ],
+    "att-first": [
+     242,
+     448
+    ],
     "kinds-second": [
      265,
+     448
+    ],
+    "kinds-second+att-second": [
+     257,
+     448
+    ],
+    "kinds-second+att-first": [
+     251,
      448
     ],
     "kinds-first": [
      245,
      448
     ],
+    "kinds-first+att-second": [
+     248,
+     448
+    ],
+    "kinds-first+att-first": [
+     242,
+     448
+    ],
     "reading": [
      267,
+     448
+    ],
+    "reading+att-second": [
+     259,
+     448
+    ],
+    "reading+att-first": [
+     253,
      448
     ],
     "reading+kinds-second": [
      268,
      448
     ],
+    "reading+kinds-second+att-second": [
+     260,
+     448
+    ],
+    "reading+kinds-second+att-first": [
+     255,
+     448
+    ],
     "reading+kinds-first": [
      247,
+     448
+    ],
+    "reading+kinds-first+att-second": [
+     251,
+     448
+    ],
+    "reading+kinds-first+att-first": [
+     246,
      448
     ],
     "thes": [
      263,
      448
     ],
+    "thes+att-second": [
+     258,
+     448
+    ],
+    "thes+att-first": [
+     252,
+     448
+    ],
     "thes+kinds-second": [
      267,
+     448
+    ],
+    "thes+kinds-second+att-second": [
+     259,
+     448
+    ],
+    "thes+kinds-second+att-first": [
+     253,
      448
     ],
     "thes+kinds-first": [
      248,
      448
     ],
+    "thes+kinds-first+att-second": [
+     251,
+     448
+    ],
+    "thes+kinds-first+att-first": [
+     245,
+     448
+    ],
     "thes+reading": [
      270,
+     448
+    ],
+    "thes+reading+att-second": [
+     263,
+     448
+    ],
+    "thes+reading+att-first": [
+     257,
      448
     ],
     "thes+reading+kinds-second": [
      269,
      448
     ],
+    "thes+reading+kinds-second+att-second": [
+     261,
+     448
+    ],
+    "thes+reading+kinds-second+att-first": [
+     256,
+     448
+    ],
     "thes+reading+kinds-first": [
      249,
+     448
+    ],
+    "thes+reading+kinds-first+att-second": [
+     253,
+     448
+    ],
+    "thes+reading+kinds-first+att-first": [
+     248,
      448
     ]
    },
@@ -5644,48 +7948,144 @@
      542,
      868
     ],
+    "att-second": [
+     522,
+     868
+    ],
+    "att-first": [
+     470,
+     868
+    ],
     "kinds-second": [
      538,
+     868
+    ],
+    "kinds-second+att-second": [
+     517,
+     868
+    ],
+    "kinds-second+att-first": [
+     465,
      868
     ],
     "kinds-first": [
      513,
      868
     ],
+    "kinds-first+att-second": [
+     505,
+     868
+    ],
+    "kinds-first+att-first": [
+     456,
+     868
+    ],
     "reading": [
      542,
+     868
+    ],
+    "reading+att-second": [
+     522,
+     868
+    ],
+    "reading+att-first": [
+     470,
      868
     ],
     "reading+kinds-second": [
      538,
      868
     ],
+    "reading+kinds-second+att-second": [
+     517,
+     868
+    ],
+    "reading+kinds-second+att-first": [
+     465,
+     868
+    ],
     "reading+kinds-first": [
      515,
+     868
+    ],
+    "reading+kinds-first+att-second": [
+     507,
+     868
+    ],
+    "reading+kinds-first+att-first": [
+     458,
      868
     ],
     "thes": [
      550,
      868
     ],
+    "thes+att-second": [
+     528,
+     868
+    ],
+    "thes+att-first": [
+     476,
+     868
+    ],
     "thes+kinds-second": [
      540,
+     868
+    ],
+    "thes+kinds-second+att-second": [
+     518,
+     868
+    ],
+    "thes+kinds-second+att-first": [
+     466,
      868
     ],
     "thes+kinds-first": [
      513,
      868
     ],
+    "thes+kinds-first+att-second": [
+     505,
+     868
+    ],
+    "thes+kinds-first+att-first": [
+     456,
+     868
+    ],
     "thes+reading": [
      545,
+     868
+    ],
+    "thes+reading+att-second": [
+     525,
+     868
+    ],
+    "thes+reading+att-first": [
+     473,
      868
     ],
     "thes+reading+kinds-second": [
      539,
      868
     ],
+    "thes+reading+kinds-second+att-second": [
+     518,
+     868
+    ],
+    "thes+reading+kinds-second+att-first": [
+     466,
+     868
+    ],
     "thes+reading+kinds-first": [
      515,
+     868
+    ],
+    "thes+reading+kinds-first+att-second": [
+     507,
+     868
+    ],
+    "thes+reading+kinds-first+att-first": [
+     458,
      868
     ]
    },
@@ -5694,48 +8094,144 @@
      373,
      566
     ],
+    "att-second": [
+     360,
+     566
+    ],
+    "att-first": [
+     355,
+     566
+    ],
     "kinds-second": [
      376,
+     566
+    ],
+    "kinds-second+att-second": [
+     366,
+     566
+    ],
+    "kinds-second+att-first": [
+     360,
      566
     ],
     "kinds-first": [
      354,
      566
     ],
+    "kinds-first+att-second": [
+     353,
+     566
+    ],
+    "kinds-first+att-first": [
+     347,
+     566
+    ],
     "reading": [
      382,
+     566
+    ],
+    "reading+att-second": [
+     370,
+     566
+    ],
+    "reading+att-first": [
+     364,
      566
     ],
     "reading+kinds-second": [
      380,
      566
     ],
+    "reading+kinds-second+att-second": [
+     369,
+     566
+    ],
+    "reading+kinds-second+att-first": [
+     363,
+     566
+    ],
     "reading+kinds-first": [
      359,
+     566
+    ],
+    "reading+kinds-first+att-second": [
+     357,
+     566
+    ],
+    "reading+kinds-first+att-first": [
+     351,
      566
     ],
     "thes": [
      378,
      566
     ],
+    "thes+att-second": [
+     365,
+     566
+    ],
+    "thes+att-first": [
+     360,
+     566
+    ],
     "thes+kinds-second": [
      377,
+     566
+    ],
+    "thes+kinds-second+att-second": [
+     367,
+     566
+    ],
+    "thes+kinds-second+att-first": [
+     361,
      566
     ],
     "thes+kinds-first": [
      355,
      566
     ],
+    "thes+kinds-first+att-second": [
+     354,
+     566
+    ],
+    "thes+kinds-first+att-first": [
+     348,
+     566
+    ],
     "thes+reading": [
      383,
+     566
+    ],
+    "thes+reading+att-second": [
+     371,
+     566
+    ],
+    "thes+reading+att-first": [
+     365,
      566
     ],
     "thes+reading+kinds-second": [
      381,
      566
     ],
+    "thes+reading+kinds-second+att-second": [
+     370,
+     566
+    ],
+    "thes+reading+kinds-second+att-first": [
+     364,
+     566
+    ],
     "thes+reading+kinds-first": [
      360,
+     566
+    ],
+    "thes+reading+kinds-first+att-second": [
+     358,
+     566
+    ],
+    "thes+reading+kinds-first+att-first": [
+     352,
      566
     ]
    },
@@ -5744,48 +8240,144 @@
      284,
      447
     ],
+    "att-second": [
+     272,
+     447
+    ],
+    "att-first": [
+     266,
+     447
+    ],
     "kinds-second": [
      289,
+     447
+    ],
+    "kinds-second+att-second": [
+     279,
+     447
+    ],
+    "kinds-second+att-first": [
+     273,
      447
     ],
     "kinds-first": [
      272,
      447
     ],
+    "kinds-first+att-second": [
+     271,
+     447
+    ],
+    "kinds-first+att-first": [
+     265,
+     447
+    ],
     "reading": [
      291,
+     447
+    ],
+    "reading+att-second": [
+     285,
+     447
+    ],
+    "reading+att-first": [
+     279,
      447
     ],
     "reading+kinds-second": [
      295,
      447
     ],
+    "reading+kinds-second+att-second": [
+     288,
+     447
+    ],
+    "reading+kinds-second+att-first": [
+     282,
+     447
+    ],
     "reading+kinds-first": [
      277,
+     447
+    ],
+    "reading+kinds-first+att-second": [
+     279,
+     447
+    ],
+    "reading+kinds-first+att-first": [
+     273,
      447
     ],
     "thes": [
      294,
      447
     ],
+    "thes+att-second": [
+     285,
+     447
+    ],
+    "thes+att-first": [
+     279,
+     447
+    ],
     "thes+kinds-second": [
      295,
+     447
+    ],
+    "thes+kinds-second+att-second": [
+     286,
+     447
+    ],
+    "thes+kinds-second+att-first": [
+     280,
      447
     ],
     "thes+kinds-first": [
      277,
      447
     ],
+    "thes+kinds-first+att-second": [
+     277,
+     447
+    ],
+    "thes+kinds-first+att-first": [
+     271,
+     447
+    ],
     "thes+reading": [
      297,
+     447
+    ],
+    "thes+reading+att-second": [
+     290,
+     447
+    ],
+    "thes+reading+att-first": [
+     284,
      447
     ],
     "thes+reading+kinds-second": [
      299,
      447
     ],
+    "thes+reading+kinds-second+att-second": [
+     292,
+     447
+    ],
+    "thes+reading+kinds-second+att-first": [
+     286,
+     447
+    ],
     "thes+reading+kinds-first": [
      280,
+     447
+    ],
+    "thes+reading+kinds-first+att-second": [
+     282,
+     447
+    ],
+    "thes+reading+kinds-first+att-first": [
+     276,
      447
     ]
    },
@@ -5794,48 +8386,144 @@
      639,
      917
     ],
+    "att-second": [
+     616,
+     917
+    ],
+    "att-first": [
+     557,
+     917
+    ],
     "kinds-second": [
      638,
+     917
+    ],
+    "kinds-second+att-second": [
+     616,
+     917
+    ],
+    "kinds-second+att-first": [
+     555,
      917
     ],
     "kinds-first": [
      607,
      917
     ],
+    "kinds-first+att-second": [
+     600,
+     917
+    ],
+    "kinds-first+att-first": [
+     539,
+     917
+    ],
     "reading": [
      638,
+     917
+    ],
+    "reading+att-second": [
+     615,
+     917
+    ],
+    "reading+att-first": [
+     554,
      917
     ],
     "reading+kinds-second": [
      639,
      917
     ],
+    "reading+kinds-second+att-second": [
+     616,
+     917
+    ],
+    "reading+kinds-second+att-first": [
+     554,
+     917
+    ],
     "reading+kinds-first": [
      606,
+     917
+    ],
+    "reading+kinds-first+att-second": [
+     599,
+     917
+    ],
+    "reading+kinds-first+att-first": [
+     537,
      917
     ],
     "thes": [
      644,
      917
     ],
+    "thes+att-second": [
+     621,
+     917
+    ],
+    "thes+att-first": [
+     562,
+     917
+    ],
     "thes+kinds-second": [
      643,
+     917
+    ],
+    "thes+kinds-second+att-second": [
+     620,
+     917
+    ],
+    "thes+kinds-second+att-first": [
+     559,
      917
     ],
     "thes+kinds-first": [
      610,
      917
     ],
+    "thes+kinds-first+att-second": [
+     603,
+     917
+    ],
+    "thes+kinds-first+att-first": [
+     542,
+     917
+    ],
     "thes+reading": [
      637,
+     917
+    ],
+    "thes+reading+att-second": [
+     614,
+     917
+    ],
+    "thes+reading+att-first": [
+     553,
      917
     ],
     "thes+reading+kinds-second": [
      640,
      917
     ],
+    "thes+reading+kinds-second+att-second": [
+     617,
+     917
+    ],
+    "thes+reading+kinds-second+att-first": [
+     555,
+     917
+    ],
     "thes+reading+kinds-first": [
      607,
+     917
+    ],
+    "thes+reading+kinds-first+att-second": [
+     600,
+     917
+    ],
+    "thes+reading+kinds-first+att-first": [
+     538,
      917
     ]
    },
@@ -5844,48 +8532,144 @@
      64,
      170
     ],
+    "att-second": [
+     60,
+     170
+    ],
+    "att-first": [
+     60,
+     170
+    ],
     "kinds-second": [
      68,
+     170
+    ],
+    "kinds-second+att-second": [
+     66,
+     170
+    ],
+    "kinds-second+att-first": [
+     66,
      170
     ],
     "kinds-first": [
      62,
      170
     ],
+    "kinds-first+att-second": [
+     64,
+     170
+    ],
+    "kinds-first+att-first": [
+     64,
+     170
+    ],
     "reading": [
      68,
+     170
+    ],
+    "reading+att-second": [
+     66,
+     170
+    ],
+    "reading+att-first": [
+     66,
      170
     ],
     "reading+kinds-second": [
      69,
      170
     ],
+    "reading+kinds-second+att-second": [
+     66,
+     170
+    ],
+    "reading+kinds-second+att-first": [
+     66,
+     170
+    ],
     "reading+kinds-first": [
      61,
+     170
+    ],
+    "reading+kinds-first+att-second": [
+     63,
+     170
+    ],
+    "reading+kinds-first+att-first": [
+     63,
      170
     ],
     "thes": [
      68,
      170
     ],
+    "thes+att-second": [
+     65,
+     170
+    ],
+    "thes+att-first": [
+     65,
+     170
+    ],
     "thes+kinds-second": [
      70,
+     170
+    ],
+    "thes+kinds-second+att-second": [
+     68,
+     170
+    ],
+    "thes+kinds-second+att-first": [
+     68,
      170
     ],
     "thes+kinds-first": [
      65,
      170
     ],
+    "thes+kinds-first+att-second": [
+     67,
+     170
+    ],
+    "thes+kinds-first+att-first": [
+     67,
+     170
+    ],
     "thes+reading": [
      69,
+     170
+    ],
+    "thes+reading+att-second": [
+     65,
+     170
+    ],
+    "thes+reading+att-first": [
+     65,
      170
     ],
     "thes+reading+kinds-second": [
      70,
      170
     ],
+    "thes+reading+kinds-second+att-second": [
+     67,
+     170
+    ],
+    "thes+reading+kinds-second+att-first": [
+     67,
+     170
+    ],
     "thes+reading+kinds-first": [
      62,
+     170
+    ],
+    "thes+reading+kinds-first+att-second": [
+     64,
+     170
+    ],
+    "thes+reading+kinds-first+att-first": [
+     64,
      170
     ]
    },
@@ -5894,48 +8678,144 @@
      739,
      1129
     ],
+    "att-second": [
+     714,
+     1129
+    ],
+    "att-first": [
+     700,
+     1129
+    ],
     "kinds-second": [
      759,
+     1129
+    ],
+    "kinds-second+att-second": [
+     732,
+     1129
+    ],
+    "kinds-second+att-first": [
+     719,
      1129
     ],
     "kinds-first": [
      730,
      1129
     ],
+    "kinds-first+att-second": [
+     722,
+     1129
+    ],
+    "kinds-first+att-first": [
+     709,
+     1129
+    ],
     "reading": [
      749,
+     1129
+    ],
+    "reading+att-second": [
+     725,
+     1129
+    ],
+    "reading+att-first": [
+     712,
      1129
     ],
     "reading+kinds-second": [
      754,
      1129
     ],
+    "reading+kinds-second+att-second": [
+     731,
+     1129
+    ],
+    "reading+kinds-second+att-first": [
+     718,
+     1129
+    ],
     "reading+kinds-first": [
      726,
+     1129
+    ],
+    "reading+kinds-first+att-second": [
+     721,
+     1129
+    ],
+    "reading+kinds-first+att-first": [
+     708,
      1129
     ],
     "thes": [
      752,
      1129
     ],
+    "thes+att-second": [
+     727,
+     1129
+    ],
+    "thes+att-first": [
+     713,
+     1129
+    ],
     "thes+kinds-second": [
      760,
+     1129
+    ],
+    "thes+kinds-second+att-second": [
+     733,
+     1129
+    ],
+    "thes+kinds-second+att-first": [
+     720,
      1129
     ],
     "thes+kinds-first": [
      731,
      1129
     ],
+    "thes+kinds-first+att-second": [
+     723,
+     1129
+    ],
+    "thes+kinds-first+att-first": [
+     710,
+     1129
+    ],
     "thes+reading": [
      753,
+     1129
+    ],
+    "thes+reading+att-second": [
+     729,
+     1129
+    ],
+    "thes+reading+att-first": [
+     716,
      1129
     ],
     "thes+reading+kinds-second": [
      755,
      1129
     ],
+    "thes+reading+kinds-second+att-second": [
+     732,
+     1129
+    ],
+    "thes+reading+kinds-second+att-first": [
+     719,
+     1129
+    ],
     "thes+reading+kinds-first": [
      727,
+     1129
+    ],
+    "thes+reading+kinds-first+att-second": [
+     722,
+     1129
+    ],
+    "thes+reading+kinds-first+att-first": [
+     709,
      1129
     ]
    },
@@ -5944,48 +8824,144 @@
      163,
      319
     ],
+    "att-second": [
+     148,
+     319
+    ],
+    "att-first": [
+     144,
+     319
+    ],
     "kinds-second": [
      163,
+     319
+    ],
+    "kinds-second+att-second": [
+     150,
+     319
+    ],
+    "kinds-second+att-first": [
+     144,
      319
     ],
     "kinds-first": [
      150,
      319
     ],
+    "kinds-first+att-second": [
+     145,
+     319
+    ],
+    "kinds-first+att-first": [
+     139,
+     319
+    ],
     "reading": [
      166,
+     319
+    ],
+    "reading+att-second": [
+     153,
+     319
+    ],
+    "reading+att-first": [
+     147,
      319
     ],
     "reading+kinds-second": [
      167,
      319
     ],
+    "reading+kinds-second+att-second": [
+     155,
+     319
+    ],
+    "reading+kinds-second+att-first": [
+     149,
+     319
+    ],
     "reading+kinds-first": [
      154,
+     319
+    ],
+    "reading+kinds-first+att-second": [
+     150,
+     319
+    ],
+    "reading+kinds-first+att-first": [
+     144,
      319
     ],
     "thes": [
      167,
      319
     ],
+    "thes+att-second": [
+     155,
+     319
+    ],
+    "thes+att-first": [
+     150,
+     319
+    ],
     "thes+kinds-second": [
      165,
+     319
+    ],
+    "thes+kinds-second+att-second": [
+     152,
+     319
+    ],
+    "thes+kinds-second+att-first": [
+     146,
      319
     ],
     "thes+kinds-first": [
      153,
      319
     ],
+    "thes+kinds-first+att-second": [
+     148,
+     319
+    ],
+    "thes+kinds-first+att-first": [
+     142,
+     319
+    ],
     "thes+reading": [
      168,
+     319
+    ],
+    "thes+reading+att-second": [
+     155,
+     319
+    ],
+    "thes+reading+att-first": [
+     150,
      319
     ],
     "thes+reading+kinds-second": [
      167,
      319
     ],
+    "thes+reading+kinds-second+att-second": [
+     155,
+     319
+    ],
+    "thes+reading+kinds-second+att-first": [
+     149,
+     319
+    ],
     "thes+reading+kinds-first": [
      155,
+     319
+    ],
+    "thes+reading+kinds-first+att-second": [
+     151,
+     319
+    ],
+    "thes+reading+kinds-first+att-first": [
+     145,
      319
     ]
    },
@@ -5994,48 +8970,144 @@
      64,
      115
     ],
+    "att-second": [
+     59,
+     115
+    ],
+    "att-first": [
+     59,
+     115
+    ],
     "kinds-second": [
      68,
+     115
+    ],
+    "kinds-second+att-second": [
+     64,
+     115
+    ],
+    "kinds-second+att-first": [
+     64,
      115
     ],
     "kinds-first": [
      68,
      115
     ],
+    "kinds-first+att-second": [
+     66,
+     115
+    ],
+    "kinds-first+att-first": [
+     66,
+     115
+    ],
     "reading": [
      64,
+     115
+    ],
+    "reading+att-second": [
+     60,
+     115
+    ],
+    "reading+att-first": [
+     60,
      115
     ],
     "reading+kinds-second": [
      68,
      115
     ],
+    "reading+kinds-second+att-second": [
+     64,
+     115
+    ],
+    "reading+kinds-second+att-first": [
+     64,
+     115
+    ],
     "reading+kinds-first": [
      67,
+     115
+    ],
+    "reading+kinds-first+att-second": [
+     65,
+     115
+    ],
+    "reading+kinds-first+att-first": [
+     65,
      115
     ],
     "thes": [
      66,
      115
     ],
+    "thes+att-second": [
+     62,
+     115
+    ],
+    "thes+att-first": [
+     63,
+     115
+    ],
     "thes+kinds-second": [
      68,
+     115
+    ],
+    "thes+kinds-second+att-second": [
+     64,
+     115
+    ],
+    "thes+kinds-second+att-first": [
+     64,
      115
     ],
     "thes+kinds-first": [
      68,
      115
     ],
+    "thes+kinds-first+att-second": [
+     66,
+     115
+    ],
+    "thes+kinds-first+att-first": [
+     66,
+     115
+    ],
     "thes+reading": [
      65,
+     115
+    ],
+    "thes+reading+att-second": [
+     61,
+     115
+    ],
+    "thes+reading+att-first": [
+     61,
      115
     ],
     "thes+reading+kinds-second": [
      68,
      115
     ],
+    "thes+reading+kinds-second+att-second": [
+     64,
+     115
+    ],
+    "thes+reading+kinds-second+att-first": [
+     64,
+     115
+    ],
     "thes+reading+kinds-first": [
      67,
+     115
+    ],
+    "thes+reading+kinds-first+att-second": [
+     65,
+     115
+    ],
+    "thes+reading+kinds-first+att-first": [
+     65,
      115
     ]
    },
@@ -6044,7 +9116,23 @@
      12,
      39
     ],
+    "att-second": [
+     12,
+     39
+    ],
+    "att-first": [
+     12,
+     39
+    ],
     "kinds-second": [
+     17,
+     39
+    ],
+    "kinds-second+att-second": [
+     17,
+     39
+    ],
+    "kinds-second+att-first": [
      17,
      39
     ],
@@ -6052,7 +9140,23 @@
      17,
      39
     ],
+    "kinds-first+att-second": [
+     17,
+     39
+    ],
+    "kinds-first+att-first": [
+     17,
+     39
+    ],
     "reading": [
+     13,
+     39
+    ],
+    "reading+att-second": [
+     13,
+     39
+    ],
+    "reading+att-first": [
      13,
      39
     ],
@@ -6060,7 +9164,23 @@
      17,
      39
     ],
+    "reading+kinds-second+att-second": [
+     17,
+     39
+    ],
+    "reading+kinds-second+att-first": [
+     17,
+     39
+    ],
     "reading+kinds-first": [
+     17,
+     39
+    ],
+    "reading+kinds-first+att-second": [
+     17,
+     39
+    ],
+    "reading+kinds-first+att-first": [
      17,
      39
     ],
@@ -6068,7 +9188,23 @@
      15,
      39
     ],
+    "thes+att-second": [
+     15,
+     39
+    ],
+    "thes+att-first": [
+     15,
+     39
+    ],
     "thes+kinds-second": [
+     18,
+     39
+    ],
+    "thes+kinds-second+att-second": [
+     18,
+     39
+    ],
+    "thes+kinds-second+att-first": [
      18,
      39
     ],
@@ -6076,7 +9212,23 @@
      18,
      39
     ],
+    "thes+kinds-first+att-second": [
+     18,
+     39
+    ],
+    "thes+kinds-first+att-first": [
+     18,
+     39
+    ],
     "thes+reading": [
+     16,
+     39
+    ],
+    "thes+reading+att-second": [
+     16,
+     39
+    ],
+    "thes+reading+att-first": [
      16,
      39
     ],
@@ -6084,7 +9236,23 @@
      18,
      39
     ],
+    "thes+reading+kinds-second+att-second": [
+     18,
+     39
+    ],
+    "thes+reading+kinds-second+att-first": [
+     18,
+     39
+    ],
     "thes+reading+kinds-first": [
+     18,
+     39
+    ],
+    "thes+reading+kinds-first+att-second": [
+     18,
+     39
+    ],
+    "thes+reading+kinds-first+att-first": [
      18,
      39
     ]
@@ -6094,48 +9262,144 @@
      225,
      336
     ],
+    "att-second": [
+     217,
+     336
+    ],
+    "att-first": [
+     197,
+     336
+    ],
     "kinds-second": [
      234,
+     336
+    ],
+    "kinds-second+att-second": [
+     228,
+     336
+    ],
+    "kinds-second+att-first": [
+     210,
      336
     ],
     "kinds-first": [
      235,
      336
     ],
+    "kinds-first+att-second": [
+     226,
+     336
+    ],
+    "kinds-first+att-first": [
+     208,
+     336
+    ],
     "reading": [
      226,
+     336
+    ],
+    "reading+att-second": [
+     219,
+     336
+    ],
+    "reading+att-first": [
+     200,
      336
     ],
     "reading+kinds-second": [
      234,
      336
     ],
+    "reading+kinds-second+att-second": [
+     227,
+     336
+    ],
+    "reading+kinds-second+att-first": [
+     209,
+     336
+    ],
     "reading+kinds-first": [
      235,
+     336
+    ],
+    "reading+kinds-first+att-second": [
+     225,
+     336
+    ],
+    "reading+kinds-first+att-first": [
+     207,
      336
     ],
     "thes": [
      226,
      336
     ],
+    "thes+att-second": [
+     220,
+     336
+    ],
+    "thes+att-first": [
+     200,
+     336
+    ],
     "thes+kinds-second": [
      233,
+     336
+    ],
+    "thes+kinds-second+att-second": [
+     227,
+     336
+    ],
+    "thes+kinds-second+att-first": [
+     209,
      336
     ],
     "thes+kinds-first": [
      235,
      336
     ],
+    "thes+kinds-first+att-second": [
+     226,
+     336
+    ],
+    "thes+kinds-first+att-first": [
+     208,
+     336
+    ],
     "thes+reading": [
      227,
+     336
+    ],
+    "thes+reading+att-second": [
+     220,
+     336
+    ],
+    "thes+reading+att-first": [
+     201,
      336
     ],
     "thes+reading+kinds-second": [
      234,
      336
     ],
+    "thes+reading+kinds-second+att-second": [
+     227,
+     336
+    ],
+    "thes+reading+kinds-second+att-first": [
+     209,
+     336
+    ],
     "thes+reading+kinds-first": [
      235,
+     336
+    ],
+    "thes+reading+kinds-first+att-second": [
+     225,
+     336
+    ],
+    "thes+reading+kinds-first+att-first": [
+     207,
      336
     ]
    },
@@ -6144,7 +9408,23 @@
      60,
      166
     ],
+    "att-second": [
+     60,
+     166
+    ],
+    "att-first": [
+     60,
+     166
+    ],
     "kinds-second": [
+     64,
+     166
+    ],
+    "kinds-second+att-second": [
+     64,
+     166
+    ],
+    "kinds-second+att-first": [
      64,
      166
     ],
@@ -6152,7 +9432,23 @@
      64,
      166
     ],
+    "kinds-first+att-second": [
+     64,
+     166
+    ],
+    "kinds-first+att-first": [
+     64,
+     166
+    ],
     "reading": [
+     63,
+     166
+    ],
+    "reading+att-second": [
+     63,
+     166
+    ],
+    "reading+att-first": [
      63,
      166
     ],
@@ -6160,7 +9456,23 @@
      61,
      166
     ],
+    "reading+kinds-second+att-second": [
+     61,
+     166
+    ],
+    "reading+kinds-second+att-first": [
+     61,
+     166
+    ],
     "reading+kinds-first": [
+     61,
+     166
+    ],
+    "reading+kinds-first+att-second": [
+     61,
+     166
+    ],
+    "reading+kinds-first+att-first": [
      61,
      166
     ],
@@ -6168,7 +9480,23 @@
      68,
      166
     ],
+    "thes+att-second": [
+     68,
+     166
+    ],
+    "thes+att-first": [
+     68,
+     166
+    ],
     "thes+kinds-second": [
+     67,
+     166
+    ],
+    "thes+kinds-second+att-second": [
+     67,
+     166
+    ],
+    "thes+kinds-second+att-first": [
      67,
      166
     ],
@@ -6176,7 +9504,23 @@
      67,
      166
     ],
+    "thes+kinds-first+att-second": [
+     67,
+     166
+    ],
+    "thes+kinds-first+att-first": [
+     67,
+     166
+    ],
     "thes+reading": [
+     66,
+     166
+    ],
+    "thes+reading+att-second": [
+     66,
+     166
+    ],
+    "thes+reading+att-first": [
      66,
      166
     ],
@@ -6184,7 +9528,23 @@
      62,
      166
     ],
+    "thes+reading+kinds-second+att-second": [
+     62,
+     166
+    ],
+    "thes+reading+kinds-second+att-first": [
+     62,
+     166
+    ],
     "thes+reading+kinds-first": [
+     62,
+     166
+    ],
+    "thes+reading+kinds-first+att-second": [
+     62,
+     166
+    ],
+    "thes+reading+kinds-first+att-first": [
      62,
      166
     ]
@@ -6194,7 +9554,23 @@
      2,
      18
     ],
+    "att-second": [
+     2,
+     18
+    ],
+    "att-first": [
+     2,
+     18
+    ],
     "kinds-second": [
+     4,
+     18
+    ],
+    "kinds-second+att-second": [
+     4,
+     18
+    ],
+    "kinds-second+att-first": [
      4,
      18
     ],
@@ -6202,7 +9578,23 @@
      4,
      18
     ],
+    "kinds-first+att-second": [
+     4,
+     18
+    ],
+    "kinds-first+att-first": [
+     4,
+     18
+    ],
     "reading": [
+     3,
+     18
+    ],
+    "reading+att-second": [
+     3,
+     18
+    ],
+    "reading+att-first": [
      3,
      18
     ],
@@ -6210,7 +9602,23 @@
      2,
      18
     ],
+    "reading+kinds-second+att-second": [
+     2,
+     18
+    ],
+    "reading+kinds-second+att-first": [
+     2,
+     18
+    ],
     "reading+kinds-first": [
+     2,
+     18
+    ],
+    "reading+kinds-first+att-second": [
+     2,
+     18
+    ],
+    "reading+kinds-first+att-first": [
      2,
      18
     ],
@@ -6218,7 +9626,23 @@
      2,
      18
     ],
+    "thes+att-second": [
+     2,
+     18
+    ],
+    "thes+att-first": [
+     2,
+     18
+    ],
     "thes+kinds-second": [
+     4,
+     18
+    ],
+    "thes+kinds-second+att-second": [
+     4,
+     18
+    ],
+    "thes+kinds-second+att-first": [
      4,
      18
     ],
@@ -6226,7 +9650,23 @@
      4,
      18
     ],
+    "thes+kinds-first+att-second": [
+     4,
+     18
+    ],
+    "thes+kinds-first+att-first": [
+     4,
+     18
+    ],
     "thes+reading": [
+     2,
+     18
+    ],
+    "thes+reading+att-second": [
+     2,
+     18
+    ],
+    "thes+reading+att-first": [
      2,
      18
     ],
@@ -6234,7 +9674,23 @@
      3,
      18
     ],
+    "thes+reading+kinds-second+att-second": [
+     3,
+     18
+    ],
+    "thes+reading+kinds-second+att-first": [
+     3,
+     18
+    ],
     "thes+reading+kinds-first": [
+     3,
+     18
+    ],
+    "thes+reading+kinds-first+att-second": [
+     3,
+     18
+    ],
+    "thes+reading+kinds-first+att-first": [
      3,
      18
     ]
@@ -6244,7 +9700,23 @@
      0,
      8
     ],
+    "att-second": [
+     0,
+     8
+    ],
+    "att-first": [
+     0,
+     8
+    ],
     "kinds-second": [
+     0,
+     8
+    ],
+    "kinds-second+att-second": [
+     0,
+     8
+    ],
+    "kinds-second+att-first": [
      0,
      8
     ],
@@ -6252,7 +9724,23 @@
      0,
      8
     ],
+    "kinds-first+att-second": [
+     0,
+     8
+    ],
+    "kinds-first+att-first": [
+     0,
+     8
+    ],
     "reading": [
+     0,
+     8
+    ],
+    "reading+att-second": [
+     0,
+     8
+    ],
+    "reading+att-first": [
      0,
      8
     ],
@@ -6260,7 +9748,23 @@
      0,
      8
     ],
+    "reading+kinds-second+att-second": [
+     0,
+     8
+    ],
+    "reading+kinds-second+att-first": [
+     0,
+     8
+    ],
     "reading+kinds-first": [
+     0,
+     8
+    ],
+    "reading+kinds-first+att-second": [
+     0,
+     8
+    ],
+    "reading+kinds-first+att-first": [
      0,
      8
     ],
@@ -6268,7 +9772,23 @@
      0,
      8
     ],
+    "thes+att-second": [
+     0,
+     8
+    ],
+    "thes+att-first": [
+     0,
+     8
+    ],
     "thes+kinds-second": [
+     0,
+     8
+    ],
+    "thes+kinds-second+att-second": [
+     0,
+     8
+    ],
+    "thes+kinds-second+att-first": [
      0,
      8
     ],
@@ -6276,7 +9796,23 @@
      0,
      8
     ],
+    "thes+kinds-first+att-second": [
+     0,
+     8
+    ],
+    "thes+kinds-first+att-first": [
+     0,
+     8
+    ],
     "thes+reading": [
+     0,
+     8
+    ],
+    "thes+reading+att-second": [
+     0,
+     8
+    ],
+    "thes+reading+att-first": [
      0,
      8
     ],
@@ -6284,7 +9820,23 @@
      0,
      8
     ],
+    "thes+reading+kinds-second+att-second": [
+     0,
+     8
+    ],
+    "thes+reading+kinds-second+att-first": [
+     0,
+     8
+    ],
     "thes+reading+kinds-first": [
+     0,
+     8
+    ],
+    "thes+reading+kinds-first+att-second": [
+     0,
+     8
+    ],
+    "thes+reading+kinds-first+att-first": [
      0,
      8
     ]
@@ -6294,11 +9846,35 @@
      178,
      363
     ],
+    "att-second": [
+     176,
+     363
+    ],
+    "att-first": [
+     176,
+     363
+    ],
     "kinds-second": [
      178,
      363
     ],
+    "kinds-second+att-second": [
+     175,
+     363
+    ],
+    "kinds-second+att-first": [
+     175,
+     363
+    ],
     "kinds-first": [
+     175,
+     363
+    ],
+    "kinds-first+att-second": [
+     175,
+     363
+    ],
+    "kinds-first+att-first": [
      175,
      363
     ],
@@ -6306,23 +9882,71 @@
      179,
      363
     ],
+    "reading+att-second": [
+     177,
+     363
+    ],
+    "reading+att-first": [
+     177,
+     363
+    ],
     "reading+kinds-second": [
      178,
+     363
+    ],
+    "reading+kinds-second+att-second": [
+     177,
+     363
+    ],
+    "reading+kinds-second+att-first": [
+     177,
      363
     ],
     "reading+kinds-first": [
      177,
      363
     ],
+    "reading+kinds-first+att-second": [
+     178,
+     363
+    ],
+    "reading+kinds-first+att-first": [
+     178,
+     363
+    ],
     "thes": [
      189,
+     363
+    ],
+    "thes+att-second": [
+     188,
+     363
+    ],
+    "thes+att-first": [
+     188,
      363
     ],
     "thes+kinds-second": [
      182,
      363
     ],
+    "thes+kinds-second+att-second": [
+     179,
+     363
+    ],
+    "thes+kinds-second+att-first": [
+     179,
+     363
+    ],
     "thes+kinds-first": [
+     180,
+     363
+    ],
+    "thes+kinds-first+att-second": [
+     180,
+     363
+    ],
+    "thes+kinds-first+att-first": [
      180,
      363
     ],
@@ -6330,11 +9954,35 @@
      188,
      363
     ],
+    "thes+reading+att-second": [
+     186,
+     363
+    ],
+    "thes+reading+att-first": [
+     186,
+     363
+    ],
     "thes+reading+kinds-second": [
      182,
      363
     ],
+    "thes+reading+kinds-second+att-second": [
+     180,
+     363
+    ],
+    "thes+reading+kinds-second+att-first": [
+     180,
+     363
+    ],
     "thes+reading+kinds-first": [
+     181,
+     363
+    ],
+    "thes+reading+kinds-first+att-second": [
+     181,
+     363
+    ],
+    "thes+reading+kinds-first+att-first": [
      181,
      363
     ]
@@ -6344,7 +9992,23 @@
      19,
      87
     ],
+    "att-second": [
+     19,
+     87
+    ],
+    "att-first": [
+     19,
+     87
+    ],
     "kinds-second": [
+     34,
+     87
+    ],
+    "kinds-second+att-second": [
+     34,
+     87
+    ],
+    "kinds-second+att-first": [
      34,
      87
     ],
@@ -6352,7 +10016,23 @@
      34,
      87
     ],
+    "kinds-first+att-second": [
+     34,
+     87
+    ],
+    "kinds-first+att-first": [
+     34,
+     87
+    ],
     "reading": [
+     20,
+     87
+    ],
+    "reading+att-second": [
+     20,
+     87
+    ],
+    "reading+att-first": [
      20,
      87
     ],
@@ -6360,7 +10040,23 @@
      35,
      87
     ],
+    "reading+kinds-second+att-second": [
+     35,
+     87
+    ],
+    "reading+kinds-second+att-first": [
+     35,
+     87
+    ],
     "reading+kinds-first": [
+     35,
+     87
+    ],
+    "reading+kinds-first+att-second": [
+     35,
+     87
+    ],
+    "reading+kinds-first+att-first": [
      35,
      87
     ],
@@ -6368,7 +10064,23 @@
      31,
      87
     ],
+    "thes+att-second": [
+     31,
+     87
+    ],
+    "thes+att-first": [
+     31,
+     87
+    ],
     "thes+kinds-second": [
+     42,
+     87
+    ],
+    "thes+kinds-second+att-second": [
+     42,
+     87
+    ],
+    "thes+kinds-second+att-first": [
      42,
      87
     ],
@@ -6376,7 +10088,23 @@
      42,
      87
     ],
+    "thes+kinds-first+att-second": [
+     42,
+     87
+    ],
+    "thes+kinds-first+att-first": [
+     42,
+     87
+    ],
     "thes+reading": [
+     26,
+     87
+    ],
+    "thes+reading+att-second": [
+     26,
+     87
+    ],
+    "thes+reading+att-first": [
      26,
      87
     ],
@@ -6384,7 +10112,23 @@
      38,
      87
     ],
+    "thes+reading+kinds-second+att-second": [
+     38,
+     87
+    ],
+    "thes+reading+kinds-second+att-first": [
+     38,
+     87
+    ],
     "thes+reading+kinds-first": [
+     38,
+     87
+    ],
+    "thes+reading+kinds-first+att-second": [
+     38,
+     87
+    ],
+    "thes+reading+kinds-first+att-first": [
      38,
      87
     ]
@@ -6394,7 +10138,23 @@
      35,
      97
     ],
+    "att-second": [
+     35,
+     97
+    ],
+    "att-first": [
+     35,
+     97
+    ],
     "kinds-second": [
+     40,
+     97
+    ],
+    "kinds-second+att-second": [
+     40,
+     97
+    ],
+    "kinds-second+att-first": [
      40,
      97
     ],
@@ -6402,7 +10162,23 @@
      40,
      97
     ],
+    "kinds-first+att-second": [
+     40,
+     97
+    ],
+    "kinds-first+att-first": [
+     40,
+     97
+    ],
     "reading": [
+     39,
+     97
+    ],
+    "reading+att-second": [
+     39,
+     97
+    ],
+    "reading+att-first": [
      39,
      97
     ],
@@ -6410,7 +10186,23 @@
      45,
      97
     ],
+    "reading+kinds-second+att-second": [
+     45,
+     97
+    ],
+    "reading+kinds-second+att-first": [
+     45,
+     97
+    ],
     "reading+kinds-first": [
+     45,
+     97
+    ],
+    "reading+kinds-first+att-second": [
+     45,
+     97
+    ],
+    "reading+kinds-first+att-first": [
      45,
      97
     ],
@@ -6418,7 +10210,23 @@
      44,
      97
     ],
+    "thes+att-second": [
+     44,
+     97
+    ],
+    "thes+att-first": [
+     44,
+     97
+    ],
     "thes+kinds-second": [
+     46,
+     97
+    ],
+    "thes+kinds-second+att-second": [
+     46,
+     97
+    ],
+    "thes+kinds-second+att-first": [
      46,
      97
     ],
@@ -6426,7 +10234,23 @@
      46,
      97
     ],
+    "thes+kinds-first+att-second": [
+     46,
+     97
+    ],
+    "thes+kinds-first+att-first": [
+     46,
+     97
+    ],
     "thes+reading": [
+     42,
+     97
+    ],
+    "thes+reading+att-second": [
+     42,
+     97
+    ],
+    "thes+reading+att-first": [
      42,
      97
     ],
@@ -6434,7 +10258,23 @@
      45,
      97
     ],
+    "thes+reading+kinds-second+att-second": [
+     45,
+     97
+    ],
+    "thes+reading+kinds-second+att-first": [
+     45,
+     97
+    ],
     "thes+reading+kinds-first": [
+     45,
+     97
+    ],
+    "thes+reading+kinds-first+att-second": [
+     45,
+     97
+    ],
+    "thes+reading+kinds-first+att-first": [
      45,
      97
     ]
@@ -6444,11 +10284,35 @@
      52,
      101
     ],
+    "att-second": [
+     52,
+     101
+    ],
+    "att-first": [
+     50,
+     101
+    ],
     "kinds-second": [
      55,
      101
     ],
+    "kinds-second+att-second": [
+     56,
+     101
+    ],
+    "kinds-second+att-first": [
+     54,
+     101
+    ],
     "kinds-first": [
+     50,
+     101
+    ],
+    "kinds-first+att-second": [
+     52,
+     101
+    ],
+    "kinds-first+att-first": [
      50,
      101
     ],
@@ -6456,11 +10320,35 @@
      53,
      101
     ],
+    "reading+att-second": [
+     54,
+     101
+    ],
+    "reading+att-first": [
+     52,
+     101
+    ],
     "reading+kinds-second": [
      56,
      101
     ],
+    "reading+kinds-second+att-second": [
+     57,
+     101
+    ],
+    "reading+kinds-second+att-first": [
+     55,
+     101
+    ],
     "reading+kinds-first": [
+     51,
+     101
+    ],
+    "reading+kinds-first+att-second": [
+     53,
+     101
+    ],
+    "reading+kinds-first+att-first": [
      51,
      101
     ],
@@ -6468,7 +10356,23 @@
      56,
      101
     ],
+    "thes+att-second": [
+     56,
+     101
+    ],
+    "thes+att-first": [
+     55,
+     101
+    ],
     "thes+kinds-second": [
+     55,
+     101
+    ],
+    "thes+kinds-second+att-second": [
+     56,
+     101
+    ],
+    "thes+kinds-second+att-first": [
      55,
      101
     ],
@@ -6476,15 +10380,47 @@
      50,
      101
     ],
+    "thes+kinds-first+att-second": [
+     52,
+     101
+    ],
+    "thes+kinds-first+att-first": [
+     51,
+     101
+    ],
     "thes+reading": [
      55,
+     101
+    ],
+    "thes+reading+att-second": [
+     56,
+     101
+    ],
+    "thes+reading+att-first": [
+     54,
      101
     ],
     "thes+reading+kinds-second": [
      56,
      101
     ],
+    "thes+reading+kinds-second+att-second": [
+     57,
+     101
+    ],
+    "thes+reading+kinds-second+att-first": [
+     55,
+     101
+    ],
     "thes+reading+kinds-first": [
+     51,
+     101
+    ],
+    "thes+reading+kinds-first+att-second": [
+     53,
+     101
+    ],
+    "thes+reading+kinds-first+att-first": [
      51,
      101
     ]
@@ -6494,15 +10430,47 @@
      26,
      53
     ],
+    "att-second": [
+     25,
+     53
+    ],
+    "att-first": [
+     25,
+     53
+    ],
     "kinds-second": [
      29,
+     53
+    ],
+    "kinds-second+att-second": [
+     30,
+     53
+    ],
+    "kinds-second+att-first": [
+     30,
      53
     ],
     "kinds-first": [
      28,
      53
     ],
+    "kinds-first+att-second": [
+     30,
+     53
+    ],
+    "kinds-first+att-first": [
+     30,
+     53
+    ],
     "reading": [
+     24,
+     53
+    ],
+    "reading+att-second": [
+     24,
+     53
+    ],
+    "reading+att-first": [
      24,
      53
     ],
@@ -6510,32 +10478,96 @@
      29,
      53
     ],
+    "reading+kinds-second+att-second": [
+     30,
+     53
+    ],
+    "reading+kinds-second+att-first": [
+     30,
+     53
+    ],
     "reading+kinds-first": [
      28,
+     53
+    ],
+    "reading+kinds-first+att-second": [
+     30,
+     53
+    ],
+    "reading+kinds-first+att-first": [
+     30,
      53
     ],
     "thes": [
      27,
      53
     ],
+    "thes+att-second": [
+     26,
+     53
+    ],
+    "thes+att-first": [
+     26,
+     53
+    ],
     "thes+kinds-second": [
      29,
+     53
+    ],
+    "thes+kinds-second+att-second": [
+     30,
+     53
+    ],
+    "thes+kinds-second+att-first": [
+     30,
      53
     ],
     "thes+kinds-first": [
      28,
      53
     ],
+    "thes+kinds-first+att-second": [
+     30,
+     53
+    ],
+    "thes+kinds-first+att-first": [
+     30,
+     53
+    ],
     "thes+reading": [
      25,
+     53
+    ],
+    "thes+reading+att-second": [
+     24,
+     53
+    ],
+    "thes+reading+att-first": [
+     24,
      53
     ],
     "thes+reading+kinds-second": [
      29,
      53
     ],
+    "thes+reading+kinds-second+att-second": [
+     30,
+     53
+    ],
+    "thes+reading+kinds-second+att-first": [
+     30,
+     53
+    ],
     "thes+reading+kinds-first": [
      28,
+     53
+    ],
+    "thes+reading+kinds-first+att-second": [
+     30,
+     53
+    ],
+    "thes+reading+kinds-first+att-first": [
+     30,
      53
     ]
    },
@@ -6544,7 +10576,23 @@
      0,
      2
     ],
+    "att-second": [
+     0,
+     2
+    ],
+    "att-first": [
+     0,
+     2
+    ],
     "kinds-second": [
+     0,
+     2
+    ],
+    "kinds-second+att-second": [
+     0,
+     2
+    ],
+    "kinds-second+att-first": [
      0,
      2
     ],
@@ -6552,7 +10600,23 @@
      0,
      2
     ],
+    "kinds-first+att-second": [
+     0,
+     2
+    ],
+    "kinds-first+att-first": [
+     0,
+     2
+    ],
     "reading": [
+     0,
+     2
+    ],
+    "reading+att-second": [
+     0,
+     2
+    ],
+    "reading+att-first": [
      0,
      2
     ],
@@ -6560,7 +10624,23 @@
      0,
      2
     ],
+    "reading+kinds-second+att-second": [
+     0,
+     2
+    ],
+    "reading+kinds-second+att-first": [
+     0,
+     2
+    ],
     "reading+kinds-first": [
+     0,
+     2
+    ],
+    "reading+kinds-first+att-second": [
+     0,
+     2
+    ],
+    "reading+kinds-first+att-first": [
      0,
      2
     ],
@@ -6568,7 +10648,23 @@
      1,
      2
     ],
+    "thes+att-second": [
+     1,
+     2
+    ],
+    "thes+att-first": [
+     1,
+     2
+    ],
     "thes+kinds-second": [
+     1,
+     2
+    ],
+    "thes+kinds-second+att-second": [
+     1,
+     2
+    ],
+    "thes+kinds-second+att-first": [
      1,
      2
     ],
@@ -6576,7 +10672,23 @@
      1,
      2
     ],
+    "thes+kinds-first+att-second": [
+     1,
+     2
+    ],
+    "thes+kinds-first+att-first": [
+     1,
+     2
+    ],
     "thes+reading": [
+     1,
+     2
+    ],
+    "thes+reading+att-second": [
+     1,
+     2
+    ],
+    "thes+reading+att-first": [
      1,
      2
     ],
@@ -6584,7 +10696,23 @@
      1,
      2
     ],
+    "thes+reading+kinds-second+att-second": [
+     1,
+     2
+    ],
+    "thes+reading+kinds-second+att-first": [
+     1,
+     2
+    ],
     "thes+reading+kinds-first": [
+     1,
+     2
+    ],
+    "thes+reading+kinds-first+att-second": [
+     1,
+     2
+    ],
+    "thes+reading+kinds-first+att-first": [
      1,
      2
     ]
@@ -6594,48 +10722,144 @@
      118,
      233
     ],
+    "att-second": [
+     108,
+     233
+    ],
+    "att-first": [
+     108,
+     233
+    ],
     "kinds-second": [
      125,
+     233
+    ],
+    "kinds-second+att-second": [
+     117,
+     233
+    ],
+    "kinds-second+att-first": [
+     117,
      233
     ],
     "kinds-first": [
      110,
      233
     ],
+    "kinds-first+att-second": [
+     109,
+     233
+    ],
+    "kinds-first+att-first": [
+     109,
+     233
+    ],
     "reading": [
      121,
+     233
+    ],
+    "reading+att-second": [
+     111,
+     233
+    ],
+    "reading+att-first": [
+     111,
      233
     ],
     "reading+kinds-second": [
      127,
      233
     ],
+    "reading+kinds-second+att-second": [
+     118,
+     233
+    ],
+    "reading+kinds-second+att-first": [
+     118,
+     233
+    ],
     "reading+kinds-first": [
      112,
+     233
+    ],
+    "reading+kinds-first+att-second": [
+     110,
+     233
+    ],
+    "reading+kinds-first+att-first": [
+     110,
      233
     ],
     "thes": [
      122,
      233
     ],
+    "thes+att-second": [
+     113,
+     233
+    ],
+    "thes+att-first": [
+     113,
+     233
+    ],
     "thes+kinds-second": [
      126,
+     233
+    ],
+    "thes+kinds-second+att-second": [
+     118,
+     233
+    ],
+    "thes+kinds-second+att-first": [
+     118,
      233
     ],
     "thes+kinds-first": [
      111,
      233
     ],
+    "thes+kinds-first+att-second": [
+     110,
+     233
+    ],
+    "thes+kinds-first+att-first": [
+     110,
+     233
+    ],
     "thes+reading": [
      121,
+     233
+    ],
+    "thes+reading+att-second": [
+     112,
+     233
+    ],
+    "thes+reading+att-first": [
+     112,
      233
     ],
     "thes+reading+kinds-second": [
      127,
      233
     ],
+    "thes+reading+kinds-second+att-second": [
+     118,
+     233
+    ],
+    "thes+reading+kinds-second+att-first": [
+     118,
+     233
+    ],
     "thes+reading+kinds-first": [
      112,
+     233
+    ],
+    "thes+reading+kinds-first+att-second": [
+     110,
+     233
+    ],
+    "thes+reading+kinds-first+att-first": [
+     110,
      233
     ]
    },
@@ -6644,48 +10868,144 @@
      312,
      505
     ],
+    "att-second": [
+     293,
+     505
+    ],
+    "att-first": [
+     287,
+     505
+    ],
     "kinds-second": [
      333,
+     505
+    ],
+    "kinds-second+att-second": [
+     319,
+     505
+    ],
+    "kinds-second+att-first": [
+     313,
      505
     ],
     "kinds-first": [
      321,
      505
     ],
+    "kinds-first+att-second": [
+     311,
+     505
+    ],
+    "kinds-first+att-first": [
+     305,
+     505
+    ],
     "reading": [
      315,
+     505
+    ],
+    "reading+att-second": [
+     301,
+     505
+    ],
+    "reading+att-first": [
+     294,
      505
     ],
     "reading+kinds-second": [
      334,
      505
     ],
+    "reading+kinds-second+att-second": [
+     320,
+     505
+    ],
+    "reading+kinds-second+att-first": [
+     313,
+     505
+    ],
     "reading+kinds-first": [
      321,
+     505
+    ],
+    "reading+kinds-first+att-second": [
+     312,
+     505
+    ],
+    "reading+kinds-first+att-first": [
+     305,
      505
     ],
     "thes": [
      314,
      505
     ],
+    "thes+att-second": [
+     296,
+     505
+    ],
+    "thes+att-first": [
+     290,
+     505
+    ],
     "thes+kinds-second": [
      332,
+     505
+    ],
+    "thes+kinds-second+att-second": [
+     318,
+     505
+    ],
+    "thes+kinds-second+att-first": [
+     312,
      505
     ],
     "thes+kinds-first": [
      319,
      505
     ],
+    "thes+kinds-first+att-second": [
+     309,
+     505
+    ],
+    "thes+kinds-first+att-first": [
+     303,
+     505
+    ],
     "thes+reading": [
      316,
+     505
+    ],
+    "thes+reading+att-second": [
+     302,
+     505
+    ],
+    "thes+reading+att-first": [
+     295,
      505
     ],
     "thes+reading+kinds-second": [
      334,
      505
     ],
+    "thes+reading+kinds-second+att-second": [
+     320,
+     505
+    ],
+    "thes+reading+kinds-second+att-first": [
+     313,
+     505
+    ],
     "thes+reading+kinds-first": [
      321,
+     505
+    ],
+    "thes+reading+kinds-first+att-second": [
+     312,
+     505
+    ],
+    "thes+reading+kinds-first+att-first": [
+     305,
      505
     ]
    },
@@ -6694,48 +11014,144 @@
      201,
      300
     ],
+    "att-second": [
+     196,
+     300
+    ],
+    "att-first": [
+     181,
+     300
+    ],
     "kinds-second": [
      202,
+     300
+    ],
+    "kinds-second+att-second": [
+     198,
+     300
+    ],
+    "kinds-second+att-first": [
+     183,
      300
     ],
     "kinds-first": [
      190,
      300
     ],
+    "kinds-first+att-second": [
+     191,
+     300
+    ],
+    "kinds-first+att-first": [
+     176,
+     300
+    ],
     "reading": [
      201,
+     300
+    ],
+    "reading+att-second": [
+     198,
+     300
+    ],
+    "reading+att-first": [
+     183,
      300
     ],
     "reading+kinds-second": [
      203,
      300
     ],
+    "reading+kinds-second+att-second": [
+     199,
+     300
+    ],
+    "reading+kinds-second+att-first": [
+     184,
+     300
+    ],
     "reading+kinds-first": [
      191,
+     300
+    ],
+    "reading+kinds-first+att-second": [
+     192,
+     300
+    ],
+    "reading+kinds-first+att-first": [
+     177,
      300
     ],
     "thes": [
      202,
      300
     ],
+    "thes+att-second": [
+     197,
+     300
+    ],
+    "thes+att-first": [
+     182,
+     300
+    ],
     "thes+kinds-second": [
      203,
+     300
+    ],
+    "thes+kinds-second+att-second": [
+     199,
+     300
+    ],
+    "thes+kinds-second+att-first": [
+     184,
      300
     ],
     "thes+kinds-first": [
      190,
      300
     ],
+    "thes+kinds-first+att-second": [
+     191,
+     300
+    ],
+    "thes+kinds-first+att-first": [
+     176,
+     300
+    ],
     "thes+reading": [
      200,
+     300
+    ],
+    "thes+reading+att-second": [
+     197,
+     300
+    ],
+    "thes+reading+att-first": [
+     182,
      300
     ],
     "thes+reading+kinds-second": [
      203,
      300
     ],
+    "thes+reading+kinds-second+att-second": [
+     199,
+     300
+    ],
+    "thes+reading+kinds-second+att-first": [
+     184,
+     300
+    ],
     "thes+reading+kinds-first": [
      191,
+     300
+    ],
+    "thes+reading+kinds-first+att-second": [
+     192,
+     300
+    ],
+    "thes+reading+kinds-first+att-first": [
+     177,
      300
     ]
    },
@@ -6744,48 +11160,144 @@
      96,
      215
     ],
+    "att-second": [
+     92,
+     215
+    ],
+    "att-first": [
+     92,
+     215
+    ],
     "kinds-second": [
      96,
+     215
+    ],
+    "kinds-second+att-second": [
+     90,
+     215
+    ],
+    "kinds-second+att-first": [
+     90,
      215
     ],
     "kinds-first": [
      80,
      215
     ],
+    "kinds-first+att-second": [
+     81,
+     215
+    ],
+    "kinds-first+att-first": [
+     81,
+     215
+    ],
     "reading": [
      93,
+     215
+    ],
+    "reading+att-second": [
+     87,
+     215
+    ],
+    "reading+att-first": [
+     87,
      215
     ],
     "reading+kinds-second": [
      93,
      215
     ],
+    "reading+kinds-second+att-second": [
+     87,
+     215
+    ],
+    "reading+kinds-second+att-first": [
+     87,
+     215
+    ],
     "reading+kinds-first": [
      77,
+     215
+    ],
+    "reading+kinds-first+att-second": [
+     78,
+     215
+    ],
+    "reading+kinds-first+att-first": [
+     78,
      215
     ],
     "thes": [
      103,
      215
     ],
+    "thes+att-second": [
+     99,
+     215
+    ],
+    "thes+att-first": [
+     99,
+     215
+    ],
     "thes+kinds-second": [
      100,
+     215
+    ],
+    "thes+kinds-second+att-second": [
+     94,
+     215
+    ],
+    "thes+kinds-second+att-first": [
+     94,
      215
     ],
     "thes+kinds-first": [
      82,
      215
     ],
+    "thes+kinds-first+att-second": [
+     83,
+     215
+    ],
+    "thes+kinds-first+att-first": [
+     83,
+     215
+    ],
     "thes+reading": [
      95,
+     215
+    ],
+    "thes+reading+att-second": [
+     88,
+     215
+    ],
+    "thes+reading+att-first": [
+     88,
      215
     ],
     "thes+reading+kinds-second": [
      93,
      215
     ],
+    "thes+reading+kinds-second+att-second": [
+     87,
+     215
+    ],
+    "thes+reading+kinds-second+att-first": [
+     87,
+     215
+    ],
     "thes+reading+kinds-first": [
      78,
+     215
+    ],
+    "thes+reading+kinds-first+att-second": [
+     79,
+     215
+    ],
+    "thes+reading+kinds-first+att-first": [
+     79,
      215
     ]
    },
@@ -6794,7 +11306,23 @@
      9,
      48
     ],
+    "att-second": [
+     9,
+     48
+    ],
+    "att-first": [
+     9,
+     48
+    ],
     "kinds-second": [
+     14,
+     48
+    ],
+    "kinds-second+att-second": [
+     14,
+     48
+    ],
+    "kinds-second+att-first": [
      14,
      48
     ],
@@ -6802,7 +11330,23 @@
      14,
      48
     ],
+    "kinds-first+att-second": [
+     14,
+     48
+    ],
+    "kinds-first+att-first": [
+     14,
+     48
+    ],
     "reading": [
+     11,
+     48
+    ],
+    "reading+att-second": [
+     11,
+     48
+    ],
+    "reading+att-first": [
      11,
      48
     ],
@@ -6810,7 +11354,23 @@
      15,
      48
     ],
+    "reading+kinds-second+att-second": [
+     15,
+     48
+    ],
+    "reading+kinds-second+att-first": [
+     15,
+     48
+    ],
     "reading+kinds-first": [
+     15,
+     48
+    ],
+    "reading+kinds-first+att-second": [
+     15,
+     48
+    ],
+    "reading+kinds-first+att-first": [
      15,
      48
     ],
@@ -6818,7 +11378,23 @@
      10,
      48
     ],
+    "thes+att-second": [
+     10,
+     48
+    ],
+    "thes+att-first": [
+     10,
+     48
+    ],
     "thes+kinds-second": [
+     14,
+     48
+    ],
+    "thes+kinds-second+att-second": [
+     14,
+     48
+    ],
+    "thes+kinds-second+att-first": [
      14,
      48
     ],
@@ -6826,7 +11402,23 @@
      14,
      48
     ],
+    "thes+kinds-first+att-second": [
+     14,
+     48
+    ],
+    "thes+kinds-first+att-first": [
+     14,
+     48
+    ],
     "thes+reading": [
+     12,
+     48
+    ],
+    "thes+reading+att-second": [
+     12,
+     48
+    ],
+    "thes+reading+att-first": [
      12,
      48
     ],
@@ -6834,7 +11426,23 @@
      15,
      48
     ],
+    "thes+reading+kinds-second+att-second": [
+     15,
+     48
+    ],
+    "thes+reading+kinds-second+att-first": [
+     15,
+     48
+    ],
     "thes+reading+kinds-first": [
+     15,
+     48
+    ],
+    "thes+reading+kinds-first+att-second": [
+     15,
+     48
+    ],
+    "thes+reading+kinds-first+att-first": [
      15,
      48
     ]
@@ -6844,7 +11452,23 @@
      8,
      28
     ],
+    "att-second": [
+     8,
+     28
+    ],
+    "att-first": [
+     8,
+     28
+    ],
     "kinds-second": [
+     7,
+     28
+    ],
+    "kinds-second+att-second": [
+     7,
+     28
+    ],
+    "kinds-second+att-first": [
      7,
      28
     ],
@@ -6852,7 +11476,23 @@
      7,
      28
     ],
+    "kinds-first+att-second": [
+     7,
+     28
+    ],
+    "kinds-first+att-first": [
+     7,
+     28
+    ],
     "reading": [
+     10,
+     28
+    ],
+    "reading+att-second": [
+     10,
+     28
+    ],
+    "reading+att-first": [
      10,
      28
     ],
@@ -6860,7 +11500,23 @@
      9,
      28
     ],
+    "reading+kinds-second+att-second": [
+     9,
+     28
+    ],
+    "reading+kinds-second+att-first": [
+     9,
+     28
+    ],
     "reading+kinds-first": [
+     9,
+     28
+    ],
+    "reading+kinds-first+att-second": [
+     9,
+     28
+    ],
+    "reading+kinds-first+att-first": [
      9,
      28
     ],
@@ -6868,7 +11524,23 @@
      8,
      28
     ],
+    "thes+att-second": [
+     8,
+     28
+    ],
+    "thes+att-first": [
+     8,
+     28
+    ],
     "thes+kinds-second": [
+     7,
+     28
+    ],
+    "thes+kinds-second+att-second": [
+     7,
+     28
+    ],
+    "thes+kinds-second+att-first": [
      7,
      28
     ],
@@ -6876,7 +11548,23 @@
      7,
      28
     ],
+    "thes+kinds-first+att-second": [
+     7,
+     28
+    ],
+    "thes+kinds-first+att-first": [
+     7,
+     28
+    ],
     "thes+reading": [
+     10,
+     28
+    ],
+    "thes+reading+att-second": [
+     10,
+     28
+    ],
+    "thes+reading+att-first": [
      10,
      28
     ],
@@ -6884,7 +11572,23 @@
      9,
      28
     ],
+    "thes+reading+kinds-second+att-second": [
+     9,
+     28
+    ],
+    "thes+reading+kinds-second+att-first": [
+     9,
+     28
+    ],
     "thes+reading+kinds-first": [
+     9,
+     28
+    ],
+    "thes+reading+kinds-first+att-second": [
+     9,
+     28
+    ],
+    "thes+reading+kinds-first+att-first": [
      9,
      28
     ]
@@ -6894,7 +11598,23 @@
      0,
      60
     ],
+    "att-second": [
+     0,
+     60
+    ],
+    "att-first": [
+     0,
+     60
+    ],
     "kinds-second": [
+     0,
+     60
+    ],
+    "kinds-second+att-second": [
+     0,
+     60
+    ],
+    "kinds-second+att-first": [
      0,
      60
     ],
@@ -6902,7 +11622,23 @@
      0,
      60
     ],
+    "kinds-first+att-second": [
+     0,
+     60
+    ],
+    "kinds-first+att-first": [
+     0,
+     60
+    ],
     "reading": [
+     0,
+     60
+    ],
+    "reading+att-second": [
+     0,
+     60
+    ],
+    "reading+att-first": [
      0,
      60
     ],
@@ -6910,7 +11646,23 @@
      0,
      60
     ],
+    "reading+kinds-second+att-second": [
+     0,
+     60
+    ],
+    "reading+kinds-second+att-first": [
+     0,
+     60
+    ],
     "reading+kinds-first": [
+     0,
+     60
+    ],
+    "reading+kinds-first+att-second": [
+     0,
+     60
+    ],
+    "reading+kinds-first+att-first": [
      0,
      60
     ],
@@ -6918,7 +11670,23 @@
      8,
      60
     ],
+    "thes+att-second": [
+     8,
+     60
+    ],
+    "thes+att-first": [
+     8,
+     60
+    ],
     "thes+kinds-second": [
+     5,
+     60
+    ],
+    "thes+kinds-second+att-second": [
+     5,
+     60
+    ],
+    "thes+kinds-second+att-first": [
      5,
      60
     ],
@@ -6926,7 +11694,23 @@
      5,
      60
     ],
+    "thes+kinds-first+att-second": [
+     5,
+     60
+    ],
+    "thes+kinds-first+att-first": [
+     5,
+     60
+    ],
     "thes+reading": [
+     8,
+     60
+    ],
+    "thes+reading+att-second": [
+     8,
+     60
+    ],
+    "thes+reading+att-first": [
      8,
      60
     ],
@@ -6934,7 +11718,23 @@
      5,
      60
     ],
+    "thes+reading+kinds-second+att-second": [
+     5,
+     60
+    ],
+    "thes+reading+kinds-second+att-first": [
+     5,
+     60
+    ],
     "thes+reading+kinds-first": [
+     5,
+     60
+    ],
+    "thes+reading+kinds-first+att-second": [
+     5,
+     60
+    ],
+    "thes+reading+kinds-first+att-first": [
      5,
      60
     ]
@@ -6944,7 +11744,23 @@
      0,
      4
     ],
+    "att-second": [
+     0,
+     4
+    ],
+    "att-first": [
+     0,
+     4
+    ],
     "kinds-second": [
+     0,
+     4
+    ],
+    "kinds-second+att-second": [
+     0,
+     4
+    ],
+    "kinds-second+att-first": [
      0,
      4
     ],
@@ -6952,7 +11768,23 @@
      0,
      4
     ],
+    "kinds-first+att-second": [
+     0,
+     4
+    ],
+    "kinds-first+att-first": [
+     0,
+     4
+    ],
     "reading": [
+     0,
+     4
+    ],
+    "reading+att-second": [
+     0,
+     4
+    ],
+    "reading+att-first": [
      0,
      4
     ],
@@ -6960,7 +11792,23 @@
      0,
      4
     ],
+    "reading+kinds-second+att-second": [
+     0,
+     4
+    ],
+    "reading+kinds-second+att-first": [
+     0,
+     4
+    ],
     "reading+kinds-first": [
+     0,
+     4
+    ],
+    "reading+kinds-first+att-second": [
+     0,
+     4
+    ],
+    "reading+kinds-first+att-first": [
      0,
      4
     ],
@@ -6968,7 +11816,23 @@
      0,
      4
     ],
+    "thes+att-second": [
+     0,
+     4
+    ],
+    "thes+att-first": [
+     0,
+     4
+    ],
     "thes+kinds-second": [
+     0,
+     4
+    ],
+    "thes+kinds-second+att-second": [
+     0,
+     4
+    ],
+    "thes+kinds-second+att-first": [
      0,
      4
     ],
@@ -6976,7 +11840,23 @@
      0,
      4
     ],
+    "thes+kinds-first+att-second": [
+     0,
+     4
+    ],
+    "thes+kinds-first+att-first": [
+     0,
+     4
+    ],
     "thes+reading": [
+     0,
+     4
+    ],
+    "thes+reading+att-second": [
+     0,
+     4
+    ],
+    "thes+reading+att-first": [
      0,
      4
     ],
@@ -6984,7 +11864,23 @@
      0,
      4
     ],
+    "thes+reading+kinds-second+att-second": [
+     0,
+     4
+    ],
+    "thes+reading+kinds-second+att-first": [
+     0,
+     4
+    ],
     "thes+reading+kinds-first": [
+     0,
+     4
+    ],
+    "thes+reading+kinds-first+att-second": [
+     0,
+     4
+    ],
+    "thes+reading+kinds-first+att-first": [
      0,
      4
     ]
@@ -6994,7 +11890,23 @@
      7,
      32
     ],
+    "att-second": [
+     7,
+     32
+    ],
+    "att-first": [
+     7,
+     32
+    ],
     "kinds-second": [
+     8,
+     32
+    ],
+    "kinds-second+att-second": [
+     8,
+     32
+    ],
+    "kinds-second+att-first": [
      8,
      32
     ],
@@ -7002,7 +11914,23 @@
      8,
      32
     ],
+    "kinds-first+att-second": [
+     8,
+     32
+    ],
+    "kinds-first+att-first": [
+     8,
+     32
+    ],
     "reading": [
+     9,
+     32
+    ],
+    "reading+att-second": [
+     9,
+     32
+    ],
+    "reading+att-first": [
      9,
      32
     ],
@@ -7010,7 +11938,23 @@
      10,
      32
     ],
+    "reading+kinds-second+att-second": [
+     10,
+     32
+    ],
+    "reading+kinds-second+att-first": [
+     10,
+     32
+    ],
     "reading+kinds-first": [
+     10,
+     32
+    ],
+    "reading+kinds-first+att-second": [
+     10,
+     32
+    ],
+    "reading+kinds-first+att-first": [
      10,
      32
     ],
@@ -7018,7 +11962,23 @@
      9,
      32
     ],
+    "thes+att-second": [
+     9,
+     32
+    ],
+    "thes+att-first": [
+     9,
+     32
+    ],
     "thes+kinds-second": [
+     8,
+     32
+    ],
+    "thes+kinds-second+att-second": [
+     8,
+     32
+    ],
+    "thes+kinds-second+att-first": [
      8,
      32
     ],
@@ -7026,7 +11986,23 @@
      8,
      32
     ],
+    "thes+kinds-first+att-second": [
+     8,
+     32
+    ],
+    "thes+kinds-first+att-first": [
+     8,
+     32
+    ],
     "thes+reading": [
+     9,
+     32
+    ],
+    "thes+reading+att-second": [
+     9,
+     32
+    ],
+    "thes+reading+att-first": [
      9,
      32
     ],
@@ -7034,7 +12010,23 @@
      10,
      32
     ],
+    "thes+reading+kinds-second+att-second": [
+     10,
+     32
+    ],
+    "thes+reading+kinds-second+att-first": [
+     10,
+     32
+    ],
     "thes+reading+kinds-first": [
+     10,
+     32
+    ],
+    "thes+reading+kinds-first+att-second": [
+     10,
+     32
+    ],
+    "thes+reading+kinds-first+att-first": [
      10,
      32
     ]
@@ -7044,7 +12036,23 @@
      0,
      9
     ],
+    "att-second": [
+     0,
+     9
+    ],
+    "att-first": [
+     0,
+     9
+    ],
     "kinds-second": [
+     0,
+     9
+    ],
+    "kinds-second+att-second": [
+     0,
+     9
+    ],
+    "kinds-second+att-first": [
      0,
      9
     ],
@@ -7052,7 +12060,23 @@
      0,
      9
     ],
+    "kinds-first+att-second": [
+     0,
+     9
+    ],
+    "kinds-first+att-first": [
+     0,
+     9
+    ],
     "reading": [
+     0,
+     9
+    ],
+    "reading+att-second": [
+     0,
+     9
+    ],
+    "reading+att-first": [
      0,
      9
     ],
@@ -7060,7 +12084,23 @@
      0,
      9
     ],
+    "reading+kinds-second+att-second": [
+     0,
+     9
+    ],
+    "reading+kinds-second+att-first": [
+     0,
+     9
+    ],
     "reading+kinds-first": [
+     0,
+     9
+    ],
+    "reading+kinds-first+att-second": [
+     0,
+     9
+    ],
+    "reading+kinds-first+att-first": [
      0,
      9
     ],
@@ -7068,7 +12108,23 @@
      1,
      9
     ],
+    "thes+att-second": [
+     1,
+     9
+    ],
+    "thes+att-first": [
+     1,
+     9
+    ],
     "thes+kinds-second": [
+     1,
+     9
+    ],
+    "thes+kinds-second+att-second": [
+     1,
+     9
+    ],
+    "thes+kinds-second+att-first": [
      1,
      9
     ],
@@ -7076,7 +12132,23 @@
      1,
      9
     ],
+    "thes+kinds-first+att-second": [
+     1,
+     9
+    ],
+    "thes+kinds-first+att-first": [
+     1,
+     9
+    ],
     "thes+reading": [
+     1,
+     9
+    ],
+    "thes+reading+att-second": [
+     1,
+     9
+    ],
+    "thes+reading+att-first": [
      1,
      9
     ],
@@ -7084,7 +12156,23 @@
      1,
      9
     ],
+    "thes+reading+kinds-second+att-second": [
+     1,
+     9
+    ],
+    "thes+reading+kinds-second+att-first": [
+     1,
+     9
+    ],
     "thes+reading+kinds-first": [
+     1,
+     9
+    ],
+    "thes+reading+kinds-first+att-second": [
+     1,
+     9
+    ],
+    "thes+reading+kinds-first+att-first": [
      1,
      9
     ]
@@ -7094,48 +12182,144 @@
      33,
      63
     ],
+    "att-second": [
+     32,
+     63
+    ],
+    "att-first": [
+     32,
+     63
+    ],
     "kinds-second": [
      33,
+     63
+    ],
+    "kinds-second+att-second": [
+     32,
+     63
+    ],
+    "kinds-second+att-first": [
+     32,
      63
     ],
     "kinds-first": [
      29,
      63
     ],
+    "kinds-first+att-second": [
+     30,
+     63
+    ],
+    "kinds-first+att-first": [
+     30,
+     63
+    ],
     "reading": [
      30,
+     63
+    ],
+    "reading+att-second": [
+     29,
+     63
+    ],
+    "reading+att-first": [
+     29,
      63
     ],
     "reading+kinds-second": [
      31,
      63
     ],
+    "reading+kinds-second+att-second": [
+     30,
+     63
+    ],
+    "reading+kinds-second+att-first": [
+     30,
+     63
+    ],
     "reading+kinds-first": [
      28,
+     63
+    ],
+    "reading+kinds-first+att-second": [
+     29,
+     63
+    ],
+    "reading+kinds-first+att-first": [
+     29,
      63
     ],
     "thes": [
      33,
      63
     ],
+    "thes+att-second": [
+     32,
+     63
+    ],
+    "thes+att-first": [
+     32,
+     63
+    ],
     "thes+kinds-second": [
      33,
+     63
+    ],
+    "thes+kinds-second+att-second": [
+     32,
+     63
+    ],
+    "thes+kinds-second+att-first": [
+     32,
      63
     ],
     "thes+kinds-first": [
      29,
      63
     ],
+    "thes+kinds-first+att-second": [
+     30,
+     63
+    ],
+    "thes+kinds-first+att-first": [
+     30,
+     63
+    ],
     "thes+reading": [
      30,
+     63
+    ],
+    "thes+reading+att-second": [
+     29,
+     63
+    ],
+    "thes+reading+att-first": [
+     29,
      63
     ],
     "thes+reading+kinds-second": [
      31,
      63
     ],
+    "thes+reading+kinds-second+att-second": [
+     30,
+     63
+    ],
+    "thes+reading+kinds-second+att-first": [
+     30,
+     63
+    ],
     "thes+reading+kinds-first": [
      28,
+     63
+    ],
+    "thes+reading+kinds-first+att-second": [
+     29,
+     63
+    ],
+    "thes+reading+kinds-first+att-first": [
+     29,
      63
     ]
    },
@@ -7144,7 +12328,23 @@
      3,
      12
     ],
+    "att-second": [
+     3,
+     12
+    ],
+    "att-first": [
+     3,
+     12
+    ],
     "kinds-second": [
+     4,
+     12
+    ],
+    "kinds-second+att-second": [
+     4,
+     12
+    ],
+    "kinds-second+att-first": [
      4,
      12
     ],
@@ -7152,7 +12352,23 @@
      4,
      12
     ],
+    "kinds-first+att-second": [
+     4,
+     12
+    ],
+    "kinds-first+att-first": [
+     4,
+     12
+    ],
     "reading": [
+     4,
+     12
+    ],
+    "reading+att-second": [
+     4,
+     12
+    ],
+    "reading+att-first": [
      4,
      12
     ],
@@ -7160,7 +12376,23 @@
      4,
      12
     ],
+    "reading+kinds-second+att-second": [
+     4,
+     12
+    ],
+    "reading+kinds-second+att-first": [
+     4,
+     12
+    ],
     "reading+kinds-first": [
+     4,
+     12
+    ],
+    "reading+kinds-first+att-second": [
+     4,
+     12
+    ],
+    "reading+kinds-first+att-first": [
      4,
      12
     ],
@@ -7168,7 +12400,23 @@
      6,
      12
     ],
+    "thes+att-second": [
+     6,
+     12
+    ],
+    "thes+att-first": [
+     6,
+     12
+    ],
     "thes+kinds-second": [
+     6,
+     12
+    ],
+    "thes+kinds-second+att-second": [
+     6,
+     12
+    ],
+    "thes+kinds-second+att-first": [
      6,
      12
     ],
@@ -7176,7 +12424,23 @@
      6,
      12
     ],
+    "thes+kinds-first+att-second": [
+     6,
+     12
+    ],
+    "thes+kinds-first+att-first": [
+     6,
+     12
+    ],
     "thes+reading": [
+     4,
+     12
+    ],
+    "thes+reading+att-second": [
+     4,
+     12
+    ],
+    "thes+reading+att-first": [
      4,
      12
     ],
@@ -7184,7 +12448,23 @@
      6,
      12
     ],
+    "thes+reading+kinds-second+att-second": [
+     6,
+     12
+    ],
+    "thes+reading+kinds-second+att-first": [
+     6,
+     12
+    ],
     "thes+reading+kinds-first": [
+     6,
+     12
+    ],
+    "thes+reading+kinds-first+att-second": [
+     6,
+     12
+    ],
+    "thes+reading+kinds-first+att-first": [
      6,
      12
     ]
@@ -7194,7 +12474,23 @@
      0,
      4
     ],
+    "att-second": [
+     0,
+     4
+    ],
+    "att-first": [
+     0,
+     4
+    ],
     "kinds-second": [
+     0,
+     4
+    ],
+    "kinds-second+att-second": [
+     0,
+     4
+    ],
+    "kinds-second+att-first": [
      0,
      4
     ],
@@ -7202,7 +12498,23 @@
      0,
      4
     ],
+    "kinds-first+att-second": [
+     0,
+     4
+    ],
+    "kinds-first+att-first": [
+     0,
+     4
+    ],
     "reading": [
+     0,
+     4
+    ],
+    "reading+att-second": [
+     0,
+     4
+    ],
+    "reading+att-first": [
      0,
      4
     ],
@@ -7210,7 +12522,23 @@
      0,
      4
     ],
+    "reading+kinds-second+att-second": [
+     0,
+     4
+    ],
+    "reading+kinds-second+att-first": [
+     0,
+     4
+    ],
     "reading+kinds-first": [
+     0,
+     4
+    ],
+    "reading+kinds-first+att-second": [
+     0,
+     4
+    ],
+    "reading+kinds-first+att-first": [
      0,
      4
     ],
@@ -7218,7 +12546,23 @@
      1,
      4
     ],
+    "thes+att-second": [
+     1,
+     4
+    ],
+    "thes+att-first": [
+     1,
+     4
+    ],
     "thes+kinds-second": [
+     0,
+     4
+    ],
+    "thes+kinds-second+att-second": [
+     0,
+     4
+    ],
+    "thes+kinds-second+att-first": [
      0,
      4
     ],
@@ -7226,7 +12570,23 @@
      0,
      4
     ],
+    "thes+kinds-first+att-second": [
+     0,
+     4
+    ],
+    "thes+kinds-first+att-first": [
+     0,
+     4
+    ],
     "thes+reading": [
+     1,
+     4
+    ],
+    "thes+reading+att-second": [
+     1,
+     4
+    ],
+    "thes+reading+att-first": [
      1,
      4
     ],
@@ -7234,7 +12594,23 @@
      0,
      4
     ],
+    "thes+reading+kinds-second+att-second": [
+     0,
+     4
+    ],
+    "thes+reading+kinds-second+att-first": [
+     0,
+     4
+    ],
     "thes+reading+kinds-first": [
+     0,
+     4
+    ],
+    "thes+reading+kinds-first+att-second": [
+     0,
+     4
+    ],
+    "thes+reading+kinds-first+att-first": [
      0,
      4
     ]
@@ -7244,7 +12620,23 @@
      0,
      4
     ],
+    "att-second": [
+     0,
+     4
+    ],
+    "att-first": [
+     0,
+     4
+    ],
     "kinds-second": [
+     0,
+     4
+    ],
+    "kinds-second+att-second": [
+     0,
+     4
+    ],
+    "kinds-second+att-first": [
      0,
      4
     ],
@@ -7252,7 +12644,23 @@
      0,
      4
     ],
+    "kinds-first+att-second": [
+     0,
+     4
+    ],
+    "kinds-first+att-first": [
+     0,
+     4
+    ],
     "reading": [
+     0,
+     4
+    ],
+    "reading+att-second": [
+     0,
+     4
+    ],
+    "reading+att-first": [
      0,
      4
     ],
@@ -7260,7 +12668,23 @@
      0,
      4
     ],
+    "reading+kinds-second+att-second": [
+     0,
+     4
+    ],
+    "reading+kinds-second+att-first": [
+     0,
+     4
+    ],
     "reading+kinds-first": [
+     0,
+     4
+    ],
+    "reading+kinds-first+att-second": [
+     0,
+     4
+    ],
+    "reading+kinds-first+att-first": [
      0,
      4
     ],
@@ -7268,7 +12692,23 @@
      0,
      4
     ],
+    "thes+att-second": [
+     0,
+     4
+    ],
+    "thes+att-first": [
+     0,
+     4
+    ],
     "thes+kinds-second": [
+     0,
+     4
+    ],
+    "thes+kinds-second+att-second": [
+     0,
+     4
+    ],
+    "thes+kinds-second+att-first": [
      0,
      4
     ],
@@ -7276,7 +12716,23 @@
      0,
      4
     ],
+    "thes+kinds-first+att-second": [
+     0,
+     4
+    ],
+    "thes+kinds-first+att-first": [
+     0,
+     4
+    ],
     "thes+reading": [
+     0,
+     4
+    ],
+    "thes+reading+att-second": [
+     0,
+     4
+    ],
+    "thes+reading+att-first": [
      0,
      4
     ],
@@ -7284,7 +12740,23 @@
      0,
      4
     ],
+    "thes+reading+kinds-second+att-second": [
+     0,
+     4
+    ],
+    "thes+reading+kinds-second+att-first": [
+     0,
+     4
+    ],
     "thes+reading+kinds-first": [
+     0,
+     4
+    ],
+    "thes+reading+kinds-first+att-second": [
+     0,
+     4
+    ],
+    "thes+reading+kinds-first+att-first": [
      0,
      4
     ]
@@ -7294,7 +12766,23 @@
      0,
      2
     ],
+    "att-second": [
+     0,
+     2
+    ],
+    "att-first": [
+     0,
+     2
+    ],
     "kinds-second": [
+     0,
+     2
+    ],
+    "kinds-second+att-second": [
+     0,
+     2
+    ],
+    "kinds-second+att-first": [
      0,
      2
     ],
@@ -7302,7 +12790,23 @@
      0,
      2
     ],
+    "kinds-first+att-second": [
+     0,
+     2
+    ],
+    "kinds-first+att-first": [
+     0,
+     2
+    ],
     "reading": [
+     0,
+     2
+    ],
+    "reading+att-second": [
+     0,
+     2
+    ],
+    "reading+att-first": [
      0,
      2
     ],
@@ -7310,7 +12814,23 @@
      0,
      2
     ],
+    "reading+kinds-second+att-second": [
+     0,
+     2
+    ],
+    "reading+kinds-second+att-first": [
+     0,
+     2
+    ],
     "reading+kinds-first": [
+     0,
+     2
+    ],
+    "reading+kinds-first+att-second": [
+     0,
+     2
+    ],
+    "reading+kinds-first+att-first": [
      0,
      2
     ],
@@ -7318,7 +12838,23 @@
      0,
      2
     ],
+    "thes+att-second": [
+     0,
+     2
+    ],
+    "thes+att-first": [
+     0,
+     2
+    ],
     "thes+kinds-second": [
+     0,
+     2
+    ],
+    "thes+kinds-second+att-second": [
+     0,
+     2
+    ],
+    "thes+kinds-second+att-first": [
      0,
      2
     ],
@@ -7326,7 +12862,23 @@
      0,
      2
     ],
+    "thes+kinds-first+att-second": [
+     0,
+     2
+    ],
+    "thes+kinds-first+att-first": [
+     0,
+     2
+    ],
     "thes+reading": [
+     0,
+     2
+    ],
+    "thes+reading+att-second": [
+     0,
+     2
+    ],
+    "thes+reading+att-first": [
      0,
      2
     ],
@@ -7334,7 +12886,23 @@
      0,
      2
     ],
+    "thes+reading+kinds-second+att-second": [
+     0,
+     2
+    ],
+    "thes+reading+kinds-second+att-first": [
+     0,
+     2
+    ],
     "thes+reading+kinds-first": [
+     0,
+     2
+    ],
+    "thes+reading+kinds-first+att-second": [
+     0,
+     2
+    ],
+    "thes+reading+kinds-first+att-first": [
      0,
      2
     ]

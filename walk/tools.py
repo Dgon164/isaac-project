@@ -32,7 +32,8 @@ from core import Store
 from linker import link, terms
 import mind
 from mind import (score_all, diagnose, kind, feats, FEATS, read_dictionary,
-                  TOOLSETS, use, select, context_at, load_tools)
+                  TOOLSETS, use, select, context_at, load_tools, assess,
+                  summary)
 
 SQUAD = os.environ.get(
     "ISAAC_SQUAD",
@@ -64,37 +65,61 @@ def questions(art):
 
 
 # ------------------------------------------------------------- learning
-def learn(arts):
-    pairs = {}                       # (question word, sentence word) -> articles
-    right_f = {}                     # (kind, feat) -> count in right sentences
-    wrong_f = {}                     # (kind, feat) -> count in his wrong picks
-    n_k = {}                         # kind -> graded questions
-    for art in arts:
-        store = fill(art)
-        seen = set()
-        for q, key in questions(art):
-            seeds, reached, cands = score_all(store, q)
-            d = diagnose(store, q, cands, reached, key)
-            if not d["right"] or d["verdict"] == "not stored":
+def learn_one(art):
+    """one article: grade every question with no tools on, keep what the
+    right sentence carried, what he wrongly ranked, the paraphrase pairs,
+    and which of the right sentence's words were needed to find it."""
+    store = fill(art)
+    right_f, wrong_f, n_k, att = {}, {}, {}, {}
+    seen = set()
+    for q, key in questions(art):
+        seeds, reached, cands = score_all(store, q)
+        d = diagnose(store, q, cands, reached, key)
+        if not d["right"] or d["verdict"] == "not stored":
+            continue
+        k = kind(q)
+        n_k[k] = n_k.get(k, 0) + 1
+        assess(store, d["right"], set(terms(q)) | set(terms(key)), att)
+        rf = feats(store.get(d["right"]).content)
+        for f, v in rf.items():
+            right_f[(k, f)] = right_f.get((k, f), 0) + int(v)
+        for _, n in cands[:3]:            # what he ranked up there wrongly
+            if n == d["right"]:
                 continue
-            k = kind(q)
-            n_k[k] = n_k.get(k, 0) + 1
-            rf = feats(store.get(d["right"]).content)
-            for f, v in rf.items():
-                right_f[(k, f)] = right_f.get((k, f), 0) + int(v)
-            for _, n in cands[:3]:            # what he ranked up there wrongly
-                if n == d["right"]:
-                    continue
-                wf = feats(store.get(n).content)
-                for f, v in wf.items():
-                    wrong_f[(k, f)] = wrong_f.get((k, f), 0) + int(v) / 3.0
-            rt = [t for t in store.get(d["right"]).refs
-                  if store.get(t) and store.get(t).kind == "term"]
-            for m in d["missing"]:
-                if store.get(m) is not None:
-                    continue
-                for f in rt:
-                    seen.add((m, f))
+            wf = feats(store.get(n).content)
+            for f, v in wf.items():
+                wrong_f[(k, f)] = wrong_f.get((k, f), 0) + int(v) / 3.0
+        rt = [t for t in store.get(d["right"]).refs
+              if store.get(t) and store.get(t).kind == "term"]
+        for m in d["missing"]:
+            if store.get(m) is not None:
+                continue
+            for f in rt:
+                seen.add((m, f))
+    return right_f, wrong_f, n_k, att, seen
+
+
+def learn(arts, jobs=1):
+    if jobs > 1:
+        from multiprocessing import Pool
+        with Pool(jobs, initializer=init_tools, initargs=({}, {}, {})) as pool:
+            parts = pool.map(learn_one, arts)
+    else:
+        init_tools({}, {}, {})
+        parts = [learn_one(a) for a in arts]
+    pairs, right_f, wrong_f, n_k, att = {}, {}, {}, {}, {}
+    for rf, wf, nk, at, seen in parts:
+        for k, v in rf.items():
+            right_f[k] = right_f.get(k, 0) + v
+        for k, v in wf.items():
+            wrong_f[k] = wrong_f.get(k, 0) + v
+        for k, v in nk.items():
+            n_k[k] = n_k.get(k, 0) + v
+        for lv, tab in at.items():
+            for ctx, (a, b) in tab.items():
+                c = att.setdefault(lv, {}).setdefault(ctx, [0, 0])
+                c[0] += a
+                c[1] += b
         for p in seen:
             pairs[p] = pairs.get(p, 0) + 1
 
@@ -116,7 +141,7 @@ def learn(arts):
             w = wrong_f.get((k, f), 0) / float(n_k[k])
             row[f] = round(math.log((r + 0.01) / (w + 0.01)), 3)
         kinds[k] = row
-    return thesaurus, kinds, len(pairs), n_k
+    return thesaurus, kinds, len(pairs), n_k, att
 
 
 # ------------------------------------------------- the record, the selector
@@ -153,20 +178,22 @@ def build_selector(records):
     return table
 
 
-def init_tools(thesaurus, kinds):
+def init_tools(thesaurus, kinds, attention):
     mind.SYN.clear(); mind.KINDS.clear(); mind.SELECTOR.clear()
+    mind.ATTENTION.clear()
     mind.SYN.update((k, set(v)) for k, v in thesaurus.items())
     mind.KINDS.update(kinds)
+    mind.ATTENTION.update((int(k), v) for k, v in attention.items())
 
 
-def record(arts, thesaurus, kinds, jobs=1):
+def record(arts, thesaurus, kinds, attention, jobs=1):
     if jobs > 1:
         from multiprocessing import Pool
         with Pool(jobs, initializer=init_tools,
-                  initargs=(thesaurus, kinds)) as pool:
+                  initargs=(thesaurus, kinds, attention)) as pool:
             recs = pool.map(record_one, arts)
     else:
-        init_tools(thesaurus, kinds)
+        init_tools(thesaurus, kinds, attention)
         recs = [record_one(a) for a in arts]
     return build_selector(recs)
 
@@ -228,12 +255,14 @@ def main():
     if cmd == "learn":
         mind.SYN.clear(); mind.KINDS.clear()       # nothing installed
         t0 = time.time()
-        thesaurus, kinds, n_pairs, n_k = learn(learn_arts)
+        thesaurus, kinds, n_pairs, n_k, att = learn(learn_arts, jobs)
+        att = {str(lv): tab for lv, tab in att.items()}
         t1 = time.time()
-        selector = record(learn_arts, thesaurus, kinds, jobs)
+        selector = record(learn_arts, thesaurus, kinds, att, jobs)
         json.dump({"thesaurus": thesaurus, "kinds": kinds,
                    "selector": selector},
                   open(TOOLS, "w", encoding="utf-8"), indent=1)
+        json.dump(att, open(mind.ATTFILE, "w", encoding="utf-8"))
         print("learned from %d articles in %.0fs: %d pairs seen, %d kept "
               "into the thesaurus; kinds table over %s"
               % (len(learn_arts), time.time() - t0, n_pairs,
@@ -243,6 +272,28 @@ def main():
         print("  %-9s" % "" + "".join("%9s" % f for f in FEATS))
         for k, row in sorted(kinds.items()):
             print("  %-9s" % k + "".join("%9.2f" % row[f] for f in FEATS))
+        lv1 = att.get("1", {})
+        ruled = [(h - u, h, u, w) for w, (h, u) in lv1.items() if h + u >= 20]
+        print("his attention: %d words assessed, %d with 20+ re-sayings "
+              "(word carried/left)" % (len(lv1), len(ruled)))
+        print("  attention: " + ", ".join(
+            "%s %d/%d" % (w, h, u) for _, h, u, w in
+            sorted(ruled, reverse=True)[:14]))
+        print("  fluff:     " + ", ".join(
+            "%s %d/%d" % (w, h, u) for _, h, u, w in sorted(ruled)[:14]))
+        init_tools(thesaurus, kinds, att)
+        store = fill(learn_arts[-1])
+        print("his summaries (last article he learned from; ? = flagged, "
+              "no experience of the word yet):")
+        shown = 0
+        for it in list(store.items.values()):
+            if it.kind != "sentence" or len(it.refs) < 6:
+                continue
+            print("  %s" % str(it.content)[:100])
+            print("    -> %s" % summary(store, it.name))
+            shown += 1
+            if shown == 8:
+                break
         print("his selector, built in %.0fs from every toolset on every "
               "graded question (%d toolsets):" % (time.time() - t1,
                                                    len(TOOLSETS)))

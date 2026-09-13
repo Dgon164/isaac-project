@@ -26,6 +26,8 @@ from linker import link, terms
 
 STOREFILE = os.path.join(HERE, "store.json")
 TOOLSFILE = os.path.join(HERE, "tools.json")   # the tools he built himself
+ATTFILE = os.path.join(HERE, "attention.json")  # his attention record (big,
+                                                # rebuilt by tools.py learn)
 DICTFILE = os.environ.get(
     "ISAAC_DICT",
     r"C:\Users\jtwee\Downloads\New folder (3)\intellon\wordnet_full.json")
@@ -47,12 +49,16 @@ def toolsets():
     for thes in (False, True):
         for reading in (False, True):
             for kinds in ("off", "second", "first"):
-                parts = [p for p, on in (("thes", thes), ("reading", reading))
-                         if on]
-                if kinds != "off":
-                    parts.append("kinds-" + kinds)
-                out["+".join(parts) or "none"] = {
-                    "thes": thes, "reading": reading, "kinds": kinds}
+                for att in ("off", "second", "first"):
+                    parts = [p for p, on in (("thes", thes),
+                                             ("reading", reading)) if on]
+                    if kinds != "off":
+                        parts.append("kinds-" + kinds)
+                    if att != "off":
+                        parts.append("att-" + att)
+                    out["+".join(parts) or "none"] = {
+                        "thes": thes, "reading": reading, "kinds": kinds,
+                        "att": att}
     return out
 
 
@@ -67,6 +73,94 @@ def use(name):
     TOOLSET.clear()
     TOOLSET.update(TOOLSETS[name])
     return name
+
+
+# --------------------------------------------------------------- attention
+# attention words are the ones a sufficient summary has to keep: "mr
+# flagstone stirred the magnesium" -> flagstone stirred magnesium. fluff is
+# what can be dropped without changing what happened. no grammar: a word
+# with no record is FLAGGED probably attention, and his own assessment
+# tests it against experience: when people re-said this sentence -- asked
+# about it, answered about it, corrected him on it -- which of its words
+# did they carry, and which did they leave behind? carried more than left:
+# attention. left more than carried: fluff. a new name stays flagged until
+# he has experience of it. the verdict carries the counts. level 1 = the
+# word; level 2 = tag / word (a word can matter in one domain and not
+# another).
+ATTENTION = {}
+MIN_ATT = 5
+CHANGED = set()
+
+
+def attention(word, tag=None):
+    """his verdict on one word: +1 attention, -1 fluff, 0 tied or not yet
+    assessed. the finest level with a record decides."""
+    for lv, ctx in ((2, (tag or "") + "/" + word), (1, word)):
+        rec = ATTENTION.get(lv, {}).get(ctx)
+        if rec and rec[0] + rec[1] >= MIN_ATT:
+            if rec[0] > rec[1]:
+                return 1, "%s+ (carried %d vs left %d)" % (word, rec[0], rec[1])
+            if rec[1] > rec[0]:
+                return -1, "%s- (left %d vs carried %d)" % (word, rec[1], rec[0])
+            return 0, "%s= (tied %d)" % (word, rec[0])
+    return 0, word + "? (flagged probably attention, no record yet)"
+
+
+def flags(question):
+    """his marks on the question: + attend, - scaffold, = tied, ? flagged."""
+    out, seen = [], set()
+    for t in terms(question):
+        if t not in seen:
+            seen.add(t)
+            out.append(attention(t)[1].split(" ")[0])
+    return " ".join(out)
+
+
+def assess(store, name, said, table=None):
+    """the assessment tool: one sentence, and the words people used when
+    they re-said it (a question about it, its answer, a correction). each
+    of the sentence's words was either carried or left behind. filed per
+    word, and per tag / word."""
+    table = ATTENTION if table is None else table
+    it = store.get(name)
+    if it is None or it.kind != "sentence":
+        return
+    for w in dict.fromkeys(it.refs):
+        t = store.get(w)
+        if t is None or t.kind != "term":
+            continue
+        for lv, ctx in ((1, w), (2, it.tag + "/" + w)):
+            c = table.setdefault(lv, {}).setdefault(ctx, [0, 0])
+            c[0 if w in said else 1] += 1
+
+
+def summary(store, name):
+    """his summary of a sentence from his record: its attention words, in
+    order. a word not yet assessed keeps its flag."""
+    it = store.get(name)
+    out = []
+    for w in dict.fromkeys(it.refs):
+        t = store.get(w)
+        if t is None or t.kind != "term":
+            continue
+        v, why = attention(w, it.tag)
+        if v > 0:
+            out.append(w)
+        elif v == 0 and why.endswith("record yet)"):
+            out.append(w + "?")
+    return " ".join(out)
+
+
+def score_key(own, att, rare, fit, bagc):
+    """the ranking tuple, in the order his toolset says."""
+    key = [own]
+    if TOOLSET["att"] == "first":
+        key = [att] + key
+    elif TOOLSET["att"] == "second":
+        key.append(att)
+    key += [fit, rare] if TOOLSET["kinds"] == "first" else [rare, fit]
+    key.append(bagc)
+    return tuple(key)
 
 
 def context_at(level, store, question):
@@ -110,7 +204,7 @@ def ask_selected(store, question, max_level=None):
     name, why = select(store, question, max_level)
     use(name)
     seeds, reached, cands = score_all(store, question)
-    return seeds, reached, cands, why
+    return seeds, reached, cands, why + "\n  attention: " + flags(question)
 
 
 def kind(question):
@@ -171,6 +265,10 @@ def load_tools(path=TOOLSFILE):
     SYN.update((k, set(v)) for k, v in d.get("thesaurus", {}).items())
     KINDS.update(d.get("kinds", {}))
     SELECTOR.update((int(k), v) for k, v in d.get("selector", {}).items())
+    ATTENTION.clear()
+    if os.path.exists(ATTFILE):
+        ATTENTION.update((int(k), v) for k, v in
+                         json.load(open(ATTFILE, encoding="utf-8")).items())
     return len(SYN)
 
 
@@ -221,6 +319,9 @@ def save(store):
                     list(i.refs)] for i in store.items.values()],
          "rel": [[c, n, v] for (c, n), v in store.relevance.items()]}
     json.dump(d, open(STOREFILE, "w", encoding="utf-8"), default=str)
+    if "attention" in CHANGED:
+        json.dump({str(lv): tab for lv, tab in ATTENTION.items()},
+                  open(ATTFILE, "w", encoding="utf-8"))
 
 
 def load_store():
@@ -324,7 +425,9 @@ def score_all(store, question):
     """the scored field, best first. ask() takes the top three; a probe
     that wants the gap between first and second takes the list."""
     own = set(terms(question))
-    bag = set(own)
+    att_on = TOOLSET["att"] != "off"       # a question word landing on one
+    bag = set(own)                         # of the sentence's attention
+                                           # words counts extra
     read = None
     if TOOLSET["reading"]:                  # his dictionary from reading
         if getattr(store, "dictionary", None) is None:
@@ -356,15 +459,16 @@ def score_all(store, question):
                 earned |= set(run.content.get("key", ()))
         if bag & (r | earned):
             hit = own & r
+            att = sum(1 for t in hit if attention(t, it.tag)[0] > 0) \
+                if att_on else 0
             rare = sum(1.0 / len(store.get(t).refs) for t in hit
                        if store.get(t) and store.get(t).refs)
             fit = 0.0                  # does it carry the kind of answer
             if row and it.kind == "sentence":   # the question asks for
                 f = feats(it.content)
                 fit = round(sum(w for k, w in row.items() if f.get(k)), 2)
-            bagc = len(bag & (r | earned))
-            key = (len(hit), fit, rare, bagc) if TOOLSET["kinds"] == "first"                 else (len(hit), rare, fit, bagc)
-            cands.append((key, n))
+            cands.append((score_key(len(hit), att, rare, fit,
+                                    len(bag & (r | earned))), n))
     cands.sort(reverse=True)
     return seeds, reached, cands
 
@@ -432,6 +536,9 @@ def grade(store, question, cands, reached, truth):
     the next question in those words reaches it. a truth the store
     never held becomes an answer sentence."""
     d = diagnose(store, question, cands, reached, truth)
+    if d["right"] and store.get(d["right"]) is not None:
+        assess(store, d["right"], set(terms(question)) | set(terms(truth)))
+        CHANGED.add("attention")
     n_runs = sum(1 for i in store.items.values() if i.kind == "run")
     name = "run_%03d" % n_runs
     refs = [n for _, n in cands[:3]] + ([d["right"]] if d["right"] else [])
@@ -672,6 +779,7 @@ def main():
         print("his selector: %s" % (", ".join(
             "level %d over %d contexts" % (lv, len(t))
             for lv, t in sorted(SELECTOR.items())) or "no record yet"))
+        print("his attention: %d words with a record" % len(ATTENTION.get(1, {})))
     elif os.path.exists(LIBFILE) or os.path.exists(DICTFILE):
         print("library (wordnet): %d linked words" % load_dictionary())
     for path in args:

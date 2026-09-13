@@ -1,4 +1,4 @@
-# The walk — handoff, 2026-09-12, updated 2026-09-13 (four times)
+# The walk — handoff, 2026-09-12, updated 2026-09-13 (five times)
 
 > ## 2026-09-13, on the owner's PC (TurtlePC, 32 threads) -- READ THIS BOX FIRST
 > **There is no C version.** Searched every branch of this repo, Documents,
@@ -87,6 +87,39 @@
 > nuance" layer: more contexts, thinner records, 17 answers worse. Do not
 > revert it; feed it. The hand-set default (thes+kinds-second) only
 > applies when he has no record for a question.
+>
+> **ATTENTION, AS EXPERIENCE (owner, same day: "nouns... should be
+> attention. mr flagstone stirred the magnesium: flagstone stirred
+> magnesium is a valid and sufficient summarization").** A word with no
+> record is FLAGGED probably attention. His assessment goes through every
+> sentence people re-said -- the questions, the answer keys, his `no:`
+> corrections -- and counts each of its words carried vs left behind.
+> Carried more: attention. Left more: fluff. 44,875 words assessed on his
+> half. His fluff: his, after, while, one, including, during, there,
+> became, later, however, states, time, since. His attention: names and
+> things (chopin, napoleon, treaty, solar, victoria). His summaries:
+>
+>     Gothic architecture is a style of architecture that flourished
+>     during the high and late medieval period   -> gothic style medieval
+>     It evolved from Romanesque architecture and was succeeded by
+>     Renaissance architecture                   -> romanesque renaissance
+>     Its characteristics include the pointed arch, the ribbed vault
+>     and the flying buttress                    -> pointed arch buttress?
+>
+> The record lives in walk/attention.json (13 MB, gitignored, rebuilt by
+> `tools.py learn` in 6 min; `no:` corrections add to it live).
+> mind.py prints `attention: word+ word- word?` under every answer. It is
+> also a toolset switch (off / second / first; 36 toolsets now). The
+> court says attention does not help retrieval here: att-second costs
+> 0.4 on every base, att-first 1.5, and when he chooses he leaves it off
+> (2% of picks). Two definitions failed on the way, both mine:
+> retrieval-utility (helped/hurt: swamped by "not asked") and
+> recovery-from-the-store (one rare word brings a sentence back, so it
+> kept one word). And applying verdicts to the QUESTION's words collapses
+> everything to ~34%: the asker's words are already carried; attention
+> belongs on the sentence side. Where it should pay next: memory (keep
+> the summary, not the sentence) and reading (what to carry forward), not
+> ranking.
 
 > ## ⛔ FOR THE NEXT SESSION (local, on the owner's machine)
 > *(09-13: done. The C version does not exist; the court ran. See the box above.)*
