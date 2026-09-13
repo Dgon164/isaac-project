@@ -21,15 +21,22 @@ from linker import link, terms
 
 STOREFILE = os.path.join(HERE, "store.json")
 DICTFILE = r"C:\Users\jtwee\Downloads\New folder (3)\intellon\wordnet_full.json"
+LIBFILE = os.path.join(HERE, "library.json")
 SYN = {}
 
 
-def load_dictionary(path=DICTFILE, cap=50):
+def load_dictionary(path=DICTFILE, cap=50, wide=False, rebuild=False):
     """thesaurus + dictionary as one map: words sharing a sense are
     synonyms; a word whose definition names t is a neighbor of t
     ('fame: ...widely known and popular' makes fame a neighbor of
-    popular). capped: glue words relate to thousands and would drown
-    the question."""
+    popular). wide also mines example sentences and antonyms. capped:
+    glue words relate to thousands and would drown the question.
+    Built once into library.json and loaded from there after."""
+    if os.path.exists(LIBFILE) and not rebuild:
+        SYN.clear()
+        SYN.update((k, set(v)) for k, v in
+                   json.load(open(LIBFILE, encoding="utf-8")).items())
+        return len(SYN)
     entries = json.load(open(path, encoding="utf-8"))
     sense, rel = {}, {}
     for e in entries:
@@ -37,12 +44,19 @@ def load_dictionary(path=DICTFILE, cap=50):
         w = e["word"].lower()
         for t in terms(e.get("def", "")):
             rel.setdefault(t, set()).add(w)
+        if wide:
+            for t in terms(" ".join(e.get("examples", []))):
+                rel.setdefault(t, set()).add(w)
+            for a in e.get("antonyms", []):
+                rel.setdefault(a.lower(), set()).add(w)
     for ws in sense.values():
         for w in ws:
             if len(ws) > 1:
                 rel.setdefault(w, set()).update(x for x in ws if x != w)
     SYN.clear()
     SYN.update((t, s) for t, s in rel.items() if len(s) <= cap)
+    json.dump({k: sorted(v) for k, v in SYN.items()},
+              open(LIBFILE, "w", encoding="utf-8"))
     return len(SYN)
 
 
@@ -352,6 +366,8 @@ def main():
         args = args[:i] + args[i + 2:]
     store = load_store()
     print("store: %d items" % len(store.items))
+    if os.path.exists(LIBFILE) or os.path.exists(DICTFILE):
+        print("library: %d linked words" % load_dictionary())
     for path in args:
         fill(path, store)
 
@@ -367,6 +383,23 @@ def main():
         if q == "why":
             for n, it in last:
                 print("  %s <- refs %s" % (n, list(it.refs)[:8]))
+            return
+        if q == "redo":   # retroactive: every past answer re-earned today
+            runs = [it for it in list(store.items.values())
+                    if it.kind == "run" and isinstance(it.content, dict)]
+            changed = 0
+            for it in runs:
+                qq = it.content.get("q", "")
+                old = it.content.get("answers", [])
+                _, _, answers = ask(store, qq)
+                new = [n for n, _ in answers]
+                if new != old:
+                    changed += 1
+                    print("  %s: %s" % (it.name, qq))
+                    compare_runs(store, (it.name, old), answers, qq)
+                    it.content["answers"] = new
+            print("  %d runs rechecked, %d answers changed retroactively"
+                  % (len(runs), changed))
             return
         prev = find_prev(store, q)      # before this run leaves residue
         seeds, reached, answers = ask(store, q)   # always rerun, never reuse

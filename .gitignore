@@ -27,3 +27,5 @@ overviews/ISAAC_Confidential_Overview.md
 .DS_Store
 Thumbs.db
 runs/
+walk/library.json
+walk/store.json
