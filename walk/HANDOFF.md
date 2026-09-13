@@ -37,6 +37,10 @@ All in `walk/`, branch `record-repair`, pushed through 06ca481.
     overlap.py        do articles reinforce or interfere
     curve.py          does asking make the next question easier
     margin.py         is the winner right when it wins clearly
+    misses.py         every question in one bin: right, close, lost tie,
+                      fewer words, shares nothing, no path, not stored
+    pairs.py          the general lesson in the graded runs: mine half
+                      the articles, test as a thesaurus on the other half
     library.json      built dictionary (11MB, gitignored, auto-builds)
     store.json        his persistent store (gitignored)
 
@@ -85,8 +89,14 @@ this is a HARD RULE):
    stored answer — always rerun. A repeat
    question gets one extra section: agrees, or the diff (then-not-now
    / now-not-then). A changed answer mints a lesson item.
-6. **Correct.** `no: <truth>` marks the last top answer wrong (kept,
-   not deleted) and stores your line tagged human.
+6. **Correct.** `no: <truth>` grades the last question through
+   `grade()`: a graded run is filed with his pick, the verdict, the
+   right item, its rank, and which question words it had and lacked.
+   The wrong pick is refused for that question (relevance -1; the
+   scorer sets refused items aside). The right item earns the run and
+   takes as its own only the specific words it lacked -- a word the
+   store never held or naming one item. A truth the store never held
+   becomes an answer sentence.
 7. **Redo.** Re-asks every stored run against today's store and
    rewrites changed answers in place. His past corrects itself.
 
@@ -210,7 +220,82 @@ things fall out of it and neither is built:
   (question kind, position, rarity over the bag) is the cheapest
   experiment available.
 
-## The four directions the owner named for next session
+## What he gets wrong, exactly (misses.py, all 86,821)
+
+    RIGHT            63.8%
+    CLOSE            13.7%   key in his 2nd or 3rd
+    LOST TIE          4.9%   right sentence ties the winner, loses the break
+    FEWER WORDS      11.7%   right sentence is in the field, shares fewer
+                             question words than the winner
+    SHARES NOTHING    4.4%   reached, but no word in common with the
+                             question or its thesaurus pull -- the real
+                             paraphrase gap ("grow up" / "born and raised")
+    NO PATH           0.04%
+    NOT STORED        1.3%   the linker lost it
+    NOTHING           0.1%
+
+The answer sentence is in the store 98.5% of the time and the walk
+reaches it when it is there. Misses are ranking. And a good part of
+the ranking misses are the linker's, not his -- four bugs the examples
+exposed, each measured alone on the 5k sample (base 59.1, NOT LANDED,
+owner's call):
+
+    accent fold      59.9   Beyonce != beyonc: the regex stops at the
+                            accent, so the question never matched the
+                            article; the one unaccented sentence got
+                            rarity 1.0 and won every tie
+    digits as terms  61.1   numbers are not terms; half the keys are
+    unique names     60.2   sentence names restart per paragraph: 352
+                            sentences silently overwritten corpus-wide
+    abbrev split     60.6   "St. John's" is three sentences
+    the four         64.2   NOT STORED -> 0
+    + crude stemmer  65.0   -s -ed -ing -ies; SHARES NOTHING 4.8 -> 2.5
+
+## The feedback path, measured (curve.py TAUGHT arm)
+
+Grade the first half of an article's questions with their keys, exam
+the second half, never graded. 10,057 exam questions:
+
+    how much the right item takes     re-asked      unseen
+    earns only (second tier)          73.3%         +14
+    takes specific words (K=1)        82.2%         +10   <- shipped
+    takes specific words (K=3)        88.0%          +4
+    takes every missing word          95.8%         -32
+
+At 20,000: re-ask 86.3%, unseen +43 (plain residue is +47). Feedback
+on a question teaches that question, hard. It does not transfer: the
+more the right item takes, the more it steals from its neighbours.
+
+## The lesson that IS general (pairs.py)
+
+When a question uses a word the article never uses and the right
+sentence was found anyway, pair the question word with the sentence's
+words. Scored by how much the two keep each other's company, the top
+of the list is morphology and spelling, mined from his own graded
+record with no dictionary: begin->began (87 articles), honor->honour,
+license->licence, convinced->persuaded, death->mortality,
+weigh->pounds, announce->announced, die->died, win->won.
+
+Tested honestly -- mined on 221 articles, applied as a thesaurus on
+the other 221, which never contributed a pair (41,622 questions):
+
+    thesaurus                       top1
+    wordnet (127k words)            62.7%
+    wordnet + best 100 mined        62.8%
+    wordnet + best 300 mined        62.9%
+    wordnet + best 1000 mined       63.3%
+    wordnet + best 3000 mined       63.4%   +310 answers
+    best 3000 mined, NO wordnet     63.2%   beats wordnet alone
+    nothing at all                  62.4%
+
+Monotone in how many pairs he keeps, still rising at 3000 (out of
+478,798 mined -- the cut is the next knob). And the line that matters:
+**3,000 pairs mined from his own graded record beat the entire
+installed 127k-word WordNet.** The dictionary is worth 0.3 points; his
+own record is worth 0.8 and climbing. Learn the thesaurus from
+feedback; the installed one was never doing much.
+
+## The four directions the owner named (09-12)
 
 His words: *"perhaps we should explore a complex domain mastery. or
 even slightly related domain mastery? we also need to figure out how
