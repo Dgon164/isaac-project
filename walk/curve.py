@@ -11,6 +11,11 @@ exam, and neither arm ever processes it:
     WARM   fill the text, run the first half through the loop
            (every ask banks residue), then ask the same exam
     CLEAN  the same, but only wins clear of the runner-up are banked
+    TAUGHT fill the text, ask the first half and GRADE every answer
+           against its key (the feedback path: verdict filed, wrong
+           pick refused, right item learns the words it lacked), then
+           ask the same exam. RE-ASK is the first half asked again
+           after grading -- did the feedback land at all.
 
 Same questions, same scoring as bed.py. The only difference is what
 the store was asked before the exam and what it kept. If residue is
@@ -23,7 +28,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "engine"))
 from core import Store
 from linker import link
-from mind import score_all, clean_win, residue, load_dictionary
+from mind import score_all, clean_win, residue, grade, load_dictionary
 
 SQUAD = os.environ.get(
     "ISAAC_SQUAD",
@@ -66,12 +71,26 @@ def warm_up(art, warmup, gated):
     return store, held
 
 
+def taught(art, warmup):
+    """fill the text, ask the warm-up questions, grade each with its
+    key. returns the store and how many were wrong before grading."""
+    store = Store()
+    for p in art["paragraphs"]:
+        link(p["context"], store, tag=art["title"])
+    verdicts = {}
+    for q, key in warmup:
+        seeds, reached, cands = score_all(store, q)
+        d = grade(store, q, cands, reached, key)
+        verdicts[d["verdict"]] = verdicts.get(d["verdict"], 0) + 1
+    return store, verdicts
+
+
 def work(art):
     qas = [(qa["question"], qa["answers"][0]["text"].lower())
            for p in art["paragraphs"] for qa in p["qas"]
            if not qa.get("is_impossible")]
     if len(qas) < 4:
-        return (0,) * 10
+        return (0,) * 15 + ({},)
     half = len(qas) // 2
     warmup, exam = qas[:half], qas[half:]
 
@@ -86,9 +105,15 @@ def work(art):
     clean, held = warm_up(art, warmup, True)
     g1, g3, gfirst = score(clean, exam)
 
+    tstore, verdicts = taught(art, warmup)
+    t1, t3, tfirst = score(tstore, exam)
+    r1, _, _ = score(tstore, warmup)          # the graded half, re-asked
+
     moved = sum(1 for a, b in zip(cfirst, wfirst) if a != b)
     gmoved = sum(1 for a, b in zip(cfirst, gfirst) if a != b)
-    return len(exam), c1, c3, w1, w3, g1, g3, moved, gmoved, held
+    tmoved = sum(1 for a, b in zip(cfirst, tfirst) if a != b)
+    return (len(exam), c1, c3, w1, w3, g1, g3, moved, gmoved, held,
+            t1, t3, tmoved, r1, len(warmup), verdicts)
 
 
 def main():
@@ -120,15 +145,28 @@ def main():
     g1, g3 = sum(r[5] for r in res), sum(r[6] for r in res)
     moved, gmoved = sum(r[7] for r in res), sum(r[8] for r in res)
     held = sum(r[9] for r in res)
+    t1, t3 = sum(r[10] for r in res), sum(r[11] for r in res)
+    tmoved, r1 = sum(r[12] for r in res), sum(r[13] for r in res)
+    warmed = sum(r[14] for r in res)
+    verdicts = {}
+    for r in res:
+        for k, v in r[15].items():
+            verdicts[k] = verdicts.get(k, 0) + v
     print("%d articles, %d exam questions, %.0fs" % (len(arts), asked, dt))
-    for nm, a, b in (("COLD", c1, c3), ("WARM", w1, w3), ("CLEAN", g1, g3)):
-        print("  %-5s top1 %5d (%5.1f%%)   top3 %5d (%5.1f%%)"
+    for nm, a, b in (("COLD", c1, c3), ("WARM", w1, w3), ("CLEAN", g1, g3),
+                     ("TAUGHT", t1, t3)):
+        print("  %-6s top1 %5d (%5.1f%%)   top3 %5d (%5.1f%%)"
               % (nm, a, 100.0 * a / asked, b, 100.0 * b / asked))
-    print("  WARM  moved the top answer on %d exam questions (%.1f%%), "
+    print("  WARM   moved the top answer on %d exam questions (%.1f%%), "
           "net top1 %+d" % (moved, 100.0 * moved / asked, w1 - c1))
-    print("  CLEAN moved the top answer on %d exam questions (%.1f%%), "
+    print("  CLEAN  moved the top answer on %d exam questions (%.1f%%), "
           "net top1 %+d" % (gmoved, 100.0 * gmoved / asked, g1 - c1))
+    print("  TAUGHT moved the top answer on %d exam questions (%.1f%%), "
+          "net top1 %+d" % (tmoved, 100.0 * tmoved / asked, t1 - c1))
     print("  CLEAN held back %d warm-up runs as too close to call" % held)
+    print("  RE-ASK the graded half: %d of %d right (%.1f%%) -- graded as: %s"
+          % (r1, warmed, 100.0 * r1 / warmed,
+             ", ".join("%s %d" % kv for kv in sorted(verdicts.items()))))
 
 
 if __name__ == "__main__":

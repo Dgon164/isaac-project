@@ -9,7 +9,10 @@ Runs leave residue: every ask becomes an item pointing at what it
 touched and pointed at by the question's words, so a later question
 reaches what an earlier one found, and its words count in the score.
 Corrections:
-    no: <the truth>     marks the last top answer wrong, stores yours
+    no: <the truth>     grades the last question: the run is filed with
+                        his pick and the verdict, the pick is refused
+                        for that question, the right item learns the
+                        question words it lacked
     why                 how the last answer was reached
     quit                saves store.json
 
@@ -180,10 +183,13 @@ def score_all(store, question):
     if not seeds:
         return [], set(), []
     reached = walk(store, seeds)
+    ctx = context(question)
     cands = []
     for n in reached:
         it = store.get(n)
         if it.kind not in ("sentence", "row") or it.truth == -1 or it.native:
+            continue
+        if store.rel(ctx, n) < 0:      # refused for this question: set aside
             continue
         r = set(it.refs) | {n}
         earned = set()
@@ -210,6 +216,102 @@ def clean_win(cands, gap=1):
     if len(cands) < 2:
         return True
     return cands[0][0][0] - cands[1][0][0] >= gap
+
+
+def context(question):
+    """the question's key words, joined: the context a refusal or a
+    graded run is filed under."""
+    return " ".join(sorted(set(terms(question))))
+
+
+def diagnose(store, question, cands, reached, truth):
+    """what happened, in his own terms. the right item is any sentence
+    or row whose content carries the truth. verdict: right / close /
+    lost tie / fewer words / shares nothing / no path / not stored."""
+    truth = truth.lower().strip()
+    own = set(terms(question))
+    rank = {n: i for i, (_, n) in enumerate(cands)}
+    right = [n for n, it in store.items.items()
+             if it.kind in ("sentence", "row") and not it.native
+             and truth in str(it.content).lower()]
+    ranked = sorted((rank[n], n) for n in right if n in rank)
+    d = {"q": question, "truth": truth, "context": context(question),
+         "picked": cands[0][1] if cands else None,
+         "right": None, "rank": None, "found": [], "missing": sorted(own)}
+    if ranked:
+        d["rank"], d["right"] = ranked[0]
+    elif right:
+        d["right"] = right[0]
+    if d["right"]:
+        r = set(store.get(d["right"]).refs)
+        d["found"] = sorted(own & r)
+        d["missing"] = sorted(own - r)
+    if d["rank"] == 0:
+        d["verdict"] = "right"
+    elif d["rank"] is not None and d["rank"] < 3:
+        d["verdict"] = "close"
+    elif d["rank"] is not None:
+        d["verdict"] = ("lost tie" if cands[d["rank"]][0][0] == cands[0][0][0]
+                        else "fewer words")
+    elif any(n in reached for n in right):
+        d["verdict"] = "shares nothing"
+    elif right:
+        d["verdict"] = "no path"
+    else:
+        d["verdict"] = "not stored"
+    return d
+
+
+def grade(store, question, cands, reached, truth):
+    """feed the outcome back. the run is filed with his pick, the
+    verdict and the details. a wrong pick is refused for this
+    question. the right item learns the question words it lacked, so
+    the next question in those words reaches it. a truth the store
+    never held becomes an answer sentence."""
+    d = diagnose(store, question, cands, reached, truth)
+    n_runs = sum(1 for i in store.items.values() if i.kind == "run")
+    name = "run_%03d" % n_runs
+    refs = [n for _, n in cands[:3]] + ([d["right"]] if d["right"] else [])
+    store.put(Item(name, "run", content=dict(d, key=sorted(set(terms(question))),
+                                             answers=[n for _, n in cands[:3]]),
+                   tag="graded", refs=refs))
+    for t in set(terms(question)):
+        it = store.get(t)
+        if it is None:
+            store.put(Item(t, "term", tag="run", refs=[name]))
+        elif name not in it.refs:
+            it.refs = tuple(it.refs) + (name,)
+    if d["verdict"] == "right":
+        return d
+    if d["picked"]:
+        store.set_rel(d["context"], d["picked"], -1)
+    if d["right"]:
+        it = store.get(d["right"])       # the right item earns the run:
+        if name not in it.refs:          # its words count, second tier
+            it.refs = tuple(it.refs) + (name,)
+        for w in d["missing"]:           # a specific word it lacked, it
+            t = store.get(w)             # takes as its own: a paraphrase.
+            if t is not None and len(t.refs) > 1:
+                continue                 # a common word is not a lesson
+            if w not in it.refs:
+                it.refs = tuple(it.refs) + (w,)
+            if t is None:
+                store.put(Item(w, "term", tag="graded", refs=[d["right"]]))
+            elif d["right"] not in t.refs:
+                t.refs = tuple(t.refs) + (d["right"],)
+    else:
+        ts = terms(truth) + [w for w in terms(question) if w not in terms(truth)]
+        an = "a%03d_%s" % (sum(1 for i in store.items.values()
+                               if i.tag == "answer"), "_".join(ts[:3]))
+        store.put(Item(an, "sentence", content=truth, tag="answer", refs=ts))
+        for w in ts:
+            t = store.get(w)
+            if t is None:
+                store.put(Item(w, "term", tag="answer", refs=[an]))
+            elif an not in t.refs:
+                t.refs = tuple(t.refs) + (an,)
+        d["right"] = an
+    return d
 
 
 def residue(store, question, seeds, answers):
@@ -375,22 +477,20 @@ def show(store, answers, seeds, reached, qset):
 
 
 # ---------------------------------------------------------------- corrections
-def correct(store, text, last_answers):
-    if last_answers:
-        n, it = last_answers[0]
-        it.truth = -1
-        print("  marked wrong (kept): %s" % n)
-    ts = terms(text)
-    name = "h%03d_%s" % (sum(1 for i in store.items.values()
-                             if i.tag == "human"), "_".join(ts[:3]))
-    store.put(Item(name, "sentence", content=text, tag="human", refs=ts))
-    for t in ts:
-        it = store.get(t)
-        if it is None:
-            store.put(Item(t, "term", tag="human", refs=[name]))
-        elif name not in it.refs:
-            it.refs = tuple(it.refs) + (name,)
-    print("  stored as %s" % name)
+def correct(store, text, last):
+    """no: <truth> -- grade the last question against what you said."""
+    if not last:
+        print("  nothing to correct yet")
+        return
+    q, cands, reached = last
+    d = grade(store, q, cands, reached, text)
+    print("  %s -- picked %s, right is %s" % (d["verdict"], d["picked"],
+                                              d["right"]))
+    if d["missing"] and d["verdict"] != "not stored":
+        print("  learned: %s now answers to %s" % (d["right"],
+                                                  " ".join(d["missing"])))
+    if d["picked"] and d["verdict"] != "right":
+        print("  refused for this question: %s" % d["picked"])
 
 
 # ---------------------------------------------------------------- main
@@ -408,7 +508,7 @@ def main():
     for path in args:
         fill(path, store)
 
-    last = []
+    last = None                 # (question, scored field, reached)
     def handle(q):
         nonlocal last
         q = q.strip()
@@ -418,8 +518,8 @@ def main():
             correct(store, q[3:].strip(), last)
             return
         if q == "why":
-            for n, it in last:
-                print("  %s <- refs %s" % (n, list(it.refs)[:8]))
+            for _, n in (last[1][:3] if last else []):
+                print("  %s <- refs %s" % (n, list(store.get(n).refs)[:8]))
             return
         if q == "redo":   # retroactive: every past answer re-earned today
             runs = [it for it in list(store.items.values())
@@ -446,7 +546,7 @@ def main():
             compare_runs(store, prev, answers, q)
         if seeds and clean_win(cands):  # a tied field is not a lesson
             residue(store, q, seeds, answers)
-        last = answers
+        last = (q, cands, reached)
 
     if oneshot:
         handle(oneshot)
