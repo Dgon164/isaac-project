@@ -116,8 +116,42 @@ score.* The first-5000 sample read 52.5 for exactly this reason.
 
 Interference beats reinforcement **170:1** on this corpus. SQuAD's 440
 articles are deliberately eclectic, so neighbors share vocabulary but
-not facts. A full-merge (all 440 in one store) run was launched and is
-the open measurement.
+not facts.
+
+**All 440 articles in ONE store (pool=all):** 47.9% top1, 58.8% top3.
+
+    store size   top1    reinforce   interfere   time (86,821 q)
+    1 article    59.9%      --          --         22 s
+    10           57.7%     0.05%       8.1%       166 s
+    440          47.9%     0.7%       33.3%      8628 s  (2.4 h)
+
+All three rows were measured BEFORE the rarity tie-break, so the curve
+is internally consistent but its top row is 59.9, not 63.8. Do not
+compare 47.9 against a post-tie-break number; rerun the pool sweep if
+the absolute values matter. (Rarity should help most exactly where
+this hurts, so the curve may well flatten — untested, one command.)
+
+Two things fall out of that table and both matter more than the score:
+
+**(a) THE STORE-SIZE INDIFFERENCE PROPERTY DOES NOT SURVIVE PROSE.**
+`docs/ARCHITECTURE.md` says adding 50 unrelated items changed nothing
+"because nothing on the path pointed at them" — true, and `walk_court`
+still proves it on the rocket tables, where the noise was genuinely
+disconnected. Real prose is not disconnected: every article is wired to
+every other through ordinary shared words, so the walk reaches
+essentially the whole store on every question. Cost went 22 s -> 8628 s
+(392x) for 440x the store — i.e. roughly LINEAR in store size per
+question, not indifferent. Any plan that ends with "put all of
+Wikipedia in one store and walk it" has to solve this first. The walk
+needs something that keeps it local (a relevance gate that actually
+cuts, holonic packaging so a context is walked as a unit, or refs that
+distinguish "names the same word" from "is about the same thing").
+
+**(b) Reinforcement is real, small, and GROWS with store size.**
+0.05% -> 0.7% is 14x, and the interference:reinforcement ratio improves
+170:1 -> 48:1 as the store grows. So cross-article help exists and is
+not noise; it is simply swamped by vocabulary collisions on a corpus
+built to have none. That is precisely the case domain mastery tests.
 
 **The curriculum experiment (course.py, 2000 questions):**
 
@@ -186,7 +220,8 @@ vocabulary to make it easier for it to use."*
 
 **1. Domain mastery (complex, or slightly-related).** The overlap
 numbers make this the sharpest experiment available: on an eclectic
-corpus neighbors interfere 170:1. The prediction worth testing is that
+corpus neighbors interfere 170:1 at ten articles and 48:1 at 440, while
+reinforcement grows 14x. The prediction worth testing is that
 in a *coherent* domain (all rocketry, all chemistry, all one Wikipedia
 category) pooled articles should REINFORCE — accuracy going up with
 store size instead of down. If that flips, domain mastery is real and
