@@ -1,8 +1,10 @@
-# The walk — handoff, 2026-09-12
+# The walk — handoff, 2026-09-12, updated 2026-09-13
 
 Read `docs/ARCHITECTURE.md` first (the owner's spec). This file is
-what got built against it today, what the numbers actually say, and
-where the next session should start.
+what got built against it, what the numbers actually say, and where
+the next session should start. The 09-13 session reproduced every
+09-12 number first, then fixed the residue and found the tie-break;
+both are in the numbers below.
 
 ## The mode (read this before building anything)
 
@@ -33,6 +35,8 @@ All in `walk/`, branch `record-repair`, pushed through 06ca481.
     bed.py            SQuAD curriculum bench, -jobs N
     course.py         five-arm curriculum experiment
     overlap.py        do articles reinforce or interfere
+    curve.py          does asking make the next question easier
+    margin.py         is the winner right when it wins clearly
     library.json      built dictionary (11MB, gitignored, auto-builds)
     store.json        his persistent store (gitignored)
 
@@ -42,6 +46,12 @@ Run it:
     python walk/bed.py 999999 -jobs 12
     python walk/course.py 2000
     python walk/overlap.py 10 -jobs 12
+    python walk/curve.py 20000
+    python walk/margin.py 5000
+
+The two data paths read ISAAC_SQUAD and ISAAC_DICT when those are set,
+and fall back to the Windows paths below, so the same files run on
+another machine without edits.
 
 Data already on disk (nothing to download — owner is bandwidth limited,
 this is a HARD RULE):
@@ -59,15 +69,20 @@ this is a HARD RULE):
 2. **Ask.** Bag = the question's words + their thesaurus pull. Walk
    from every bag word the store knows, depth one per step, nothing
    pulled twice. Anything reached sharing nothing with the bag is a
-   tangent, not an answer. Score = shared words, own words before
-   dictionary words. Top three.
+   tangent, not an answer. Score = how many of the question's own
+   words are shared, then **how rare those shared words are** (1 over
+   how many items name the word), then bag words. Top three.
 3. **Gate.** Conditions carry `value, against, context`. Numbers
    compare (`2900 > melting_point_k 533`), lists attack (`hcl attacks
    cu`). The answer carries the comparison, never a verdict word.
 4. **Field.** One run per context-holon, never mixed: all of apcp's
    boundaries together, all of sugar's together. Survivors ranked by
    cost then density.
-5. **Loop.** Never serve a stored answer — always rerun. A repeat
+5. **Loop.** A run is banked only if the winner was clear of the
+   runner-up (`clean_win`) -- a tied field is a guess, and banking a
+   guess teaches the store the guess. What is banked, the question's
+   words point at, so a later question crosses it. Never serve a
+   stored answer — always rerun. A repeat
    question gets one extra section: agrees, or the diff (then-not-now
    / now-not-then). A changed answer mints a lesson item.
 6. **Correct.** `no: <truth>` marks the last top answer wrong (kept,
@@ -79,7 +94,8 @@ this is a HARD RULE):
 
 **Full SQuAD, 86,821 questions, each article alone:**
 
-    59.9% top1   73.2% top3   22 seconds at -jobs 12   (3859 q/s)
+    63.8% top1   77.5% top3     (was 59.9 / 73.2 before the
+                                 rarity tie-break, 2026-09-12)
 
 No model, no training, one bag of words. 12 workers = 6.7x over serial,
 answers bit-identical at every width (asks are pure reads).
@@ -109,18 +125,53 @@ the open measurement.
 
 Shuffling question order changed nothing (FINAL 96.0 -> 95.5).
 
-## The one thing that is known broken
+## Residue: fixed, and worth about half a point
 
-**Run residue is inert for retrieval.** POST equals TEST to the
-question. Runs go into the store and add links, but they carry no
-*words*, and answers are scored by word overlap — so the bridges a run
-builds are invisible to ranking. Lessons and given keys DO carry words
-(that is why FINAL jumps to 96, and why `redo` works).
+It was inert because runs carried no words. Now the question's words
+point at the run and the run's words count in the score, so a run
+leaves a bridge. Measured the honest way -- `curve.py` cuts each
+article's questions in half, runs the first half through the loop, and
+examines the second half, which no arm ever processes:
 
-So "he learns as he processes" is **not true yet**. Making every run
-leave residue the next answer can stand on is the gate on every
-learning-curve claim. Fix this first or every "accuracy rises with
-hours run" result will be zero.
+    10,057 exam questions      top1        vs cold
+    COLD   text only           65.7%         --
+    WARM   every run banked    66.2%        +50 answers
+    CLEAN  clean wins only     66.0%        +31 answers  (45% fewer
+                                                          runs banked)
+
+POST now beats TEST on course.py for the first time (58.0 vs 57.5).
+So "he learns as he processes" is **true and small**: half a point,
+not a curve. Banking every run and banking only clean wins come out
+the same within noise, so the gate costs nothing and keeps the store
+honest.
+
+## Where the loss actually lives (margin.py, and the ladder it found)
+
+Asking *when he is right* turned out to be the highest-value question
+of the session. The gap between the winner and the runner-up predicts
+correctness sharply:
+
+    own +3   9.9% of questions   94.6% right
+    own +2  14.5%                92.1%
+    own +1  33.6%                67.7%
+    tied    37.6%                20.1%      <- before the tie-break
+
+**A tied field was 37.6% of every question and was being decided by
+name sort order.** Breaking it by rarity moved 21.5% of questions out
+of "tied" into 41.3%-right, and moved the whole bench +3.9 points.
+After the tie-break the ladder reads:
+
+    own +3 94.6 | own +2 92.1 | own +1 67.7 | tie-break 41.3 | tied 21.8
+
+That is a calibrated confidence signal, free, already computed. Two
+things fall out of it and neither is built:
+
+- **Honest refusal.** Answer only when the field is not tied: covers
+  80.1% of questions at 68.4% right. Pick the bucket, get the rate.
+- **19.8% of questions are still fully tied at 21.8% right.** Every
+  point left on this corpus is in that bucket. A second tie-break
+  (question kind, position, rarity over the bag) is the cheapest
+  experiment available.
 
 ## The four directions the owner named for next session
 
@@ -154,13 +205,29 @@ more than one hop (fame -> popular -> well-known), which is the same
 walk already written, just run over the library instead of the store.
 Cheap to try, and the bench grades it in 22 seconds.
 
-**4. Vocabulary.** The dominant miss is the paraphrase gap: question
+**4. Vocabulary.** Partly answered this session: rarity of the shared
+word is worth +3.9 points, and the control (shortest sentence wins)
+only +1.7, so it is discrimination doing the work rather than length.
+The dominant miss is still the paraphrase gap: question
 says "grow up," the sentence says "born and raised." The library
 widened today (definitions + examples + antonyms, 134,894 words) for
 +28 answers — small. Bigger levers untried: WordNet hypernyms (is-a
 chains), the 26 GB corpus as its own co-occurrence thesaurus, and
 letting the question's *kind* word (when/where/who) select what kind
 of answer counts.
+
+## Where this session ran
+
+A cloud container, 1 CPU, 15 GB, Linux -- not the owner's machine. The
+corpora were fetched into the container (SQuAD v2 train from the
+SQuAD-explorer repo; WordNet 3.0 from nltk_data, rebuilt into the
+`wordnet_full.json` schema mind.py expects: word / sense / def /
+examples / antonyms). Nothing was downloaded onto the owner's
+connection and no data is committed. The rebuilt library is slightly
+narrower than the owner's (127,359 linked words vs 134,894) and
+reproduces every prior number to the decimal: full bench 59.9 / 73.2,
+first-5000 52.5, course PRE 0.0 / TEST 51.5 / POST 51.5 / FINAL 96.0.
+`-jobs` is untested above 1 here; the owner's 12-worker numbers stand.
 
 ## Standing rules that bit this session
 
