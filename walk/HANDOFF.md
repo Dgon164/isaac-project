@@ -90,7 +90,8 @@ this is a HARD RULE):
 7. **Redo.** Re-asks every stored run against today's store and
    rewrites changed answers in place. His past corrects itself.
 
-## The numbers (all on this machine, today)
+## The numbers (09-12 numbers unless marked -- see the last section
+## for the machine each ran on)
 
 **Full SQuAD, 86,821 questions, each article alone:**
 
