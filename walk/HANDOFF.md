@@ -1,6 +1,73 @@
-# The walk — handoff, 2026-09-12, updated 2026-09-13 (twice)
+# The walk — handoff, 2026-09-12, updated 2026-09-13 (three times)
+
+> ## 2026-09-13, on the owner's PC (TurtlePC, 32 threads) -- READ THIS BOX FIRST
+> **There is no C version.** Searched every branch of this repo, Documents,
+> both Downloads folders and isaac-full.zip: no .c or .go source anywhere,
+> and no C compiler installed (Go only). The box below was wrong about
+> that; do not hunt again. **The compiled option is `walk/go/bench.go`**:
+> bed.py ported line for line -- same store, same walk, same score --
+> every one of the 86,821 top answers identical to python (top3 count
+> one off; a 2nd/3rd place on one question).
+>
+>     cd walk/go && go build -o bench.exe .        (6s, once)
+>     walk/go/bench.exe 999999 -jobs 24            all of squad in 0.7s
+>
+>     full squad, 86,821 q      wall      q/s
+>     python, 1 core           229.5s      378
+>     python, -jobs 24          16.7s     5192
+>     go, 1 core                 9.0s     9676    25x python
+>     go, -jobs 8                1.3s    64867
+>     go, -jobs 24               0.7s   133227    24x python's best
+>     go, -jobs 32               0.6s   150073
+>
+> Two port lessons that would bite any future port: (1) python 3.12's
+> sum() is compensated (Neumaier); naive adding differs in the last bit
+> and flips ties (55 of 5000 answers moved). (2) rarity must be summed
+> in ONE fixed order for every sentence. (3) python lowercases the
+> Turkish dotted I with the full mapping, Go with the simple one. All
+> three are handled in bench.go.
+>
+> **The unfinished court ran** (tools.py court, 221 held-out articles,
+> 41,622 q, ~10s an arm at 24 jobs). Kinds as committed HURT:
+>
+>     wordnet 62.7 | his thesaurus 63.2 | nothing 62.4
+>     his reading dictionary alone 62.8
+>     thes+kinds 60.5 | kinds alone 60.1 | all three 60.4
+>
+> and because load_dictionary() loads tools.json by default, the full
+> bench at 3aea2c5 had silently dropped to 61.9 (committed unmeasured).
+> **Fix landed: kinds is the SECOND tie-break, after rarity** (score
+> tuple own, rare, fit, bag -- one line in score_all):
+>
+>     his thesaurus + his kinds  63.5   <- best arm
+>     all three of his           63.4
+>     his kinds alone            63.1   (beats wordnet now)
+>     his thesaurus + reading    63.1   (reading adds nothing on top of
+>                                        his thesaurus: same signal)
+>
+> Everything re-measured on the new score, all 86,821. The full bench
+> includes the 221 articles his tools were mined from, so the clean
+> number is the court's 63.5, not the 64.7:
+>
+>     bench      64.7 top1 / 78.1 top3        (63.8 / 77.5 before)
+>     misses     RIGHT 64.7  CLOSE 13.4  LOST TIE 4.5  FEWER WORDS 12.5
+>                SHARES NOTHING 3.5  NOT STORED 1.3  NOTHING 0.1
+>                tie-break vs the old order: fixed 5603, broke 2700
+>     margin     own+3 12.7% @95.0 | own+2 15.6% @91.9 | own+1 33.6% @72.2
+>                broken by tie-break 29.7% @38.6 | tied 7.4% @23.8
+>                (fully tied was 19.8%: kinds broke most of it)
+>                answer only on a clear winner: covers 92.5% at 68.0%
+>     curve      COLD 66.7  WARM 67.2 (+51)  CLEAN 67.1 (+37)  TAUGHT 67.1
+>                (10,057 held-out exam q; residue still true and small)
+>     overlap    pool=10: 63.2 (was 57.7); stole 6437 (7.4%) vs gave the
+>                right answer 45 (0.1%) = 143:1 (was 170:1); gap to a
+>                single article 1.5 pts (was 2.2)
+>
+> Not rerun: the 440-in-one-store run (2.4h in python). The Go bench
+> fills one store per article; pooling needs overlap.py ported too.
 
 > ## ⛔ FOR THE NEXT SESSION (local, on the owner's machine)
+> *(09-13: done. The C version does not exist; the court ran. See the box above.)*
 > This box ran on ONE 1 GHz core in a cloud container -- nothing that
 > follows is your machine. The owner has a C version and the corpora
 > on his own disk; NEITHER is in any repo, and this session never saw

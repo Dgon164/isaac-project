@@ -189,7 +189,8 @@ def main():
             ("nothing", "none", False),
             ("his kinds alone", "none", True),
             ("his dictionary from reading, alone", "none", False, True),
-            ("all three of his", "his", True, True)]
+            ("all three of his", "his", True, True),
+            ("his thesaurus + his reading", "his", False, True)]
     jobs = int(sys.argv[sys.argv.index("-jobs") + 1]) \
         if "-jobs" in sys.argv else 1
     print("the other %d articles, never learned from:" % len(exam))

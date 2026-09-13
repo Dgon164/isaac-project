@@ -281,7 +281,7 @@ def score_all(store, question):
             if row and it.kind == "sentence":   # the question asks for
                 f = feats(it.content)
                 fit = round(sum(w for k, w in row.items() if f.get(k)), 2)
-            cands.append(((len(hit), fit, rare, len(bag & (r | earned))), n))
+            cands.append(((len(hit), rare, fit, len(bag & (r | earned))), n))
     cands.sort(reverse=True)
     return seeds, reached, cands
 

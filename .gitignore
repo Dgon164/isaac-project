@@ -29,3 +29,4 @@ Thumbs.db
 runs/
 walk/library.json
 walk/store.json
+walk/go/bench.exe
