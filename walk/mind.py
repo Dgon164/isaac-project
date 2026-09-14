@@ -523,9 +523,13 @@ def sense_end(store, question, seeds, reached, cands):
     known = [t for t in own if store.get(t)]
     gap = (cands[0][0][0] - cands[1][0][0]) if len(cands) > 1 else \
         (cands[0][0][0] if cands else 0)
-    word = "nothing" if not cands else \
-        next(w for g, w in SURE if gap >= g)
     top = cands[0][1] if cands else None
+    if not cands:
+        word = "nothing"
+    elif store.rel(context(question), top) > 0:
+        word = "sure"                        # confirmed right for this question
+    else:
+        word = next((w for g, w in SURE if gap >= g), "guess")
     it = store.get(top) if top else None
     support = len(it.refs) if it is not None else 0
     told = it.tag if it is not None else "-"
@@ -641,6 +645,9 @@ def score_all(store, question):
             cands.append((score_key(len(hit), rare, fit,
                                     len(bag & (r | earned))), n))
     cands.sort(reverse=True)
+    confirmed = [c for c in cands if store.rel(ctx, c[1]) > 0]
+    if confirmed:                          # he was told this one is right:
+        cands = confirmed + [c for c in cands if store.rel(ctx, c[1]) <= 0]
     if TOOLSET["venn"]:                    # the survivors of the venn first
         C, _ = narrow(store, question, reached)
         cands = [c for c in cands if c[1] in C] + \
@@ -732,10 +739,12 @@ def grade(store, question, cands, reached, truth):
         elif name not in it.refs:
             it.refs = tuple(it.refs) + (name,)
     if d["verdict"] == "right":
+        store.set_rel(d["context"], d["picked"], 1)     # confirmed: it stands
         return d
     if d["picked"]:
         store.set_rel(d["context"], d["picked"], -1)
     if d["right"]:
+        store.set_rel(d["context"], d["right"], 1)   # told right: it stands
         it = store.get(d["right"])       # the right item earns the run:
         if name not in it.refs:          # its words count, second tier
             it.refs = tuple(it.refs) + (name,)
