@@ -1,4 +1,49 @@
-# The walk — handoff, 2026-09-12, updated 2026-09-13 (six times)
+# The walk — handoff, 2026-09-12, updated 2026-09-14 (SAVEPOINT)
+
+> ## SAVEPOINT walk-2026-09-14 (tag) -- owner: "call that good for now. suitable for the next step."
+> Everything below this box is history of how it got here; this is the state.
+>
+> **What he can do at this savepoint:**
+> - answer from a store by the walk; pick his own tools per kind of question from his
+>   own record (tools.json selector), with the reason and the milliseconds;
+> - set his own settings (tools.py tune: predict, one look on held-out articles, keep
+>   what is more right); his choices: min_record 100, right-then-quick, coarse record first;
+> - take a sense reading on every answer (sure/likely/maybe/guess/nothing, load, cost,
+>   support, agreement) and keep it as his own item; "senses" reads it back; a
+>   correction stamps the verdict, so calibration is his record;
+> - on an objection (his critic, lens.json) or a guess, LOOK before deciding: failed
+>   words, translations, satisfied constraints, agreement under every setting, or
+>   "don't know" -- measured a wash on rank (22% -> 22%) but the refusals are 85% right;
+> - learn from his own graded record: thesaurus (3000 pairs), kinds table, attention
+>   (selects/trips by his own compare), lenses of random conjunctions over words-only
+>   atoms (+105 on held-out), all readable;
+> - read the Python Tutorial and run its 643 examples against the book (school.py); learn
+>   the parts of a thing and how to locate them (parts.py: tuples, defs); make things and
+>   read back what he made (create.py: made right 11/12, knew 11/12);
+> - come back to what he got wrong (loops.py): wrongs filed, rights KEPT (rel +1),
+>   told-right kept -- 62.5% -> 99.6% on the second pass, 99.7% by the eighth; the 26
+>   survivors are named (context collision 15, shares-nothing 10, no path 1).
+>
+> **Numbers that stand (held-out half, 41,622 q):** best fixed toolset 63.5; his own
+> choice 63.5 (26433, beats the best fixed by 8); lens chain 63.8; full squad each
+> article alone 64.7 / 78.1; Go bench 0.4 s.
+>
+> **Open, in the order they came up:** structural atoms (three runs say word atoms are
+> exhausted; definition questions need "where the word sits"); composition (join two
+> templates; he has no one-param no-return function); critic into the sense line;
+> context key for confirmations (exact question vs sorted words); the lens as a
+> toolset switch (doubles the court for +0.25).
+>
+> **Local files not in the repo (backed up to Documents\isaac-savepoints\walk-2026-09-14):**
+> attention.json (8 MB), lens.json, library.json (11 MB), python_store.json, store.json.
+> tools.json IS committed (selector, settings, decisions, thesaurus, kinds).
+>
+> **Standing rules minted this stretch (all in memory):** he decides the mechanisms;
+> no slime mold (prediction, one look, conclusion); wrong = a deeper look, not a
+> blind change; the Bash tool halves backslashes in heredocs -- write patch files.
+>
+> **Next, owner's direction: the GOFAI side.**
+
 
 > ## 2026-09-13, on the owner's PC (TurtlePC, 32 threads) -- READ THIS BOX FIRST
 > **There is no C version.** Searched every branch of this repo, Documents,
