@@ -345,9 +345,11 @@ def main():
     import csv
     with open(os.path.join(HERE, "self.csv"), "w", encoding="utf-8", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["kind", "name", "content", "origin", "support", "truth", "verdict", "reason"])
-        for r in R:
-            w.writerow([r["kind"], r["name"], r["content"], r["origin"], r["support"], r["truth"],
+        # first column is the row's name in his store, so it must be unique
+        w.writerow(["record", "kind", "name", "content", "origin", "support", "truth", "verdict", "reason"])
+        for i, r in enumerate(R):
+            w.writerow(["%s %d" % (r["kind"], i), r["kind"], r["name"], r["content"], r["origin"],
+                        r["support"], r["truth"],
                         {1: "holds", -1: "refuted", 0: "untested"}[r["truth"]], r["reason"]])
     print("\nTHE DATABASE OF HIMSELF: %d records -> walk/self.csv, walk/self.json  (%.0fs in all)\n"
           % (len(R), time.perf_counter() - t0))

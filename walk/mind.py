@@ -435,6 +435,10 @@ def link_table(path, store):
         content = dict(zip(hdr[1:], (c.strip() for c in r[1:])))
         refs = [c.strip().lower().replace(" ", "_") for c in r[1:]
                 if c.strip() and not re.fullmatch(r"-?\d+\.?\d*", c.strip())]
+        for c in list(refs):                  # a row is also reached, and
+            for w in terms(c.replace("_", " ")):   # scored, by the words of
+                if w != c and w not in refs:       # its cells
+                    refs.append(w)
         old = store.get(name)
         if old is not None:  # same name seen in prose: the row absorbs its links
             refs += [r2 for r2 in old.refs if r2 not in refs]
@@ -447,6 +451,16 @@ def link_table(path, store):
                 store.put(Item(t, "term", tag=path, refs=[name]))
             elif name not in it.refs and t != name:
                 it.refs = tuple(it.refs) + (name,)
+            # a cell of several words ("kinds row") is one value item; its
+            # words must reach it, or a question in words never finds the row
+            for w in terms(t.replace("_", " ")):
+                if w == t:
+                    continue
+                wt = store.get(w)
+                if wt is None:
+                    store.put(Item(w, "term", tag=path, refs=[t]))
+                elif t not in wt.refs:
+                    wt.refs = tuple(wt.refs) + (t,)
         made += 1
     old = store.get(tname)
     if old is not None:
