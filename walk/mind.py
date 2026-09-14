@@ -18,7 +18,7 @@ Corrections:
 
 State is one file, walk/store.json. Delete it for a blank mind.
 """
-import json, os, re, sys
+import json, os, re, sys, time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "engine"))
 from core import Item, Store
@@ -243,13 +243,18 @@ def select(store, question, max_level=None):
 
 
 def ask_selected(store, question, max_level=None):
-    """he picks the tools, then answers. the why comes back with it."""
+    """he picks the tools, then answers. the why and the sense come back
+    with it."""
+    sense_start(store, question)
     name, why = select(store, question, max_level)
     use(name)
     seeds, reached, cands = score_all(store, question)
     if reached and not TOOLSET["venn"]:
         narrow(store, question, reached)   # for the report only
-    return seeds, reached, cands, why + "\n  " + venn_line()
+    sense_end(store, question, seeds, reached, cands)
+    SENSE["tools"] = name
+    return seeds, reached, cands, why + "\n  " + venn_line() + \
+        "\n  " + sense_line()
 
 
 def kind(question):
@@ -448,14 +453,103 @@ def walk(store, seeds):
     i = 0
     while i < len(open_):
         it = store.get(open_[i])
+        SENSE["pulls"] = SENSE.get("pulls", 0) + 1
         i += 1
         if it is None:
             continue
         for r in it.refs:
+            SENSE["lookups"] = SENSE.get("lookups", 0) + 1
             if r not in seen and store.get(r):
                 seen.add(r)
                 open_.append(r)
     return seen
+
+
+# ---------------------------------------------------------------- his senses
+# what he can tell about his own answer, before anyone grades it. one
+# native item per ask: it never leaves him, and the selector, the
+# telemetry and his corrections all read the same line.
+SENSE = {"pulls": 0, "lookups": 0, "writes": 0, "t0": 0.0}
+CALIB = {}        # what he said -> [right, said]. does his "sure" mean sure?
+SURE = [(3, "sure"), (2, "likely"), (1, "maybe"), (0, "guess")]
+
+
+def sense_start(store, question):
+    SENSE.clear()
+    SENSE.update(pulls=0, lookups=0, writes=0, t0=time.time(), q=question,
+                 store=len(store.items))
+
+
+def sense_end(store, question, seeds, reached, cands):
+    """the reading. margin says how sure he is (measured: own+3 is right
+    95% of the time, tied 22%); the rest is what the work cost."""
+    own = set(terms(question))
+    known = [t for t in own if store.get(t)]
+    gap = (cands[0][0][0] - cands[1][0][0]) if len(cands) > 1 else \
+        (cands[0][0][0] if cands else 0)
+    word = "nothing" if not cands else \
+        next(w for g, w in SURE if gap >= g)
+    top = cands[0][1] if cands else None
+    it = store.get(top) if top else None
+    support = len(it.refs) if it is not None else 0
+    told = it.tag if it is not None else "-"
+    prev = find_prev(store, question)
+    same = "-" if not prev else ("agrees" if prev[1][:1] == [top] else "differs")
+    SENSE.update(sure=word, gap=gap, field=len(cands), reached=len(reached),
+                 seeds=len(seeds), known=len(known), unknown=len(own) - len(known),
+                 support=support, source=told, again=same,
+                 secs=round(time.time() - SENSE["t0"], 4), answer=top)
+    return SENSE
+
+
+def sense_line(sense=None):
+    d = SENSE if sense is None else sense
+    if not d:
+        return ""
+    return ("sense: %s (gap %s of %d in the field) | %d words known, %d not | "
+            "support %d from %s | %.3fs, %d pulls, %d lookups, %d writes | "
+            "store %d | %s"
+            % (d.get("sure"), d.get("gap"), d.get("field"), d.get("known"),
+               d.get("unknown"), d.get("support"), d.get("source"),
+               d.get("secs", 0), d.get("pulls", 0), d.get("lookups", 0),
+               d.get("writes", 0), d.get("store", 0), d.get("again")))
+
+
+def senses(store):
+    """his own telemetry, read back out of his own store: how sure he was
+    and whether he was right, and what the asks cost."""
+    rows = [i.content for i in store.items.values() if i.kind == "sense"]
+    if not rows:
+        print("  no readings yet")
+        return
+    print("  %d asks kept. graded: %d" %
+          (len(rows), sum(1 for r in rows if "verdict" in r)))
+    print("  %-8s %6s %6s %8s" % ("he said", "asks", "graded", "right"))
+    for word in [w for _, w in SURE] + ["nothing"]:
+        sel = [r for r in rows if r.get("sure") == word]
+        graded = [r for r in sel if "verdict" in r]
+        if sel:
+            print("  %-8s %6d %6d %8s" % (
+                word, len(sel), len(graded),
+                "%d" % sum(1 for r in graded if r["verdict"] == "right")
+                if graded else "-"))
+    print("  cost per ask: %.4fs, %d pulls, %d lookups, %d writes (averages)"
+          % (sum(r.get("secs", 0) for r in rows) / len(rows),
+             sum(r.get("pulls", 0) for r in rows) / len(rows),
+             sum(r.get("lookups", 0) for r in rows) / len(rows),
+             sum(r.get("writes", 0) for r in rows) / len(rows)))
+    tried = [r for r in rows if r.get("tries", 1) > 1]
+    if tried:
+        print("  asks that took more than one try: %d" % len(tried))
+
+
+def sense_keep(store, sense):
+    """the reading becomes an item of his, native: his own record of how
+    that ask went, there to be read back."""
+    n = sum(1 for i in store.items.values() if i.kind == "sense")
+    store.put(Item("sense_%04d" % n, "sense", content=dict(sense),
+                   native=True, tag="sense"))
+    return "sense_%04d" % n
 
 
 def ask(store, question):
@@ -594,6 +688,7 @@ def grade(store, question, cands, reached, truth):
     store.put(Item(name, "run", content=dict(d, key=sorted(set(terms(question))),
                                              answers=[n for _, n in cands[:3]]),
                    tag="graded", refs=refs))
+    SENSE["writes"] = SENSE.get("writes", 0) + 1
     for t in set(terms(question)):
         it = store.get(t)
         if it is None:
@@ -642,6 +737,7 @@ def residue(store, question, seeds, answers):
                "answers": [a for a, _ in answers]}
     store.put(Item(name, "run", content=content, tag="run",
                    refs=list(seeds) + [a for a, _ in answers]))
+    SENSE["writes"] = SENSE.get("writes", 0) + 1
     for a, _ in answers:
         it = store.get(a)
         if name not in it.refs:
@@ -802,7 +898,23 @@ def correct(store, text, last):
         print("  nothing to correct yet")
         return
     q, cands, reached = last
+    was = dict(SENSE)
     d = grade(store, q, cands, reached, text)
+    if was.get("sure"):
+        right = d["verdict"] == "right"
+        last = [i for i in store.items.values() if i.kind == "sense"]
+        if last:
+            last[-1].content["verdict"] = "right" if right else d["verdict"]
+            last[-1].content["tries"] = last[-1].content.get("tries", 1) + 1
+            last[-1].content["writes"] = SENSE.get("writes", 0)
+        r, n = 0, 0
+        for i in store.items.values():
+            if i.kind == "sense" and i.content.get("sure") == was["sure"] \
+                    and "verdict" in i.content:
+                r += i.content["verdict"] == "right"
+                n += 1
+        print("  he said %s; %s. when he says %s he is right %d of %d"
+              % (was["sure"], "right" if right else "not", was["sure"], r, n))
     print("  %s -- picked %s, right is %s" % (d["verdict"], d["picked"],
                                               d["right"]))
     if d.get("compared"):
@@ -848,6 +960,9 @@ def main():
         if q.startswith("no:"):
             correct(store, q[3:].strip(), last)
             return
+        if q == "senses":
+            senses(store)
+            return
         if q == "why":
             for _, n in (last[1][:3] if last else []):
                 print("  %s <- refs %s" % (n, list(store.get(n).refs)[:8]))
@@ -878,6 +993,7 @@ def main():
             compare_runs(store, prev, answers, q)
         if seeds and clean_win(cands):  # a tied field is not a lesson
             residue(store, q, seeds, answers)
+        sense_keep(store, SENSE)        # after the writes, so it counts them
         last = (q, cands, reached)
 
     if oneshot:
