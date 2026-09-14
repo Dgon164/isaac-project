@@ -35,7 +35,8 @@
 > toolset switch (doubles the court for +0.25).
 >
 > **Local files not in the repo (backed up to Documents\isaac-savepoints\walk-2026-09-14):**
-> attention.json (8 MB), lens.json, library.json (11 MB), python_store.json, store.json.
+> attention.json (small now: the record is only grown live by corrections since the venn
+> replaced the attention switches), lens.json, library.json (11 MB), python_store.json, store.json.
 > tools.json IS committed (selector, settings, decisions, thesaurus, kinds).
 >
 > **Standing rules minted this stretch (all in memory):** he decides the mechanisms;
