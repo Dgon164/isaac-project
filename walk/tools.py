@@ -32,8 +32,8 @@ from core import Store
 from linker import link, terms
 import mind
 from mind import (score_all, diagnose, kind, feats, FEATS, read_dictionary,
-                  TOOLSETS, use, select, context_at, load_tools, assess,
-                  summary)
+                  TOOLSETS, use, select, context_at, load_tools, narrow,
+                  venn_line)
 
 SQUAD = os.environ.get(
     "ISAAC_SQUAD",
@@ -79,10 +79,6 @@ def learn_one(art):
             continue
         k = kind(q)
         n_k[k] = n_k.get(k, 0) + 1
-        other = d["picked"] if d["verdict"] != "right" else \
-            (cands[1][1] if len(cands) > 1 else None)
-        if other:                          # his comparison, every question
-            assess(store, q, d["right"], other, att)
         rf = feats(store.get(d["right"]).content)
         for f, v in rf.items():
             right_f[(k, f)] = right_f.get((k, f), 0) + int(v)
@@ -275,28 +271,18 @@ def main():
         print("  %-9s" % "" + "".join("%9s" % f for f in FEATS))
         for k, row in sorted(kinds.items()):
             print("  %-9s" % k + "".join("%9.2f" % row[f] for f in FEATS))
-        lv1 = att.get("1", {})
-        ruled = [(h - u, h, u, w) for w, (h, u) in lv1.items() if h + u >= 20]
-        print("his attention: %d words assessed by comparison, %d with 20+ "
-              "(word selects/trips)" % (len(lv1), len(ruled)))
-        print("  attention: " + ", ".join(
-            "%s %d/%d" % (w, h, u) for _, h, u, w in
-            sorted(ruled, reverse=True)[:14]))
-        print("  fluff:     " + ", ".join(
-            "%s %d/%d" % (w, h, u) for _, h, u, w in sorted(ruled)[:14]))
         init_tools(thesaurus, kinds, att)
-        store = fill(learn_arts[-1])
-        print("his summaries (last article he learned from; ? = flagged, "
-              "no experience of the word yet):")
-        shown = 0
-        for it in list(store.items.values()):
-            if it.kind != "sentence" or len(it.refs) < 6:
-                continue
-            print("  %s" % str(it.content)[:100])
-            print("    -> %s" % summary(store, it.name))
-            shown += 1
-            if shown == 8:
-                break
+        use("thes+kinds-second+venn")
+        art = learn_arts[-1]
+        store = fill(art)
+        print("his venn on the last article he learned from "
+              "(v right / x wrong on the survivors):")
+        for q, key in questions(art)[:8]:
+            _, _, cands = score_all(store, q)
+            ok = bool(cands) and \
+                key.lower() in str(store.get(cands[0][1]).content).lower()
+            print("  %s %s" % ("v" if ok else "x", q))
+            print("      %s" % venn_line())
         print("his selector, built in %.0fs from every toolset on every "
               "graded question (%d toolsets):" % (time.time() - t1,
                                                    len(TOOLSETS)))

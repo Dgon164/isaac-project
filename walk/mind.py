@@ -49,19 +49,16 @@ def toolsets():
     for thes in (False, True):
         for reading in (False, True):
             for kinds in ("off", "second", "first"):
-                for att in ("off", "second", "first"):
-                    for trip in (False, True):
-                        parts = [p for p, on in (("thes", thes),
-                                                 ("reading", reading)) if on]
-                        if kinds != "off":
-                            parts.append("kinds-" + kinds)
-                        if att != "off":
-                            parts.append("att-" + att)
-                        if trip:
-                            parts.append("trip")
-                        out["+".join(parts) or "none"] = {
-                            "thes": thes, "reading": reading, "kinds": kinds,
-                            "att": att, "trip": trip}
+                for venn in (False, True):
+                    parts = [p for p, on in (("thes", thes),
+                                             ("reading", reading)) if on]
+                    if kinds != "off":
+                        parts.append("kinds-" + kinds)
+                    if venn:
+                        parts.append("venn")
+                    out["+".join(parts) or "none"] = {
+                        "thes": thes, "reading": reading, "kinds": kinds,
+                        "venn": venn}
     return out
 
 
@@ -79,15 +76,18 @@ def use(name):
 
 
 # --------------------------------------------------------------- attention
-# he figures the attention words out himself, by differentiation. a word
-# with no record is FLAGGED probably attention. when a question had two
-# answers it could be and he took the wrong one (or nearly did), he holds
-# the two side by side: what differs between them, and which of those
-# differences the question contains. a question word in the right answer
-# and not the other is what SELECTS -- what he was missing. a question
-# word in the other and not the right one is what TRIPPED him. selects
-# more than trips: attention. trips more: fluff. the verdict carries the
-# counts. level 1 = the word; level 2 = kind of question / word.
+# attention is a venn intersection, decided per question (owner: "which
+# animals are not a dog: in a list of animals you do not need animals as
+# attention; in a list from chairs to koalas you do. when was x born: look
+# up x, look up dates, look which date is related to born"). every
+# question word is a constraint on the candidates; the kind word is a
+# constraint on the FORM of the answer (when -> a date). start with the
+# loose constraints and tighten with the details. a word that cuts nothing
+# is not attention here; a word that would leave nothing is a wrong
+# translation and is dropped; the words that cut are the attention words,
+# and the trace is the idea the question was carrying. narrow() does it;
+# the venn switch makes the survivors the answer. the record below is
+# what corrections compare (selects / trips) and is kept for the why.
 ATTENTION = {}
 MIN_ATT = 5
 CHANGED = set()
@@ -105,16 +105,6 @@ def attention(word, ctx=None):
                 return -1, "%s- (trips %d vs selects %d)" % (word, rec[1], rec[0])
             return 0, "%s= (tied %d)" % (word, rec[0])
     return 0, word + "? (flagged probably attention, no record yet)"
-
-
-def flags(question):
-    """his marks on the question: + attend, - scaffold, = tied, ? flagged."""
-    out, seen = [], set()
-    for t in terms(question):
-        if t not in seen:
-            seen.add(t)
-            out.append(attention(t, kind(question))[1].split(" ")[0])
-    return " ".join(out)
 
 
 def assess(store, question, right, other, table=None):
@@ -141,33 +131,78 @@ def assess(store, question, right, other, table=None):
     return found
 
 
-def summary(store, name):
-    """his summary of a sentence from his record: its attention words, in
-    order. a word not yet assessed keeps its flag."""
-    it = store.get(name)
-    out = []
-    for w in dict.fromkeys(it.refs):
-        t = store.get(w)
-        if t is None or t.kind != "term":
-            continue
-        v, why = attention(w)
-        if v > 0:
-            out.append(w)
-        elif v == 0 and why.endswith("record yet)"):
-            out.append(w + "?")
-    return " ".join(out)
-
-
-def score_key(own, att, rare, fit, bagc):
+def score_key(own, rare, fit, bagc):
     """the ranking tuple, in the order his toolset says."""
     key = [own]
-    if TOOLSET["att"] == "first":
-        key = [att] + key
-    elif TOOLSET["att"] == "second":
-        key.append(att)
     key += [fit, rare] if TOOLSET["kinds"] == "first" else [rare, fit]
     key.append(bagc)
     return tuple(key)
+
+
+# ------------------------------------------------------------------ the venn
+LAST_TRACE = []
+
+
+def narrow(store, question, reached):
+    """the question as constraints; the candidates as sets. loose first,
+    then the details. returns the survivors and the trace: ("cut", word,
+    before, after) / ("no cut", word) / ("dropped", word) / ("unknown",
+    word)."""
+    own = set(terms(question))
+    ctx = context(question)
+    sents = []
+    for n in reached:
+        it = store.get(n)
+        if it.kind not in ("sentence", "row") or it.truth == -1 or it.native:
+            continue
+        if store.rel(ctx, n) < 0:
+            continue
+        sents.append(n)
+    read = getattr(store, "dictionary", None) if TOOLSET["reading"] else None
+    cons = []
+    for w in sorted(own):
+        pull = {w}
+        if TOOLSET["thes"]:
+            pull |= SYN.get(w, set())
+        if read:
+            pull |= read.get(w, set())
+        cons.append((w, {n for n in sents if pull & set(store.get(n).refs)}))
+    row = KINDS.get(kind(question)) if KINDS and TOOLSET["kinds"] != "off" \
+        else None
+    if row:                                  # the form the answer takes
+        f, wgt = max(row.items(), key=lambda kv: kv[1])
+        if wgt > 0:
+            cons.append((kind(question) + ">" + f,
+                         {n for n in sents
+                          if feats(store.get(n).content).get(f)}))
+    C, trace = set(sents), []
+    for w, S in sorted(cons, key=lambda c: -len(c[1])):   # loose first
+        if not S:
+            trace.append(("unknown", w, 0, 0))
+        elif not (S & C):
+            trace.append(("dropped", w, len(C), 0))
+        elif C <= S:
+            trace.append(("no cut", w, len(C), len(C)))
+        else:
+            before = len(C)
+            C &= S
+            trace.append(("cut", w, before, len(C)))
+            if len(C) == 1:
+                break
+    LAST_TRACE[:] = trace
+    return C, trace
+
+
+def venn_line(trace=None):
+    """the trace in one line: what cut, what did not, what was dropped."""
+    trace = LAST_TRACE if trace is None else trace
+    cuts = ["%s %d>%d" % (w, b, a) for t, w, b, a in trace if t == "cut"]
+    parts = ["attention: " + (", ".join(cuts) or "-")]
+    for label in ("no cut", "dropped", "unknown"):
+        ws = [w for t, w, b, a in trace if t == label]
+        if ws:
+            parts.append(label + ": " + " ".join(ws))
+    return " | ".join(parts)
 
 
 def context_at(level, store, question):
@@ -211,7 +246,9 @@ def ask_selected(store, question, max_level=None):
     name, why = select(store, question, max_level)
     use(name)
     seeds, reached, cands = score_all(store, question)
-    return seeds, reached, cands, why + "\n  attention: " + flags(question)
+    if reached and not TOOLSET["venn"]:
+        narrow(store, question, reached)   # for the report only
+    return seeds, reached, cands, why + "\n  " + venn_line()
 
 
 def kind(question):
@@ -432,11 +469,6 @@ def score_all(store, question):
     """the scored field, best first. ask() takes the top three; a probe
     that wants the gap between first and second takes the list."""
     own = set(terms(question))
-    k = kind(question)
-    att_on = TOOLSET["att"] != "off"       # attention hits rank
-    count = own
-    if TOOLSET["trip"]:                    # words that trip him do not count
-        count = {t for t in own if attention(t, k)[0] >= 0}
     bag = set(own)
     read = None
     if TOOLSET["reading"]:                  # his dictionary from reading
@@ -468,18 +500,20 @@ def score_all(store, question):
             if run is not None and run.kind == "run":
                 earned |= set(run.content.get("key", ()))
         if bag & (r | earned):
-            hit = count & r
-            att = sum(1 for t in hit if attention(t, k)[0] > 0) \
-                if att_on else 0
+            hit = own & r
             rare = sum(1.0 / len(store.get(t).refs) for t in hit
                        if store.get(t) and store.get(t).refs)
             fit = 0.0                  # does it carry the kind of answer
             if row and it.kind == "sentence":   # the question asks for
                 f = feats(it.content)
                 fit = round(sum(w for k, w in row.items() if f.get(k)), 2)
-            cands.append((score_key(len(hit), att, rare, fit,
+            cands.append((score_key(len(hit), rare, fit,
                                     len(bag & (r | earned))), n))
     cands.sort(reverse=True)
+    if TOOLSET["venn"]:                    # the survivors of the venn first
+        C, _ = narrow(store, question, reached)
+        cands = [c for c in cands if c[1] in C] + \
+                [c for c in cands if c[1] not in C]
     return seeds, reached, cands
 
 
