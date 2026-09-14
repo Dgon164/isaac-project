@@ -153,13 +153,17 @@ def record_one(art):
     for name in TOOLSETS:
         use(name)
         for q, key in qs:
+            t0 = time.perf_counter()
             _, _, cands = score_all(store, q)
+            dt = time.perf_counter() - t0
             right = bool(cands) and \
                 key.lower() in str(store.get(cands[0][1]).content).lower()
             for lv in (1, 2):
-                c = rec.setdefault((lv, context_at(lv, store, q), name), [0, 0])
+                c = rec.setdefault((lv, context_at(lv, store, q), name),
+                                   [0, 0, 0.0])
                 c[0] += int(right)
                 c[1] += 1
+                c[2] += dt
     return rec
 
 
@@ -169,11 +173,12 @@ def build_selector(records):
     gives when he picks."""
     table = {}
     for rec in records:
-        for (lv, ctx, name), (r, a) in rec.items():
+        for (lv, ctx, name), (r, a, secs) in rec.items():
             c = table.setdefault(str(lv), {}).setdefault(ctx, {}) \
-                     .setdefault(name, [0, 0])
+                     .setdefault(name, [0, 0, 0.0])
             c[0] += r
             c[1] += a
+            c[2] += secs
     return table
 
 
@@ -253,10 +258,10 @@ def main():
 
     if cmd == "learn":
         mind.SYN.clear(); mind.KINDS.clear()       # nothing installed
-        t0 = time.time()
+        t0 = time.perf_counter()
         thesaurus, kinds, n_pairs, n_k, att = learn(learn_arts, jobs)
         att = {str(lv): tab for lv, tab in att.items()}
-        t1 = time.time()
+        t1 = time.perf_counter()
         selector = record(learn_arts, thesaurus, kinds, att, jobs)
         json.dump({"thesaurus": thesaurus, "kinds": kinds,
                    "selector": selector},
@@ -264,7 +269,7 @@ def main():
         json.dump(att, open(mind.ATTFILE, "w", encoding="utf-8"))
         print("learned from %d articles in %.0fs: %d pairs seen, %d kept "
               "into the thesaurus; kinds table over %s"
-              % (len(learn_arts), time.time() - t0, n_pairs,
+              % (len(learn_arts), time.perf_counter() - t0, n_pairs,
                  sum(len(v) for v in thesaurus.values()),
                  ", ".join("%s %d" % kv for kv in sorted(n_k.items()))))
         print("his kinds table (log odds right vs his wrong picks):")
@@ -284,16 +289,17 @@ def main():
             print("  %s %s" % ("v" if ok else "x", q))
             print("      %s" % venn_line())
         print("his selector, built in %.0fs from every toolset on every "
-              "graded question (%d toolsets):" % (time.time() - t1,
+              "graded question (%d toolsets):" % (time.perf_counter() - t1,
                                                    len(TOOLSETS)))
         print("  level 1, by kind:      his pick                 right   "
-              "   next best")
+              "    ms/ask   next best")
         for ctx, table in sorted(selector["1"].items()):
-            ranked = sorted(((r, n) for n, (r, a) in table.items()),
-                            reverse=True)
-            (r1, n1), (r2, n2) = ranked[0], ranked[1]
-            print("  %-9s %-28s %5d/%-5d  %-28s %5d"
-                  % (ctx, n1, r1, table[n1][1], n2, r2))
+            ranked = sorted(((r / float(a), -s / a, r, n)
+                             for n, (r, a, s) in table.items()), reverse=True)
+            (_, ms1, r1, n1), (_, ms2, r2, n2) = ranked[0], ranked[1]
+            print("  %-9s %-28s %5d/%-5d %6.2f   %-28s %5d %6.2f"
+                  % (ctx, n1, r1, table[n1][1], -ms1 * 1000, n2, r2,
+                     -ms2 * 1000))
         print("  level 2, kind / words known: %d contexts"
               % len(selector["2"]))
         return
@@ -304,10 +310,10 @@ def main():
     print("the other %d articles, never learned from:" % len(exam))
     for label, name, his in rows:
         arm(name, his)
-        t0 = time.time()
+        t0 = time.perf_counter()
         asked, top1, picks = bench(exam, jobs)
         print("  %-48s top1 %5d / %d (%.1f%%)   %.0fs"
-              % (label, top1, asked, 100.0 * top1 / asked, time.time() - t0))
+              % (label, top1, asked, 100.0 * top1 / asked, time.perf_counter() - t0))
         if picks:
             tot = float(sum(picks.values()))
             print("      he picked: " + ", ".join(

@@ -227,17 +227,21 @@ def select(store, question, max_level=None):
         table = SELECTOR[lv].get(ctx)
         if not table:
             continue
-        ranked = sorted(((r / float(a), r, name)
-                         for name, (r, a) in table.items()
-                         if a >= MIN_RECORD and name in TOOLSETS),
-                        reverse=True)          # a tool that is gone is gone
+        ranked = sorted(((rec[0] / float(rec[1]),
+                          -(rec[2] / rec[1] if len(rec) > 2 else 0),
+                          rec[0], name)
+                         for name, rec in table.items()
+                         if rec[1] >= MIN_RECORD and name in TOOLSETS),
+                        reverse=True)          # right first, then quicker
         if not ranked:
             continue
-        _, r, name = ranked[0]
-        why = "level %d, %s: %s right %d/%d" % (lv, ctx, name, r, table[name][1])
+        _, negms, r, name = ranked[0]
+        why = "level %d, %s: %s right %d/%d in %.1fms" % (
+            lv, ctx, name, r, table[name][1], -negms * 1000)
         if len(ranked) > 1:
-            why += " vs %s %d/%d" % (ranked[1][2], ranked[1][1],
-                                     table[ranked[1][2]][1])
+            _, negms2, r2, name2 = ranked[1]
+            why += " vs %s %d/%d in %.1fms" % (name2, r2, table[name2][1],
+                                                -negms2 * 1000)
         return name, why
     return DEFAULT, "no record for this question; default " + DEFAULT
 
@@ -372,6 +376,10 @@ def save(store):
     if "attention" in CHANGED:
         json.dump({str(lv): tab for lv, tab in ATTENTION.items()},
                   open(ATTFILE, "w", encoding="utf-8"))
+    if "selector" in CHANGED and os.path.exists(TOOLSFILE):
+        d = json.load(open(TOOLSFILE, encoding="utf-8"))
+        d["selector"] = {str(lv): tab for lv, tab in SELECTOR.items()}
+        json.dump(d, open(TOOLSFILE, "w", encoding="utf-8"), indent=1)
 
 
 def load_store():
@@ -476,7 +484,7 @@ SURE = [(3, "sure"), (2, "likely"), (1, "maybe"), (0, "guess")]
 
 def sense_start(store, question):
     SENSE.clear()
-    SENSE.update(pulls=0, lookups=0, writes=0, t0=time.time(), q=question,
+    SENSE.update(pulls=0, lookups=0, writes=0, t0=time.perf_counter(), q=question,
                  store=len(store.items))
 
 
@@ -498,7 +506,7 @@ def sense_end(store, question, seeds, reached, cands):
     SENSE.update(sure=word, gap=gap, field=len(cands), reached=len(reached),
                  seeds=len(seeds), known=len(known), unknown=len(own) - len(known),
                  support=support, source=told, again=same,
-                 secs=round(time.time() - SENSE["t0"], 4), answer=top)
+                 secs=round(time.perf_counter() - SENSE["t0"], 4), answer=top)
     return SENSE
 
 
@@ -507,11 +515,11 @@ def sense_line(sense=None):
     if not d:
         return ""
     return ("sense: %s (gap %s of %d in the field) | %d words known, %d not | "
-            "support %d from %s | %.3fs, %d pulls, %d lookups, %d writes | "
+            "support %d from %s | %.2fms, %d pulls, %d lookups, %d writes | "
             "store %d | %s"
             % (d.get("sure"), d.get("gap"), d.get("field"), d.get("known"),
                d.get("unknown"), d.get("support"), d.get("source"),
-               d.get("secs", 0), d.get("pulls", 0), d.get("lookups", 0),
+               d.get("secs", 0) * 1000, d.get("pulls", 0), d.get("lookups", 0),
                d.get("writes", 0), d.get("store", 0), d.get("again")))
 
 
@@ -533,8 +541,8 @@ def senses(store):
                 word, len(sel), len(graded),
                 "%d" % sum(1 for r in graded if r["verdict"] == "right")
                 if graded else "-"))
-    print("  cost per ask: %.4fs, %d pulls, %d lookups, %d writes (averages)"
-          % (sum(r.get("secs", 0) for r in rows) / len(rows),
+    print("  cost per ask: %.2fms, %d pulls, %d lookups, %d writes (averages)"
+          % (1000 * sum(r.get("secs", 0) for r in rows) / len(rows),
              sum(r.get("pulls", 0) for r in rows) / len(rows),
              sum(r.get("lookups", 0) for r in rows) / len(rows),
              sum(r.get("writes", 0) for r in rows) / len(rows)))
@@ -728,6 +736,37 @@ def grade(store, question, cands, reached, truth):
     return d
 
 
+def retry_all(store, question, truth):
+    """the correction as a test of every setting he has: which would have
+    been right, and how long each took. filed in his selector for this
+    kind of question, live, so his next pick knows."""
+    prev = dict(TOOLSET)
+    ctxs = ((1, context_at(1, store, question)),
+            (2, context_at(2, store, question)))
+    won = []
+    for name in TOOLSETS:
+        use(name)
+        t0 = time.perf_counter()
+        cands = score_all(store, question)[2]
+        dt = time.perf_counter() - t0
+        right = bool(cands) and \
+            truth.lower() in str(store.get(cands[0][1]).content).lower()
+        for lv, ctx in ctxs:
+            c = SELECTOR.setdefault(lv, {}).setdefault(ctx, {}) \
+                        .setdefault(name, [0, 0, 0.0])
+            while len(c) < 3:
+                c.append(0.0)
+            c[0] += int(right)
+            c[1] += 1
+            c[2] += dt
+        if right:
+            won.append(name)
+    TOOLSET.clear()
+    TOOLSET.update(prev)
+    CHANGED.add("selector")
+    return won
+
+
 def residue(store, question, seeds, answers):
     """the run goes back into the store; answers that appeared together
     now share a link a future walk can cross."""
@@ -899,7 +938,15 @@ def correct(store, text, last):
         return
     q, cands, reached = last
     was = dict(SENSE)
+    won = retry_all(store, q, text)
     d = grade(store, q, cands, reached, text)
+    print("  under every setting, %d of %d would have been right%s"
+          % (len(won), len(TOOLSETS), (": " + ", ".join(won[:4]) +
+                                       (" ..." if len(won) > 4 else ""))
+             if won else ""))
+    name, why = select(store, q)
+    print("  his pick for this kind of question is now %s (%s)"
+          % (name, why.split(": ", 1)[-1]))
     if was.get("sure"):
         right = d["verdict"] == "right"
         last = [i for i in store.items.values() if i.kind == "sense"]
