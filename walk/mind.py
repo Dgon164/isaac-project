@@ -33,7 +33,9 @@ DICTFILE = os.environ.get(
     "ISAAC_DICT",
     r"C:\Users\jtwee\Downloads\New folder (3)\intellon\wordnet_full.json")
 LIBFILE = os.path.join(HERE, "library.json")
-SYN = {}          # word -> words: his thesaurus (or wordnet, on request)
+SYN = {}          # word -> words: his thesaurus (close translation) or wordnet
+REL = {}          # word -> words: his learned connections (things that go
+                  # together in what he read); a tool of its own, not a synonym
 KINDS = {}        # question kind -> {what the right sentence carries: log odds}
 FEATS = ("year", "number", "name", "percent", "money")
 KIND_WORDS = ("who", "when", "where", "how many", "how much", "how",
@@ -50,16 +52,16 @@ def toolsets():
     for thes in (False, True):
         for reading in (False, True):
             for kinds in ("off", "second", "first"):
-                for venn in (False, True):
+                for rel in (False, True):
                     parts = [p for p, on in (("thes", thes),
                                              ("reading", reading)) if on]
                     if kinds != "off":
                         parts.append("kinds-" + kinds)
-                    if venn:
-                        parts.append("venn")
+                    if rel:
+                        parts.append("rel")
                     out["+".join(parts) or "none"] = {
                         "thes": thes, "reading": reading, "kinds": kinds,
-                        "venn": venn}
+                        "rel": rel}
     return out
 
 
@@ -280,7 +282,7 @@ def ask_selected(store, question, max_level=None):
     name, why = select(store, question, max_level)
     use(name)
     seeds, reached, cands = score_all(store, question)
-    if reached and not TOOLSET["venn"]:
+    if reached:
         narrow(store, question, reached)   # for the report only
     sense_end(store, question, seeds, reached, cands)
     SENSE["tools"] = name
@@ -342,8 +344,9 @@ def read_dictionary(store, cap=8):
 def load_tools(path=TOOLSFILE):
     """his own thesaurus and kinds table, built by tools.py learn."""
     d = json.load(open(path, encoding="utf-8"))
-    SYN.clear(); KINDS.clear(); SELECTOR.clear()
+    SYN.clear(); KINDS.clear(); SELECTOR.clear(); REL.clear()
     SYN.update((k, set(v)) for k, v in d.get("thesaurus", {}).items())
+    REL.update((k, set(v)) for k, v in d.get("relations", {}).items())
     KINDS.update(d.get("kinds", {}))
     SELECTOR.update((int(k), v) for k, v in d.get("selector", {}).items())
     SETTINGS.update(d.get("settings", {}))
@@ -627,6 +630,8 @@ def score_all(store, question):
     for t in own:
         if TOOLSET["thes"]:
             bag |= SYN.get(t, set())
+        if TOOLSET.get("rel"):
+            bag |= REL.get(t, set())
         if read:
             bag |= read.get(t, set())
     seeds = sorted(t for t in bag if store.get(t))
@@ -662,10 +667,6 @@ def score_all(store, question):
     confirmed = [c for c in cands if store.rel(ctx, c[1]) > 0]
     if confirmed:                          # he was told this one is right:
         cands = confirmed + [c for c in cands if store.rel(ctx, c[1]) <= 0]
-    if TOOLSET["venn"]:                    # the survivors of the venn first
-        C, _ = narrow(store, question, reached)
-        cands = [c for c in cands if c[1] in C] + \
-                [c for c in cands if c[1] not in C]
     return seeds, reached, cands
 
 
