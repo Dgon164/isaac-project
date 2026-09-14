@@ -18,6 +18,8 @@ taught (type, len, indexing). Every quiz question is graded per part
 for both, and his record picks the way per part, with the reason.
 Challenges are the tuples built to break READ.
 """
+import ast
+import inspect
 import io
 import os
 import random
@@ -25,7 +27,10 @@ import sys
 import tokenize
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PARTS = ["name", "kind", "values", "length", "first", "last", "made_by"]
+PARTS = []          # the parts of the thing being learned; set from THING
+THING = {}          # the thing: parts, lesson, truth, run, quiz, challenges
+
+TUPLE_PARTS = ["name", "kind", "values", "length", "first", "last", "made_by"]
 
 LESSON = [
     ("t = (1, 2, 3)", "parentheses"),
@@ -43,6 +48,14 @@ LESSON = [
 
 # ------------------------------------------------------------- the truth
 def run(statement):
+    return THING["run"](statement)
+
+
+def truth(statement, label):
+    return THING["truth"](statement, label)
+
+
+def run_tuple(statement):
     """RUN: execute the statement, inspect what it made. the parts as
     python sees them. made_by is not in the object: unknown to RUN."""
     ns = {}
@@ -68,10 +81,116 @@ def run(statement):
     return out
 
 
-def truth(statement, made_by):
-    t = run(statement)
+def truth_tuple(statement, made_by):
+    t = run_tuple(statement)
     t["made_by"] = made_by
     return t
+
+
+# ------------------------------------------------- the second thing: def
+FUNC_PARTS = ["name", "kind", "params", "count", "first", "last", "returns"]
+
+FUNC_LESSON = [
+    ("def add(a, b):\n    return a + b", "-"),
+    ("def hello():\n    print('hi')", "-"),
+    ("def area(w, h=1):\n    return w * h", "-"),
+    ("def greet(name):\n    \"\"\"say hi\"\"\"\n    return 'hi ' + name", "-"),
+    ("def nothing():\n    pass", "-"),
+    ("def total(*nums):\n    return sum(nums)", "-"),
+    ("def mean(xs):\n    s = sum(xs)\n    return s / len(xs)", "-"),
+    ("def square(x): return x * x", "-"),
+    ("def first(items):\n    return items[0]", "-"),
+    ("def shout(word, times=2):\n    return word.upper() * times", "-"),
+]
+
+
+def truth_function(statement, label):
+    """the parts of a def as python's own parser sees them (ast): the
+    ground truth, independent of both his ways of answering."""
+    blank = {p: "-" for p in FUNC_PARTS}
+    try:
+        tree = ast.parse(statement)
+    except SyntaxError:
+        return blank
+    node = tree.body[0] if tree.body else None
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        name, args, body = node.name, node.args, node.body
+    elif isinstance(node, ast.Assign) and isinstance(node.value, ast.Lambda):
+        name = node.targets[0].id
+        args, body = node.value.args, [ast.Return(node.value.body)]
+    else:
+        return blank
+    names = [a.arg for a in args.posonlyargs + args.args]
+    if args.vararg:
+        names.append(args.vararg.arg)
+    names += [a.arg for a in args.kwonlyargs]
+    if args.kwarg:
+        names.append(args.kwarg.arg)
+    returns = "no"
+    for stmt in body:
+        for sub in ast.walk(stmt):
+            if isinstance(sub, (ast.FunctionDef, ast.Lambda)):
+                continue
+            if isinstance(sub, ast.Return) and sub.value is not None:
+                returns = "yes"
+    return {"name": name, "kind": "function", "params": ", ".join(names),
+            "count": str(len(names)), "first": names[0] if names else "",
+            "last": names[-1] if names else "", "returns": returns}
+
+
+def run_function(statement):
+    """RUN: define it and look at the function object. whether it returns
+    a value is not on the object: unknown to RUN."""
+    g = {}
+    try:
+        exec(statement, g)
+    except Exception as e:
+        return dict({p: "-" for p in FUNC_PARTS},
+                    kind="error: %s" % type(e).__name__)
+    fs = [v for k, v in g.items() if callable(v) and not k.startswith("__")]
+    if not fs:
+        return {p: "-" for p in FUNC_PARTS}
+    f = fs[0]
+    names = list(inspect.signature(f).parameters)
+    return {"name": f.__name__, "kind": type(f).__name__,
+            "params": ", ".join(names), "count": str(len(names)),
+            "first": names[0] if names else "", "last": names[-1] if names else "",
+            "returns": "-"}
+
+
+FUNC_NAMES = ["add", "area", "greet", "total", "mean", "scale", "pick",
+              "label", "shout", "clamp", "show", "combine"]
+PARAM_NAMES = ["a", "b", "c", "x", "y", "n", "word", "items", "w", "h"]
+
+
+def make_function(rng):
+    name = rng.choice(FUNC_NAMES)
+    n = rng.choice([0, 1, 1, 2, 2, 3])
+    params = rng.sample(PARAM_NAMES, n)
+    sig = list(params)
+    if n >= 2 and rng.random() < 0.4:
+        sig[-1] += "=" + rng.choice(["1", "2", "'x'", "None"])
+    elif n >= 1 and rng.random() < 0.2:
+        sig[-1] = "*" + params[-1]
+    expr = " + ".join(params) if params else rng.choice(["0", "'hi'"])
+    body_kind = rng.choice(["return", "return", "print", "pass"])
+    body = {"return": "return " + expr, "print": "print(%s)" % expr,
+            "pass": "pass"}[body_kind]
+    if body_kind == "return" and rng.random() < 0.2:
+        return "def %s(%s): %s" % (name, ", ".join(sig), body), "-"
+    return "def %s(%s):\n    %s" % (name, ", ".join(sig), body), "-"
+
+
+FUNC_CHALLENGES = [
+    ("def f(a, b=2, *rest, **kw):\n    return a", "-"),
+    ("sq = lambda x: x * x", "-"),
+    ("def outer():\n    def inner(): return 1\n    return inner", "-"),
+    ("def noop():\n    return", "-"),
+    ("async def fetch(url):\n    return url", "-"),
+    ("def show(x):\n    print(x)", "-"),
+    ("def pairs(a, b, /, c):\n    return (a, b, c)", "-"),
+    ("def later(n):\n    if n: return n\n    print('none')", "-"),
+]
 
 
 # ------------------------------------------------------------- reading
@@ -120,6 +239,25 @@ def loc_inside(tk, so_far):
             depth -= 1
             continue
         if depth > 0 and t.type in LIT:
+            out.append(t.string)
+    return ", ".join(out)
+
+
+def loc_inside_names(tk, so_far):
+    """the names inside the first parentheses (a def's parameters)."""
+    depth, out, done = 0, [], False
+    for t in tk:
+        if done:
+            break
+        if t.string == "(":
+            depth += 1
+            continue
+        if t.string == ")":
+            depth -= 1
+            if depth == 0:
+                done = True
+            continue
+        if depth > 0 and t.type == tokenize.NAME:
             out.append(t.string)
     return ", ".join(out)
 
@@ -204,7 +342,8 @@ def learn_rules(lesson):
     examples = [(toks(s), truth(s, m)) for s, m in lesson]
     rules, report = {}, []
     for part in PARTS:
-        cands = [loc_tok(i) for i in range(-3, 4)] + [loc_after_eq, loc_inside]
+        cands = [loc_tok(i) for i in range(-3, 4)] + \
+            [loc_after_eq, loc_inside, loc_inside_names]
         for other in PARTS:
             if other != part and other in rules:
                 cands += [loc_count(other), loc_first(other), loc_last(other)]
@@ -304,7 +443,7 @@ def grade(statement, made_by, rules, tally, show=False):
         line.append((part, t[part], got["READ"].get(part), marks["READ"],
                      got["RUN"].get(part), marks["RUN"]))
     if show:
-        print("  %s" % statement)
+        print("  %s" % one_line(statement))
         for part, want, r, rok, u, uok in line:
             print("      %-8s truth %-22s READ %-22s %s   RUN %-22s %s"
                   % (part, want, str(r)[:22], "v" if rok else "x",
@@ -330,30 +469,47 @@ def his_pick(tally):
     return picks
 
 
+THINGS = {
+    "tuple": dict(parts=TUPLE_PARTS, lesson=LESSON, truth=truth_tuple,
+                  run=run_tuple, make=make_tuple, challenges=CHALLENGES,
+                  what="tuple"),
+    "function": dict(parts=FUNC_PARTS, lesson=FUNC_LESSON,
+                     truth=truth_function, run=run_function,
+                     make=make_function, challenges=FUNC_CHALLENGES,
+                     what="function definition"),
+}
+
+
+def one_line(s):
+    return s.replace("\n", " | ")
+
+
 def main():
     n_quiz = int(sys.argv[sys.argv.index("-quiz") + 1]) \
         if "-quiz" in sys.argv else 40
-    print("THE LESSON: the parts of a tuple, labeled by running each one")
-    print("  %-30s %-8s %-6s %-22s %-6s %-6s %-6s %s"
-          % ("statement", "name", "kind", "values", "length", "first",
-             "last", "made_by"))
-    for s, m in LESSON:
+    which = sys.argv[sys.argv.index("-thing") + 1] \
+        if "-thing" in sys.argv else "tuple"
+    THING.update(THINGS[which])
+    PARTS[:] = THING["parts"]
+    print("THE LESSON: the parts of a %s, labeled by python itself"
+          % THING["what"])
+    print("  %-36s " % "statement" + "".join("%-13s" % p for p in PARTS))
+    for s, m in THING["lesson"]:
         t = truth(s, m)
-        print("  %-30s %-8s %-6s %-22s %-6s %-6s %-6s %s"
-              % (s, t["name"], t["kind"], t["values"][:22], t["length"],
-                 t["first"], t["last"], t["made_by"]))
-    rules, report = learn_rules(LESSON)
+        print("  %-36s " % one_line(s)[:36]
+              + "".join("%-13s" % str(t[p])[:12] for p in PARTS))
+    rules, report = learn_rules(THING["lesson"])
     print("\nHIS RULES for finding each part (locator right on n of the lesson):")
     for part, name, right, n in report:
-        print("  %-8s = %-60s %d/%d" % (part, name[:60], right, n))
+        print("  %-8s = %-70s %d/%d" % (part, name[:70], right, n))
 
     rng = random.Random(7)
     tally = {}
-    print("\nTHE QUIZ: %d new tuples, graded per part, READ vs RUN "
-          "(first four shown):" % n_quiz)
+    print("\nTHE QUIZ: %d new %ss, graded per part, READ vs RUN "
+          "(first three shown):" % (n_quiz, THING["what"]))
     for i in range(n_quiz):
-        s, m = make_tuple(rng)
-        grade(s, m, rules, tally, show=i < 4)
+        s, m = THING["make"](rng)
+        grade(s, m, rules, tally, show=i < 3)
     print("\n  his record after the quiz, and his pick per part:")
     print("  %-8s %-14s %-14s   pick" % ("part", "READ", "RUN"))
     for part in PARTS:
@@ -366,12 +522,11 @@ def main():
     print("\nTHE CHALLENGES: built to break reading. his pick answers; "
           "the other way is shown too.")
     picks = his_pick(tally)
-    for s, m in CHALLENGES:
-        line = grade(s, m, rules, {}, show=False)
+    for s, m in THING["challenges"]:
         t = truth(s, m)
         tk = toks(s)
         got = {"READ": read(tk, rules), "RUN": run(s)}
-        print("  %s" % s)
+        print("  %s" % one_line(s))
         for part in PARTS:
             tool = picks[part][0]
             ans = got[tool].get(part)
