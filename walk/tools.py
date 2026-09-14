@@ -206,11 +206,13 @@ def record(arts, thesaurus, kinds, attention, jobs=1):
 ARM = {}
 
 
-def arm(name, his_level=None):
+def arm(name, his_level=None, settings=None):
     """this process and every worker (windows spawns, nothing carries):
-    his tools loaded, then one fixed toolset, or his own choice up to a
-    level."""
+    his tools loaded, his settings as they stand, then one fixed toolset,
+    or his own choice up to a level."""
     load_tools()
+    if settings:
+        mind.SETTINGS.update(settings)
     ARM.clear()
     ARM.update(name=name, his=his_level)
     if name:
@@ -237,7 +239,8 @@ def bench(arts, jobs=1):
     if jobs > 1:
         from multiprocessing import Pool
         with Pool(jobs, initializer=arm,
-                  initargs=(ARM.get("name"), ARM.get("his"))) as pool:
+                  initargs=(ARM.get("name"), ARM.get("his"),
+                            dict(mind.SETTINGS))) as pool:
             res = pool.map(bench_one, arts)
     else:
         res = [bench_one(a) for a in arts]
@@ -248,6 +251,80 @@ def bench(arts, jobs=1):
     return sum(r[0] for r in res), sum(r[1] for r in res), picks
 
 
+# ------------------------------------------------------------- his settings
+def picks_under(setting, value):
+    """his level-1 pick per kind of question under one setting value.
+    cheap: no asks, just his record read the other way."""
+    old = mind.SETTINGS[setting]
+    mind.SETTINGS[setting] = value
+    order = [2, 1] if mind.SETTINGS["levels"] == "finest-first" else [1, 2]
+    out = {}
+    for ctx2 in mind.SELECTOR.get(2, {}):       # every context he answers in
+        k = ctx2.split("/")[0]
+        out[ctx2] = None
+        for lv in order:                          # the first record that speaks
+            table = mind.SELECTOR.get(lv, {}).get(ctx2 if lv == 2 else k)
+            ranked = mind.rank_table(table) if table else []
+            if ranked:
+                out[ctx2] = ranked[0][0]
+                break
+    mind.SETTINGS[setting] = old
+    return out
+
+
+def tune(exam, jobs):
+    """he sets his own settings: predict, look once, conclude. for each
+    alternative he predicts how many of his picks would change; one that
+    changes nothing is not tested. one that would is tested once on the
+    other half; he keeps it if it is more right, or as right and quicker.
+    the decision and its reason are filed with his tools."""
+    load_tools()
+    decisions = json.load(open(TOOLS, encoding="utf-8")).get("decisions", {})
+    print("his settings now: %s" % mind.SETTINGS)
+    arm(None, 2)
+    t0 = time.perf_counter()
+    asked, right, _ = bench(exam, jobs)
+    base = (right, time.perf_counter() - t0)
+    print("as he is: %d / %d right in %.0fs on the other %d articles"
+          % (base[0], asked, base[1], len(exam)))
+    for setting, options in mind.OPTIONS.items():
+        current = mind.SETTINGS[setting]
+        for value in options:
+            if value == current:
+                continue
+            now, alt = picks_under(setting, current), picks_under(setting, value)
+            changed = sum(1 for k in now if now[k] != alt.get(k))
+            line = "%s = %s (now %s): predicts %d of %d contexts pick differently" % (
+                setting, value, current, changed, len(now))
+            if changed == 0:
+                print("  " + line + " -- nothing to look at")
+                decisions["%s=%s" % (setting, value)] = "not tested: no pick would change"
+                continue
+            arm(None, 2)                   # loads his tools (and settings)
+            mind.SETTINGS[setting] = value  # so the alternative is set after
+            t0 = time.perf_counter()
+            asked, right, _ = bench(exam, jobs)
+            secs = time.perf_counter() - t0
+            better = right > base[0] or                 (right == base[0] and secs < 0.9 * base[1])  # a tie needs a
+            verdict = "%d right in %.0fs vs %d in %.0fs: %s" % (
+                right, secs, base[0], base[1], "KEPT" if better else "refused")
+            print("  " + line + "\n      found: " + verdict)
+            decisions["%s=%s" % (setting, value)] = "predicted %d picks change; %s" % (
+                changed, verdict)
+            if better:
+                current = value
+                base = (right, secs)
+            mind.SETTINGS[setting] = current
+            d = json.load(open(TOOLS, encoding="utf-8"))   # written at once:
+            d["settings"] = dict(mind.SETTINGS)             # his tools reload
+            json.dump(d, open(TOOLS, "w", encoding="utf-8"), indent=1)  # from disk
+    d = json.load(open(TOOLS, encoding="utf-8"))
+    d["settings"] = dict(mind.SETTINGS)
+    d["decisions"] = decisions
+    json.dump(d, open(TOOLS, "w", encoding="utf-8"), indent=1)
+    print("his settings now: %s  (saved with his tools)" % mind.SETTINGS)
+
+
 def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else "court"
     want = int(sys.argv[2]) if len(sys.argv) > 2 else 5000
@@ -256,6 +333,9 @@ def main():
     data = json.load(open(SQUAD, encoding="utf-8"))["data"]
     learn_arts, exam = split(data, want)
 
+    if cmd == "tune":
+        tune(exam, jobs)
+        return
     if cmd == "learn":
         mind.SYN.clear(); mind.KINDS.clear()       # nothing installed
         t0 = time.perf_counter()

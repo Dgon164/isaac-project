@@ -66,7 +66,18 @@ TOOLSETS = toolsets()
 DEFAULT = "thes+kinds-second"
 TOOLSET = dict(TOOLSETS[DEFAULT])   # what is switched on right now
 SELECTOR = {}                       # level -> context -> toolset -> [right, asked]
-MIN_RECORD = 20                     # fewer graded questions than this = no record
+# ------------------------------------------------------------ his settings
+# every knob in how he decides is a setting with a few alternatives, and
+# it is his to set: tools.py tune predicts whether an alternative would
+# change any pick, tests it once on material he never learned from,
+# keeps what is more right and then quicker, and files the decision with
+# its reason. nothing here is a constant.
+SETTINGS = {"min_record": 20,          # graded asks before a context counts
+            "rank": "right,quick",     # how he orders his tools
+            "levels": "finest-first"}  # which record he trusts first
+OPTIONS = {"min_record": [5, 20, 100],
+           "rank": ["right,quick", "right", "quick,right"],
+           "levels": ["finest-first", "coarsest-first"]}
 
 
 def use(name):
@@ -216,32 +227,47 @@ def context_at(level, store, question):
     return "%s/%d" % (k, min(known, 4))
 
 
+def rank_table(table):
+    """the tools in a context's record, best first, the way his settings
+    say: right rate then quicker, right only, or quicker then right."""
+    rows = [(name, rec) for name, rec in table.items()
+            if rec[1] >= SETTINGS["min_record"] and name in TOOLSETS]
+
+    def key(nr):
+        name, rec = nr
+        rate = rec[0] / float(rec[1])
+        ms = rec[2] / rec[1] if len(rec) > 2 else 0.0
+        if SETTINGS["rank"] == "right":
+            return (rate, rec[0], name)
+        if SETTINGS["rank"] == "quick,right":
+            return (-ms, rate, rec[0], name)
+        return (rate, -ms, rec[0], name)
+    return sorted(rows, key=key, reverse=True)
+
+
 def select(store, question, max_level=None):
-    """his choice of toolset for this question, and the reason. the finest
-    level with a record for this context decides; the reason is the count
-    for his pick against the runner-up. no record -> the default."""
-    for lv in sorted(SELECTOR, reverse=True):
+    """his choice of toolset for this question, and the reason. the record
+    his settings say to trust first decides; the reason is the count and
+    the time for his pick against the runner-up. no record -> the default."""
+    finest = SETTINGS["levels"] == "finest-first"
+    for lv in sorted(SELECTOR, reverse=finest):
         if max_level and lv > max_level:
             continue
         ctx = context_at(lv, store, question)
         table = SELECTOR[lv].get(ctx)
         if not table:
             continue
-        ranked = sorted(((rec[0] / float(rec[1]),
-                          -(rec[2] / rec[1] if len(rec) > 2 else 0),
-                          rec[0], name)
-                         for name, rec in table.items()
-                         if rec[1] >= MIN_RECORD and name in TOOLSETS),
-                        reverse=True)          # right first, then quicker
+        ranked = rank_table(table)
         if not ranked:
             continue
-        _, negms, r, name = ranked[0]
+        name, rec = ranked[0]
+        ms = rec[2] / rec[1] * 1000 if len(rec) > 2 else 0.0
         why = "level %d, %s: %s right %d/%d in %.1fms" % (
-            lv, ctx, name, r, table[name][1], -negms * 1000)
+            lv, ctx, name, rec[0], rec[1], ms)
         if len(ranked) > 1:
-            _, negms2, r2, name2 = ranked[1]
-            why += " vs %s %d/%d in %.1fms" % (name2, r2, table[name2][1],
-                                                -negms2 * 1000)
+            n2, r2 = ranked[1]
+            why += " vs %s %d/%d in %.1fms" % (
+                n2, r2[0], r2[1], r2[2] / r2[1] * 1000 if len(r2) > 2 else 0.0)
         return name, why
     return DEFAULT, "no record for this question; default " + DEFAULT
 
@@ -319,6 +345,7 @@ def load_tools(path=TOOLSFILE):
     SYN.update((k, set(v)) for k, v in d.get("thesaurus", {}).items())
     KINDS.update(d.get("kinds", {}))
     SELECTOR.update((int(k), v) for k, v in d.get("selector", {}).items())
+    SETTINGS.update(d.get("settings", {}))
     ATTENTION.clear()
     if os.path.exists(ATTFILE):
         ATTENTION.update((int(k), v) for k, v in

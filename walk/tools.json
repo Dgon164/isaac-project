@@ -11516,5 +11516,17 @@
     ]
    }
   }
+ },
+ "settings": {
+  "min_record": 100,
+  "rank": "right,quick",
+  "levels": "coarsest-first"
+ },
+ "decisions": {
+  "min_record=5": "predicted 4 picks change; 26416 right in 9s vs 26420 in 9s: refused",
+  "min_record=100": "predicted 7 picks change; 26423 right in 9s vs 26420 in 9s: KEPT",
+  "rank=right": "predicted 7 picks change; 26414 right in 9s vs 26423 in 9s: refused",
+  "rank=quick,right": "predicted 39 picks change; 26002 right in 8s vs 26423 in 9s: refused",
+  "levels=coarsest-first": "predicted 12 picks change; 26433 right in 9s vs 26423 in 9s: KEPT"
  }
 }
