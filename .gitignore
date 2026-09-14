@@ -34,3 +34,6 @@ walk/attention.json
 walk/python_store.json
 walk/lens.json
 walk/wordtypes.json
+walk/self.csv
+walk/self.json
+walk/self_cache.json
