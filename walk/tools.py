@@ -128,9 +128,13 @@ def learn(arts, jobs=1):
         cf[f] = cf.get(f, 0) + c
     kept = sorted(((c * c / float(cm[m] * cf[f]), m, f)
                    for (m, f), c in pairs.items() if c >= 3), reverse=True)
-    thesaurus = {}
+    from crawl import stem, load_wordnet
+    syn, defw, ant = load_wordnet()
+    thesaurus, relations = {}, {}
     for _, m, f in kept[:3000]:
-        thesaurus.setdefault(m, []).append(f)
+        translation = (stem(m) == stem(f) or f in syn.get(m, ()) or m in syn.get(f, ())
+                       or f in defw.get(m, ()) or m in defw.get(f, ()))
+        (thesaurus if translation else relations).setdefault(m, []).append(f)
 
     kinds = {}
     for k in n_k:
@@ -140,7 +144,7 @@ def learn(arts, jobs=1):
             w = wrong_f.get((k, f), 0) / float(n_k[k])
             row[f] = round(math.log((r + 0.01) / (w + 0.01)), 3)
         kinds[k] = row
-    return thesaurus, kinds, len(pairs), n_k, att
+    return thesaurus, kinds, len(pairs), n_k, att, relations
 
 
 # ------------------------------------------------- the record, the selector
@@ -182,22 +186,23 @@ def build_selector(records):
     return table
 
 
-def init_tools(thesaurus, kinds, attention):
+def init_tools(thesaurus, kinds, attention, relations=None):
     mind.SYN.clear(); mind.KINDS.clear(); mind.SELECTOR.clear()
-    mind.ATTENTION.clear()
+    mind.ATTENTION.clear(); mind.REL.clear()
     mind.SYN.update((k, set(v)) for k, v in thesaurus.items())
+    mind.REL.update((k, set(v)) for k, v in (relations or {}).items())
     mind.KINDS.update(kinds)
     mind.ATTENTION.update((int(k), v) for k, v in attention.items())
 
 
-def record(arts, thesaurus, kinds, attention, jobs=1):
+def record(arts, thesaurus, kinds, attention, jobs=1, relations=None):
     if jobs > 1:
         from multiprocessing import Pool
         with Pool(jobs, initializer=init_tools,
-                  initargs=(thesaurus, kinds, attention)) as pool:
+                  initargs=(thesaurus, kinds, attention, relations)) as pool:
             recs = pool.map(record_one, arts)
     else:
-        init_tools(thesaurus, kinds, attention)
+        init_tools(thesaurus, kinds, attention, relations)
         recs = [record_one(a) for a in arts]
     return build_selector(recs)
 
@@ -339,13 +344,17 @@ def main():
     if cmd == "learn":
         mind.SYN.clear(); mind.KINDS.clear()       # nothing installed
         t0 = time.perf_counter()
-        thesaurus, kinds, n_pairs, n_k, att = learn(learn_arts, jobs)
+        thesaurus, kinds, n_pairs, n_k, att, relations = learn(learn_arts, jobs)
         att = {str(lv): tab for lv, tab in att.items()}
         t1 = time.perf_counter()
-        selector = record(learn_arts, thesaurus, kinds, att, jobs)
-        json.dump({"thesaurus": thesaurus, "kinds": kinds,
-                   "selector": selector},
+        selector = record(learn_arts, thesaurus, kinds, att, jobs, relations)
+        old = json.load(open(TOOLS, encoding="utf-8")) if os.path.exists(TOOLS) else {}
+        json.dump({"thesaurus": thesaurus, "relations": relations, "kinds": kinds,
+                   "selector": selector, "settings": old.get("settings", {}),
+                   "decisions": old.get("decisions", {})},
                   open(TOOLS, "w", encoding="utf-8"), indent=1)
+        print("mined pairs sorted: %d translations in his thesaurus, %d relations"
+              % (sum(len(v) for v in thesaurus.values()), sum(len(v) for v in relations.values())))
         json.dump(att, open(mind.ATTFILE, "w", encoding="utf-8"))
         print("learned from %d articles in %.0fs: %d pairs seen, %d kept "
               "into the thesaurus; kinds table over %s"
@@ -356,14 +365,15 @@ def main():
         print("  %-9s" % "" + "".join("%9s" % f for f in FEATS))
         for k, row in sorted(kinds.items()):
             print("  %-9s" % k + "".join("%9.2f" % row[f] for f in FEATS))
-        init_tools(thesaurus, kinds, att)
-        use("thes+kinds-second+venn")
+        init_tools(thesaurus, kinds, att, relations)
+        use("thes+kinds-second")
         art = learn_arts[-1]
         store = fill(art)
         print("his venn on the last article he learned from "
               "(v right / x wrong on the survivors):")
         for q, key in questions(art)[:8]:
-            _, _, cands = score_all(store, q)
+            _, reached, cands = score_all(store, q)
+            narrow(store, q, reached)          # the trace, for the report
             ok = bool(cands) and \
                 key.lower() in str(store.get(cands[0][1]).content).lower()
             print("  %s %s" % ("v" if ok else "x", q))

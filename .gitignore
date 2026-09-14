@@ -37,3 +37,5 @@ walk/wordtypes.json
 walk/self.csv
 walk/self.json
 walk/self_cache.json
+walk/decode.pt
+walk/decode.json
