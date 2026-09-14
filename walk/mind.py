@@ -228,8 +228,9 @@ def select(store, question, max_level=None):
         if not table:
             continue
         ranked = sorted(((r / float(a), r, name)
-                         for name, (r, a) in table.items() if a >= MIN_RECORD),
-                        reverse=True)
+                         for name, (r, a) in table.items()
+                         if a >= MIN_RECORD and name in TOOLSETS),
+                        reverse=True)          # a tool that is gone is gone
         if not ranked:
             continue
         _, r, name = ranked[0]
