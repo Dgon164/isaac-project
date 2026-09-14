@@ -69,7 +69,7 @@ def run_tuple(statement):
     out = {"name": name, "kind": type(v).__name__, "made_by": "-"}
     try:
         items = list(v)
-    except TypeError:
+    except Exception:
         items = None
     if items is None or isinstance(v, str):
         out.update(values=repr(v), length="-", first="-", last="-")
