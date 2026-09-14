@@ -28,6 +28,7 @@ STOREFILE = os.path.join(HERE, "store.json")
 TOOLSFILE = os.path.join(HERE, "tools.json")   # the tools he built himself
 ATTFILE = os.path.join(HERE, "attention.json")  # his attention record (big,
                                                 # rebuilt by tools.py learn)
+LENSFILE = os.path.join(HERE, "lens.json")      # his lenses and his critic
 DICTFILE = os.environ.get(
     "ISAAC_DICT",
     r"C:\Users\jtwee\Downloads\New folder (3)\intellon\wordnet_full.json")
@@ -794,6 +795,110 @@ def retry_all(store, question, truth):
     return won
 
 
+# ------------------------------------------------------------ the deeper look
+# owner: "the wrong thing shouldn't be a blind change. it's a deeper look
+# and investigation." when something says he is wrong -- his critic, a
+# tied field, a correction -- he does not swap answers. he looks: which
+# question words the answer failed; what those words could be, from what
+# he has read; which candidates satisfy them; which candidate wins when he
+# asks every way he knows. then a decision, or "don't know" with reasons.
+CRITIC = None
+OBJECT_AT = 2.0        # the critic's score that calls for a look (mine, for now)
+
+
+def atoms(store, own, name):
+    """what he can see about a question and a candidate: the words each
+    has, the words both have, his shared count, his rarity. the lens and
+    the critic are built on these and nothing else."""
+    it = store.get(name)
+    r = {w for w in it.refs if store.get(w) is not None
+         and store.get(w).kind == "term"}
+    a = {"q:" + w for w in own} | {"c:" + w for w in r} | \
+        {"both:" + w for w in own & r}
+    shared = own & r
+    a.add("share:%s" % (len(shared) if len(shared) < 3 else "3+"))
+    if shared:
+        rare = max(1.0 / len(store.get(t).refs) for t in shared
+                   if store.get(t) and store.get(t).refs)
+        a.add("rare:" + ("hi" if rare >= 0.5 else "mid" if rare >= 0.1 else "lo"))
+    return a
+
+
+def load_critic(path=LENSFILE):
+    """his critic, learned by lens.py against himself and the key."""
+    global CRITIC
+    if not os.path.exists(path):
+        CRITIC = None
+        return 0
+    d = json.load(open(path, encoding="utf-8"))
+    index = {a: i for i, a in enumerate(d["atoms"])}
+    conj = [tuple(c) for c, e in zip(d["critic"], d["critic_earned"]) if e]
+    earned = [e for e in d["critic_earned"] if e]
+    CRITIC = (conj, earned, index)
+    return len(conj)
+
+
+def critic_score(store, question, name):
+    """how much this answer looks like the ones he got wrong."""
+    if not CRITIC:
+        return 0.0
+    conj, earned, index = CRITIC
+    ids = {index[x] for x in atoms(store, set(terms(question)), name) if x in index}
+    return sum(e for c, e in zip(conj, earned) if all(i in ids for i in c))
+
+
+def investigate(store, question, cands, reached):
+    """the deeper look. returns (chosen, verdict, transcript)."""
+    own = set(terms(question))
+    top = cands[0][1]
+    lines = []
+    _, trace = narrow(store, question, reached)
+    failed = [w for t, w, b, a in trace if t in ("dropped", "unknown") and ">" not in w]
+    lines.append("failed by the answer: %s"
+                 % (", ".join(failed) or "nothing; every word that could cut, cut"))
+    if getattr(store, "dictionary", None) is None:
+        read_dictionary(store)
+    trans = {}
+    for w in failed:
+        ts = set(SYN.get(w, set())) | set(store.dictionary.get(w, set()))
+        trans[w] = ts
+        lines.append("  '%s' could be: %s" % (w, ", ".join(sorted(ts)[:6])
+                                                or "no other word known"))
+    field = cands[:5]
+    sat = {}
+    for key, n in field:
+        r = set(store.get(n).refs)
+        have = sorted(own & r)
+        via = ["%s>%s" % (w, t) for w, ts in trans.items() for t in sorted(ts & r)[:1]]
+        sat[n] = (len(have) + len(via), have, via)
+    prev = dict(TOOLSET)
+    wins = {}
+    for name in TOOLSETS:                     # asked every way he knows
+        use(name)
+        c = score_all(store, question)[2]
+        if c:
+            wins[c[0][1]] = wins.get(c[0][1], 0) + 1
+    TOOLSET.clear()
+    TOOLSET.update(prev)
+    for key, n in field:
+        k, have, via = sat[n]
+        lines.append("  %-30s satisfies %d (%s%s); wins %d of %d settings"
+                     % (n[:30], k, " ".join(have) or "-",
+                        (" " + " ".join(via)) if via else "", wins.get(n, 0), len(TOOLSETS)))
+    ranked = sorted(field, key=lambda kn: (-sat[kn[1]][0], -wins.get(kn[1], 0),
+                                           cands.index(kn)))
+    best = ranked[0][1]
+    runner = ranked[1][1] if len(ranked) > 1 else None
+    if runner and sat[best][0] == sat[runner][0] and \
+            wins.get(best, 0) == wins.get(runner, 0):
+        lines.append("don't know: %s and %s satisfy the same and win the same"
+                     % (best[:30], runner[:30]))
+        return top, "don't know", lines
+    lines.append("after looking: %s%s" % (best[:30], "" if best == top else
+                                          " (was %s)" % top[:30]))
+    return best, "chosen", lines
+
+
 def residue(store, question, seeds, answers):
     """the run goes back into the store; answers that appeared together
     now share a link a future walk can cross."""
@@ -1020,6 +1125,9 @@ def main():
             "level %d over %d contexts" % (lv, len(t))
             for lv, t in sorted(SELECTOR.items())) or "no record yet"))
         print("his attention: %d words with a record" % len(ATTENTION.get(1, {})))
+        print("his critic: %s" % ("%d conjunctions that mark a wrong answer"
+                                  % load_critic() if os.path.exists(LENSFILE)
+                                  else "none yet (walk/lens.py builds it)"))
     elif os.path.exists(LIBFILE) or os.path.exists(DICTFILE):
         print("library (wordnet): %d linked words" % load_dictionary())
     for path in args:
@@ -1063,6 +1171,21 @@ def main():
         print("  tools: %s" % why)
         answers = [(n, store.get(n)) for _, n in cands[:3]]
         show(store, answers, seeds, reached, set(terms(q)))
+        if cands and (CRITIC or SENSE.get("sure") == "guess"):
+            cs = critic_score(store, q, cands[0][1])
+            if cs > OBJECT_AT or SENSE.get("sure") == "guess":
+                print("  objection (critic %.1f, he said %s): looking deeper"
+                      % (cs, SENSE.get("sure")))
+                chosen, verdict, lines = investigate(store, q, cands, reached)
+                for l in lines:
+                    print("    " + l)
+                SENSE["looked"] = verdict
+                if verdict != "don't know" and chosen != cands[0][1]:
+                    cands = [c for c in cands if c[1] == chosen] + \
+                            [c for c in cands if c[1] != chosen]
+                    answers = [(n, store.get(n)) for _, n in cands[:3]]
+                    print("  answer after looking: %s"
+                          % str(store.get(chosen).content)[:110])
         if prev and answers:
             compare_runs(store, prev, answers, q)
         if seeds and clean_win(cands):  # a tied field is not a lesson
