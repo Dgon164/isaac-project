@@ -50,15 +50,18 @@ def toolsets():
         for reading in (False, True):
             for kinds in ("off", "second", "first"):
                 for att in ("off", "second", "first"):
-                    parts = [p for p, on in (("thes", thes),
-                                             ("reading", reading)) if on]
-                    if kinds != "off":
-                        parts.append("kinds-" + kinds)
-                    if att != "off":
-                        parts.append("att-" + att)
-                    out["+".join(parts) or "none"] = {
-                        "thes": thes, "reading": reading, "kinds": kinds,
-                        "att": att}
+                    for trip in (False, True):
+                        parts = [p for p, on in (("thes", thes),
+                                                 ("reading", reading)) if on]
+                        if kinds != "off":
+                            parts.append("kinds-" + kinds)
+                        if att != "off":
+                            parts.append("att-" + att)
+                        if trip:
+                            parts.append("trip")
+                        out["+".join(parts) or "none"] = {
+                            "thes": thes, "reading": reading, "kinds": kinds,
+                            "att": att, "trip": trip}
     return out
 
 
@@ -76,32 +79,30 @@ def use(name):
 
 
 # --------------------------------------------------------------- attention
-# attention words are the ones a sufficient summary has to keep: "mr
-# flagstone stirred the magnesium" -> flagstone stirred magnesium. fluff is
-# what can be dropped without changing what happened. no grammar: a word
-# with no record is FLAGGED probably attention, and his own assessment
-# tests it against experience: when people re-said this sentence -- asked
-# about it, answered about it, corrected him on it -- which of its words
-# did they carry, and which did they leave behind? carried more than left:
-# attention. left more than carried: fluff. a new name stays flagged until
-# he has experience of it. the verdict carries the counts. level 1 = the
-# word; level 2 = tag / word (a word can matter in one domain and not
-# another).
+# he figures the attention words out himself, by differentiation. a word
+# with no record is FLAGGED probably attention. when a question had two
+# answers it could be and he took the wrong one (or nearly did), he holds
+# the two side by side: what differs between them, and which of those
+# differences the question contains. a question word in the right answer
+# and not the other is what SELECTS -- what he was missing. a question
+# word in the other and not the right one is what TRIPPED him. selects
+# more than trips: attention. trips more: fluff. the verdict carries the
+# counts. level 1 = the word; level 2 = kind of question / word.
 ATTENTION = {}
 MIN_ATT = 5
 CHANGED = set()
 
 
-def attention(word, tag=None):
+def attention(word, ctx=None):
     """his verdict on one word: +1 attention, -1 fluff, 0 tied or not yet
     assessed. the finest level with a record decides."""
-    for lv, ctx in ((2, (tag or "") + "/" + word), (1, word)):
-        rec = ATTENTION.get(lv, {}).get(ctx)
+    for lv, key in ((2, (ctx or "") + "/" + word), (1, word)):
+        rec = ATTENTION.get(lv, {}).get(key)
         if rec and rec[0] + rec[1] >= MIN_ATT:
             if rec[0] > rec[1]:
-                return 1, "%s+ (carried %d vs left %d)" % (word, rec[0], rec[1])
+                return 1, "%s+ (selects %d vs trips %d)" % (word, rec[0], rec[1])
             if rec[1] > rec[0]:
-                return -1, "%s- (left %d vs carried %d)" % (word, rec[1], rec[0])
+                return -1, "%s- (trips %d vs selects %d)" % (word, rec[1], rec[0])
             return 0, "%s= (tied %d)" % (word, rec[0])
     return 0, word + "? (flagged probably attention, no record yet)"
 
@@ -112,26 +113,32 @@ def flags(question):
     for t in terms(question):
         if t not in seen:
             seen.add(t)
-            out.append(attention(t)[1].split(" ")[0])
+            out.append(attention(t, kind(question))[1].split(" ")[0])
     return " ".join(out)
 
 
-def assess(store, name, said, table=None):
-    """the assessment tool: one sentence, and the words people used when
-    they re-said it (a question about it, its answer, a correction). each
-    of the sentence's words was either carried or left behind. filed per
-    word, and per tag / word."""
+def assess(store, question, right, other, table=None):
+    """the assessment tool, by differentiation. the right answer and the
+    one he gave (or nearly gave), side by side: a question word in the
+    right one and not the other is what selects; a question word in the
+    other and not the right one is what tripped him. filed per word and
+    per kind of question / word. returns what he found."""
     table = ATTENTION if table is None else table
-    it = store.get(name)
-    if it is None or it.kind != "sentence":
-        return
-    for w in dict.fromkeys(it.refs):
-        t = store.get(w)
-        if t is None or t.kind != "term":
-            continue
-        for lv, ctx in ((1, w), (2, it.tag + "/" + w)):
-            c = table.setdefault(lv, {}).setdefault(ctx, [0, 0])
-            c[0 if w in said else 1] += 1
+    R, O = store.get(right), store.get(other)
+    found = {"selects": [], "trips": [], "other": other}
+    if R is None or O is None:
+        return found
+    r, o = set(R.refs), set(O.refs)
+    k = kind(question)
+    for w in sorted(set(terms(question))):
+        if (w in r) == (w in o):
+            continue                      # no difference here
+        which = 0 if w in r else 1
+        found["selects" if which == 0 else "trips"].append(w)
+        for lv, key in ((1, w), (2, k + "/" + w)):
+            c = table.setdefault(lv, {}).setdefault(key, [0, 0])
+            c[which] += 1
+    return found
 
 
 def summary(store, name):
@@ -143,7 +150,7 @@ def summary(store, name):
         t = store.get(w)
         if t is None or t.kind != "term":
             continue
-        v, why = attention(w, it.tag)
+        v, why = attention(w)
         if v > 0:
             out.append(w)
         elif v == 0 and why.endswith("record yet)"):
@@ -425,9 +432,12 @@ def score_all(store, question):
     """the scored field, best first. ask() takes the top three; a probe
     that wants the gap between first and second takes the list."""
     own = set(terms(question))
-    att_on = TOOLSET["att"] != "off"       # a question word landing on one
-    bag = set(own)                         # of the sentence's attention
-                                           # words counts extra
+    k = kind(question)
+    att_on = TOOLSET["att"] != "off"       # attention hits rank
+    count = own
+    if TOOLSET["trip"]:                    # words that trip him do not count
+        count = {t for t in own if attention(t, k)[0] >= 0}
+    bag = set(own)
     read = None
     if TOOLSET["reading"]:                  # his dictionary from reading
         if getattr(store, "dictionary", None) is None:
@@ -458,8 +468,8 @@ def score_all(store, question):
             if run is not None and run.kind == "run":
                 earned |= set(run.content.get("key", ()))
         if bag & (r | earned):
-            hit = own & r
-            att = sum(1 for t in hit if attention(t, it.tag)[0] > 0) \
+            hit = count & r
+            att = sum(1 for t in hit if attention(t, k)[0] > 0) \
                 if att_on else 0
             rare = sum(1.0 / len(store.get(t).refs) for t in hit
                        if store.get(t) and store.get(t).refs)
@@ -536,9 +546,13 @@ def grade(store, question, cands, reached, truth):
     the next question in those words reaches it. a truth the store
     never held becomes an answer sentence."""
     d = diagnose(store, question, cands, reached, truth)
+    d["compared"] = None
     if d["right"] and store.get(d["right"]) is not None:
-        assess(store, d["right"], set(terms(question)) | set(terms(truth)))
-        CHANGED.add("attention")
+        other = d["picked"] if d["verdict"] != "right" else \
+            (cands[1][1] if len(cands) > 1 else None)
+        if other and store.get(other) is not None:
+            d["compared"] = assess(store, question, d["right"], other)
+            CHANGED.add("attention")
     n_runs = sum(1 for i in store.items.values() if i.kind == "run")
     name = "run_%03d" % n_runs
     refs = [n for _, n in cands[:3]] + ([d["right"]] if d["right"] else [])
@@ -756,6 +770,11 @@ def correct(store, text, last):
     d = grade(store, q, cands, reached, text)
     print("  %s -- picked %s, right is %s" % (d["verdict"], d["picked"],
                                               d["right"]))
+    if d.get("compared"):
+        c = d["compared"]
+        print("  compared with %s: selects %s | trips %s"
+              % (c["other"], " ".join(c["selects"]) or "-",
+                 " ".join(c["trips"]) or "-"))
     if d["missing"] and d["verdict"] != "not stored":
         print("  learned: %s now answers to %s" % (d["right"],
                                                   " ".join(d["missing"])))

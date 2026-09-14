@@ -1,4 +1,4 @@
-# The walk — handoff, 2026-09-12, updated 2026-09-13 (five times)
+# The walk — handoff, 2026-09-12, updated 2026-09-13 (six times)
 
 > ## 2026-09-13, on the owner's PC (TurtlePC, 32 threads) -- READ THIS BOX FIRST
 > **There is no C version.** Searched every branch of this repo, Documents,
@@ -88,38 +88,51 @@
 > revert it; feed it. The hand-set default (thes+kinds-second) only
 > applies when he has no record for a question.
 >
-> **ATTENTION, AS EXPERIENCE (owner, same day: "nouns... should be
-> attention. mr flagstone stirred the magnesium: flagstone stirred
-> magnesium is a valid and sufficient summarization").** A word with no
-> record is FLAGGED probably attention. His assessment goes through every
-> sentence people re-said -- the questions, the answer keys, his `no:`
-> corrections -- and counts each of its words carried vs left behind.
-> Carried more: attention. Left more: fluff. 44,875 words assessed on his
-> half. His fluff: his, after, while, one, including, during, there,
-> became, later, however, states, time, since. His attention: names and
-> things (chopin, napoleon, treaty, solar, victoria). His summaries:
+> **ATTENTION, BY HIS OWN DIFFERENTIATION (owner, same day: "you compare
+> the two answers to each other, and see what difference in the question
+> selects between them. when you identify the difference thing, that is
+> your attention word... not selecting because you were clever").** A
+> word with no record is FLAGGED probably attention. On every graded
+> question he holds the right answer and the one he gave (or nearly gave)
+> side by side: a question word in the right one and not the other is
+> what SELECTS (what he was missing); a question word in the other and
+> not the right one is what TRIPPED him. Selects more than trips:
+> attention. Trips more: fluff. Level 1 = the word, level 2 = kind of
+> question / word. `no:` corrections do the same live and print it:
 >
->     Gothic architecture is a style of architecture that flourished
->     during the high and late medieval period   -> gothic style medieval
->     It evolved from Romanesque architecture and was succeeded by
->     Renaissance architecture                   -> romanesque renaissance
->     Its characteristics include the pointed arch, the ribbed vault
->     and the flying buttress                    -> pointed arch buttress?
+>     fewer words -- picked h000_nylon_melts_useless, right is s009_graphite...
+>     compared with h000_nylon_melts_useless: selects apcp | trips material nozzle
 >
-> The record lives in walk/attention.json (13 MB, gitignored, rebuilt by
-> `tools.py learn` in 6 min; `no:` corrections add to it live).
-> mind.py prints `attention: word+ word- word?` under every answer. It is
-> also a toolset switch (off / second / first; 36 toolsets now). The
-> court says attention does not help retrieval here: att-second costs
-> 0.4 on every base, att-first 1.5, and when he chooses he leaves it off
-> (2% of picks). Two definitions failed on the way, both mine:
-> retrieval-utility (helped/hurt: swamped by "not asked") and
-> recovery-from-the-store (one rare word brings a sentence back, so it
-> kept one word). And applying verdicts to the QUESTION's words collapses
-> everything to ~34%: the asker's words are already carried; attention
-> belongs on the sentence side. Where it should pay next: memory (keep
-> the summary, not the sentence) and reading (what to carry forward), not
-> ranking.
+> 17,996 words assessed on his half. His attention: first, century,
+> between, population, government, world, since, president, modern,
+> french, state, power, largest, battle. His fluff: year, name, type,
+> city, american, country, and every topic word (beyonce, chopin,
+> napoleon, victoria) because the topic is in every sentence and so
+> trips him. His summaries: "evolved romanesque architecture succeeded
+> renaissance"; "characteristics include pointed arch ribbed? vault?
+> flying buttress?". The record is walk/attention.json (gitignored,
+> rebuilt by `tools.py learn` in 11 min at -jobs 24).
+>
+> Two switches use it: `trip` (words that trip him do not count) and
+> `att` (attention hits rank, second or first) -- 72 toolsets. THE COURT,
+> held-out half: neither helps there. thes 63.2 -> thes+trip 62.6 ->
+> thes+att-second 61.7; best fixed is still thes+kinds-second 63.5.
+> **AND HIS CHOICE DROPPED: 62.8 (was 63.5). He picked thes+trip 85% of
+> the time.** Why: his selector's record was made on the same articles
+> his attention record came from, so on those articles trip looked
+> right; on new articles it is not. That is the owner's predicted dip
+> (a new layer, more noise). The fix is his, not a revert: the
+> selector's experience of a tool must come from articles the tool was
+> not learned on (build tools on one part of his half, record the
+> selector on the other part), and when his pick is wrong more often
+> than a plain toolset would have been, that is a graded run about the
+> selector -- the level-up correction. Neither is built yet.
+>
+> Definitions that failed on the way, all mine, none in the code now:
+> carried/left (what askers kept -- a corpus statistic, not his work);
+> recovery-from-the-store (one rare word brings a sentence back);
+> drop-word-and-re-ask (swamped by "not asked"). Applying verdicts to
+> the question's words with a bad table collapses everything to ~34%.
 
 > ## ⛔ FOR THE NEXT SESSION (local, on the owner's machine)
 > *(09-13: done. The C version does not exist; the court ran. See the box above.)*

@@ -79,7 +79,10 @@ def learn_one(art):
             continue
         k = kind(q)
         n_k[k] = n_k.get(k, 0) + 1
-        assess(store, d["right"], set(terms(q)) | set(terms(key)), att)
+        other = d["picked"] if d["verdict"] != "right" else \
+            (cands[1][1] if len(cands) > 1 else None)
+        if other:                          # his comparison, every question
+            assess(store, q, d["right"], other, att)
         rf = feats(store.get(d["right"]).content)
         for f, v in rf.items():
             right_f[(k, f)] = right_f.get((k, f), 0) + int(v)
@@ -274,8 +277,8 @@ def main():
             print("  %-9s" % k + "".join("%9.2f" % row[f] for f in FEATS))
         lv1 = att.get("1", {})
         ruled = [(h - u, h, u, w) for w, (h, u) in lv1.items() if h + u >= 20]
-        print("his attention: %d words assessed, %d with 20+ re-sayings "
-              "(word carried/left)" % (len(lv1), len(ruled)))
+        print("his attention: %d words assessed by comparison, %d with 20+ "
+              "(word selects/trips)" % (len(lv1), len(ruled)))
         print("  attention: " + ", ".join(
             "%s %d/%d" % (w, h, u) for _, h, u, w in
             sorted(ruled, reverse=True)[:14]))
