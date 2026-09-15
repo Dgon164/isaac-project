@@ -40,6 +40,23 @@ lifted) and datasets are graders and schools.
 
 sentence-transformers (pip), to run the similarity models.
 
+## What landed (closed 18:46, owner at his limit)
+
+57 GB in the cache. Models: all nine of the smaller ones, complete
+(roberta-base-squad2, deberta-v3-large-squad2, all-MiniLM-L6-v2,
+all-mpnet-base-v2, bert-base-uncased, deberta-v3-base, Qwen2.5-7B-Instruct,
+Qwen2.5-Coder-7B-Instruct, Phi-4-mini-instruct). Qwen2.5-14B-Instruct
+PAUSED at 14 of ~30 GB; its partial files are kept and `python walk/fetch.py`
+resumes it when there is bandwidth again. Datasets: 14 of 16 (1.5 GB):
+squad + squad_v2 with their dev sets, gsm8k, svamp, asdiv, drop, boolq,
+ARC easy + challenge, sciq, openbookqa, mbpp, humaneval, hotpotqa. Failed:
+the-stack-smol (gated, needs a login) and conceptnet5 (the Hub dataset is
+broken at the source). ConceptNet was the class-to-instance reference;
+NLTK's WordNet corpus (hypernym links, ~10 MB) is the substitute.
+
+The first run died with the session; the restart needed
+HF_HUB_DISABLE_SYMLINKS=1, which also cured the mpnet failure.
+
 ## Not taken, on purpose
 
 Gated models (Llama, Mistral, Gemma) need a login and terms; full Natural
